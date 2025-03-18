@@ -172,3 +172,109 @@
 2025-03-18 12:40:07,306 - INFO - Image loaded successfully
 2025-03-18 12:40:12,023 - INFO - MainWindow is closing.
 2025-03-18 12:40:12,062 - INFO - Application is quitting.
+2025-03-18 13:27:25,199 - INFO - Application started
+2025-03-18 13:27:25,429 - INFO - SegmentationListManager initialized
+2025-03-18 13:27:27,323 - INFO - MainWindow initialized
+2025-03-18 13:27:30,726 - INFO - MainWindow is closing.
+2025-03-18 13:27:30,742 - INFO - Application is quitting.
+2025-03-18 13:29:20,131 - INFO - Application started
+2025-03-18 13:29:58,494 - INFO - Application started
+2025-03-18 13:38:10,512 - INFO - Application started
+2025-03-18 13:38:10,599 - INFO - SegmentationListManager initialized
+2025-03-18 13:38:11,613 - INFO - MainWindow initialized
+2025-03-18 13:40:45,361 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 13:40:45,361 - INFO - File extension: .dcm
+2025-03-18 13:40:47,287 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 13:40:47,287 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 13:40:47,287 - INFO - dims=(1024, 768, 1)
+2025-03-18 13:40:47,287 - INFO - spacing=(0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 13:40:47,287 - INFO - original_origin=(0.0, 0.0, 0.0)
+2025-03-18 13:40:51,519 - INFO - Image loaded successfully
+2025-03-18 13:41:07,112 - INFO - MainWindow is closing.
+2025-03-18 13:41:07,127 - INFO - Application is quitting.
+2025-03-18 13:51:11,598 - INFO - Application started
+2025-03-18 13:52:00,827 - INFO - Application started
+2025-03-18 13:52:18,347 - INFO - Application started
+2025-03-18 13:52:19,115 - INFO - SegmentationListManager initialized
+2025-03-18 13:52:20,113 - INFO - MainWindow initialized
+2025-03-18 13:52:26,383 - INFO - MainWindow is closing.
+2025-03-18 13:52:26,417 - INFO - Application is quitting.
+2025-03-18 13:56:50,128 - INFO - Application started
+2025-03-18 13:56:50,874 - INFO - SegmentationListManager initialized
+2025-03-18 13:56:51,845 - INFO - MainWindow initialized
+2025-03-18 13:57:04,419 - INFO - MainWindow is closing.
+2025-03-18 13:57:04,446 - INFO - Application is quitting.
+2025-03-18 13:59:36,510 - INFO - Application started
+2025-03-18 13:59:37,315 - INFO - SegmentationListManager initialized
+2025-03-18 13:59:38,275 - INFO - MainWindow initialized
+2025-03-18 13:59:45,335 - INFO - MainWindow is closing.
+2025-03-18 13:59:45,373 - INFO - Application is quitting.
+2025-03-18 14:00:04,263 - INFO - Application started
+2025-03-18 14:00:05,155 - INFO - SegmentationListManager initialized
+2025-03-18 14:00:06,092 - INFO - MainWindow initialized
+2025-03-18 14:00:13,404 - INFO - MainWindow is closing.
+2025-03-18 14:00:13,446 - INFO - Application is quitting.
+2025-03-18 14:44:29,205 - INFO - Application started
+2025-03-18 14:44:58,747 - INFO - SegmentationListManager initialized
+2025-03-18 14:44:59,728 - INFO - MainWindow initialized
+2025-03-18 14:45:43,228 - INFO - MainWindow is closing.
+2025-03-18 14:45:43,271 - INFO - Application is quitting.
+2025-03-18 14:46:53,466 - INFO - Application started
+2025-03-18 14:47:11,537 - INFO - Application started
+2025-03-18 14:48:11,901 - INFO - Application started
+2025-03-18 14:49:08,881 - INFO - Application started
+2025-03-18 14:49:34,183 - INFO - Application started
+2025-03-18 14:50:16,422 - INFO - Application started
+2025-03-18 14:57:05,041 - INFO - Application started
+2025-03-18 14:57:15,904 - INFO - SegmentationListManager initialized
+2025-03-18 14:57:34,110 - INFO - MainWindow initialized
+2025-03-18 14:57:52,887 - INFO - MainWindow is closing.
+2025-03-18 14:57:52,957 - INFO - Application is quitting.
+2025-03-18 14:59:40,911 - INFO - Application started
+2025-03-18 14:59:44,435 - INFO - SegmentationListManager initialized
+2025-03-18 14:59:45,415 - INFO - MainWindow initialized
+2025-03-18 14:59:57,913 - INFO - MainWindow is closing.
+2025-03-18 14:59:57,981 - INFO - Application is quitting.
+2025-03-18 15:02:09,675 - INFO - Application started
+2025-03-18 15:02:17,719 - INFO - SegmentationListManager initialized
+2025-03-18 15:02:18,658 - INFO - MainWindow initialized
+2025-03-18 15:02:28,422 - INFO - MainWindow is closing.
+2025-03-18 15:02:28,465 - INFO - Application is quitting.
+2025-03-18 15:02:53,943 - INFO - Application started
+2025-03-18 15:03:00,682 - INFO - SegmentationListManager initialized
+2025-03-18 15:03:01,643 - INFO - MainWindow initialized
+2025-03-18 15:03:15,846 - INFO - MainWindow is closing.
+2025-03-18 15:03:15,886 - INFO - Application is quitting.
+2025-03-18 15:05:59,544 - INFO - Application started
+2025-03-18 15:06:09,076 - INFO - SegmentationListManager initialized
+2025-03-18 15:06:10,029 - INFO - MainWindow initialized
+2025-03-18 15:06:16,297 - INFO - MainWindow is closing.
+2025-03-18 15:06:16,334 - INFO - Application is quitting.
+2025-03-18 15:06:55,373 - INFO - Application started
+2025-03-18 15:07:00,119 - INFO - SegmentationListManager initialized
+2025-03-18 15:07:01,096 - INFO - MainWindow initialized
+2025-03-18 15:07:04,455 - INFO - MainWindow is closing.
+2025-03-18 15:07:04,509 - INFO - Application is quitting.
+2025-03-18 15:12:23,307 - INFO - Application started
+2025-03-18 15:12:28,135 - INFO - SegmentationListManager initialized
+2025-03-18 15:12:29,075 - INFO - MainWindow initialized
+2025-03-18 15:12:32,286 - INFO - MainWindow is closing.
+2025-03-18 15:12:32,323 - INFO - Application is quitting.
+2025-03-18 15:15:16,604 - INFO - Application started
+2025-03-18 15:15:29,849 - INFO - SegmentationListManager initialized
+2025-03-18 15:15:30,808 - INFO - MainWindow initialized
+2025-03-18 15:15:35,756 - INFO - MainWindow is closing.
+2025-03-18 15:17:17,170 - INFO - Application started
+2025-03-18 15:17:21,933 - INFO - SegmentationListManager initialized
+2025-03-18 15:17:22,864 - INFO - MainWindow initialized
+2025-03-18 15:17:29,097 - INFO - MainWindow is closing.
+2025-03-18 15:19:13,626 - INFO - Application started
+2025-03-18 15:19:18,438 - INFO - SegmentationListManager initialized
+2025-03-18 15:19:19,432 - INFO - MainWindow initialized
+2025-03-18 15:19:22,586 - INFO - MainWindow is closing.
+2025-03-18 15:19:46,367 - INFO - Application is quitting.
+2025-03-18 15:21:10,364 - INFO - Application started
+2025-03-18 15:21:11,171 - INFO - SegmentationListManager initialized
+2025-03-18 15:21:12,125 - INFO - MainWindow initialized
+2025-03-18 15:21:18,177 - INFO - MainWindow is closing.
+2025-03-18 15:21:18,224 - INFO - Application is quitting.

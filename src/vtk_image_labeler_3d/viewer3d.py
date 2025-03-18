@@ -1,5 +1,5 @@
 import vtk
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSlider, QLabel, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSlider, QLabel, QHBoxLayout, QGridLayout
 from PyQt5.QtCore import Qt
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
@@ -16,7 +16,6 @@ from logger import logger
 class Panning:
     def __init__(self, viewer=None):
         self.viewer = viewer
-        self.interactor = viewer.interactor
         self.left_button_is_pressed = False
         self.last_mouse_position = None
         self.enabled = False
@@ -115,7 +114,6 @@ class Panning:
 class Zooming:
     def __init__(self, viewer=None):
         self.viewer = viewer
-        self.interactor = viewer.interactor
         self.enabled = False
         self.zoom_in_factor = 1.2
         self.zoom_out_factor = 0.8
@@ -251,55 +249,32 @@ class LineWidget:
         representation.text_actor.SetInput(f"{distance:.2f} mm")
         representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])       
 
-
-class VTKViewer2D(QWidget):
-    def __init__(self, parent=None, main_window=None):
-        super().__init__(parent)
-    
-        if main_window is not None:
-            self.main_window = main_window
+class SurfaceViewer(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.renderer = vtk.vtkRenderer()
+        self.interactor = QVTKRenderWindowInteractor(self)
+        self.render_window = self.interactor.GetRenderWindow()
+        self.render_window.AddRenderer(self.renderer)
 
         background_color = (0.5, 0.5, 0.5)
+        self.renderer.SetBackground(*background_color)  # Set background to gray
 
-        # Create a VTK Renderer
-        self.base_renderer = vtk.vtkRenderer()
-        self.base_renderer.SetLayer(0)
-        self.base_renderer.SetBackground(*background_color)  # Set background to gray
-        self.base_renderer.GetActiveCamera().SetParallelProjection(True)
-        self.base_renderer.SetInteractive(True)
-
-        # Create a VTK Renderer for the brush actor
-        #self.brush_renderer = vtk.vtkRenderer()
-        #self.brush_renderer.SetLayer(1)  # Higher layer index
-        #self.brush_renderer.SetBackground(*background_color)  # Transparent background
-
-        # Create a QVTKRenderWindowInteractor
-        self.vtk_widget = QVTKRenderWindowInteractor(self)
-        self.render_window = self.vtk_widget.GetRenderWindow()  # Retrieve the render window
-        #self.render_window.SetNumberOfLayers(2)
-        self.render_window.AddRenderer(self.base_renderer)
-        #self.render_window.AddRenderer(self.brush_renderer)
-
-        # Set up interactor style
-        self.interactor = self.render_window.GetInteractor()
-        self.interactor_style = vtk.vtkInteractorStyleUser()
-        self.interactor.SetInteractorStyle(self.interactor_style)
-
-        # Layout for embedding the VTK widget
         layout = QVBoxLayout()
-        layout.addWidget(self.vtk_widget)
+        layout.addWidget(self.interactor)
         self.setLayout(layout)
 
-        # Connect mouse events
-        self.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
-        self.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_release)
-        self.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
+        #self.volume_mapper = vtk.vtkGPUVolumeRayCastMapper()
+        #self.volume = vtk.vtkVolume()
+        #self.volume.SetMapper(self.volume_mapper)
+        #self.renderer.AddVolume(self.volume)
 
-        self.rulers = []
-        self.vtk_image = None
+        self.render_window.Render()
 
-        self.zooming = Zooming(viewer=self)
-        self.panning = Panning(viewer=self)  
+    def set_image(self, vtk_image):
+        self.volume_mapper.SetInputData(vtk_image)
+        self.renderer.ResetCamera()
+        self.render_window.Render()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -317,15 +292,47 @@ class VTKViewer2D(QWidget):
             self.render_window.Finalize()
             del self.render_window
 
+        super().closeEvent(event)
 
-    def clear(self):
-        # Remove the previous image actor if it exists
-        if hasattr(self, 'image_actor') and self.image_actor is not None:
-            self.get_renderer().RemoveActor(self.image_actor)
-            self.image_actor = None
+class VTKViewer3D(QWidget):
+    def __init__(self, parent=None, main_window=None):
+        super().__init__(parent)
+    
+        if main_window is not None:
+            self.main_window = main_window
 
+        # Layout for embedding the VTK widget
+        layout = QGridLayout()
+        
+        import viewer2d
+        self.axial_viewer = viewer2d.VTKViewer2D(main_window)
+        self.coronal_viewer = viewer2d.VTKViewer2D(main_window)
+        self.sagittal_viewer = viewer2d.VTKViewer2D(main_window)
+        self.surface_viewer = SurfaceViewer()
+
+        layout.addWidget(self.axial_viewer, 0, 0)
+        layout.addWidget(self.coronal_viewer, 0, 1)
+        layout.addWidget(self.sagittal_viewer, 1, 0)
+        layout.addWidget(self.surface_viewer, 1, 1)
+
+        self.setLayout(layout)
+        
+
+        self.rulers = []
         self.vtk_image = None
 
+        self.zooming = Zooming(viewer=self)
+        self.panning = Panning(viewer=self)  
+
+    def cleanup_vtk(self, event):
+        self.axial_viewer.cleanup_vtk(event)
+        self.coronal_viewer.cleanup_vtk(event)
+        self.sagittal_viewer.cleanup_vtk(event)
+        self.surface_viewer.cleanup_vtk(event)
+    
+        
+    def clear(self):
+        self.vtk_image = None
         self.render()
 
     def print_status(self, msg):
@@ -342,300 +349,61 @@ class VTKViewer2D(QWidget):
 
         self.vtk_image = vtk_image
                 
-        # Connect reader to window/level filter
-        self.window_level_filter = vtk.vtkImageMapToWindowLevelColors()
-        #self.window_level_filter.SetOutputFormatToRGB()
-        self.window_level_filter.SetInputData(vtk_image)
-        self.window_level_filter.SetWindow(window)
-        self.window_level_filter.SetLevel(level)
-        self.window_level_filter.Update()
-
-        self.image_actor = vtk.vtkImageActor()
-        self.image_actor.GetMapper().SetInputConnection(self.window_level_filter.GetOutputPort())
-
-        self.get_renderer().AddActor(self.image_actor)
-        
-        self.get_renderer().ResetCamera()
-
-        self.get_render_window().Render()
+  
 
     def get_renderer(self):
-        return self.base_renderer
+        #return self.base_renderer
+        return None
     
     def get_render_window(self):
-        return self.render_window
+        #return self.render_window
+        return None
     
     def get_camera_info(self):
-        """Retrieve the camera's position and direction in the world coordinate system."""
-        camera = self.base_renderer.GetActiveCamera()
-
-        # Get the camera origin (position in world coordinates)
-        camera_position = camera.GetPosition()
-
-        # Get the focal point (the point the camera is looking at in world coordinates)
-        focal_point = camera.GetFocalPoint()
-
-        # Compute the view direction (vector from camera position to focal point)
-        view_direction = [
-            focal_point[0] - camera_position[0],
-            focal_point[1] - camera_position[1],
-            focal_point[2] - camera_position[2],
-        ]
-
-        # Normalize the view direction
-        magnitude = (view_direction[0] ** 2 + view_direction[1] ** 2 + view_direction[2] ** 2) ** 0.5
-        view_direction = [component / magnitude for component in view_direction]
-
-        print(f"Camera Position (Origin): {camera_position}")
-        print(f"Focal Point: {focal_point}")
-        print(f"View Direction: {view_direction}")
-
-        return camera_position, focal_point, view_direction
+        pass
 
 
     def print_camera_viewport_info(self):
-        """Print the viewport and camera information."""
-        # Get the renderer and camera
-        renderer = self.base_renderer
-        camera = renderer.GetActiveCamera()
-
-        # Viewport settings
-        viewport = renderer.GetViewport()
-        print(f"Viewport: {viewport}")  # Returns (xmin, ymin, xmax, ymax)
-
-        # Camera position and orientation
-        position = camera.GetPosition()
-        focal_point = camera.GetFocalPoint()
-        view_up = camera.GetViewUp()
-
-        print(f"Camera Position: {position}")
-        print(f"Focal Point: {focal_point}")
-        print(f"View Up Vector: {view_up}")
-
-        # Parallel scale (if in parallel projection mode)
-        if camera.GetParallelProjection():
-            parallel_scale = camera.GetParallelScale()
-            print(f"Parallel Scale: {parallel_scale}")
-
-        # Clipping range (near and far clipping planes)
-        clipping_range = camera.GetClippingRange()
-        print(f"Clipping Range: {clipping_range}")
+        pass
 
     def add_ruler(self):
-        """Add a ruler to the center of the current view and enable interaction."""
-        camera = self.get_renderer().GetActiveCamera()
-        focal_point = camera.GetFocalPoint()
-        view_extent = camera.GetParallelScale()  # Approximate size of the visible area
-
-        # Calculate ruler start and end points
-        start_point = [focal_point[0] - view_extent / 6, focal_point[1], focal_point[2]+0.1]
-        end_point = [focal_point[0] + view_extent / 6, focal_point[1], focal_point[2]+0.1]
-
-        # Create a ruler using vtkLineWidget2
-        line_widget = LineWidget(
-            vtk_image=self.vtk_image,
-            pt1_w=start_point, 
-            pt2_w=end_point, 
-            line_color_vtk=[1,0,0], 
-            line_width=2, 
-            renderer=self.get_renderer())
-        
-        line_widget.widget.On()
-
-        # Add the ruler to the list for management
-        self.rulers.append(line_widget)
-
-        self.get_render_window().Render()
+        pass
 
     def on_left_button_press(self, obj, event):
-        self.left_button_is_pressed = True
+        pass
 
     def on_mouse_move(self, obj, event):
-        self.print_mouse_coordiantes()
-        self.render_window.Render()
+        pass
 
     def print_mouse_coordiantes(self):
-        """Update brush position and print mouse position details when inside the image."""
-        mouse_pos = self.interactor.GetEventPosition()
-
-        # Use a picker to get world coordinates
-        picker = vtk.vtkWorldPointPicker()
-        picker.Pick(mouse_pos[0], mouse_pos[1], 0, self.get_renderer())
-
-        # Get world position
-        world_pos = picker.GetPickPosition()
-
-        # Check if the world position is valid
-        if not picker.GetPickPosition():
-            print("Mouse is outside the render area.")
-            return
-
-        # Get the image data
-        vtk_image = self.vtk_image
-        if not vtk_image:
-            print("No image loaded.")
-            return
-
-        # Get image properties
-        dims = vtk_image.GetDimensions()
-        spacing = vtk_image.GetSpacing()
-        origin = vtk_image.GetOrigin()
-
-        # Convert world coordinates to image index
-        image_index = [
-            int((world_pos[0] - origin[0]) / spacing[0] + 0.5),
-            int((world_pos[1] - origin[1]) / spacing[1] + 0.5),
-            int((world_pos[2] - origin[2]) / spacing[2] + 0.5)
-        ]
-
-        # Check if the index is within bounds
-        if not (0 <= image_index[0] < dims[0] and 0 <= image_index[1] < dims[1] and 0 <= image_index[2] < dims[2]):
-            # Print details
-            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}))")
-            return
-
-        # Get the pixel value
-        scalars = vtk_image.GetPointData().GetScalars()
-        flat_index = image_index[2] * dims[0] * dims[1] + image_index[1] * dims[0] + image_index[0]
-        pixel_value = scalars.GetTuple1(flat_index)
-
-        # Print details
-        self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}) Index: ({image_index[0]}, {image_index[1]}), Value: {pixel_value} )")
+        pass
         
-        
-
     def on_left_button_release(self, obj, event):
-        self.left_button_is_pressed = False
+        pass
 
     def center_image(self):
-        
-        dims = self.vtk_image.GetDimensions()
-        spacing = self.vtk_image.GetSpacing()
-        original_origin = self.vtk_image.GetOrigin()
-
-        # Calculate the center of the image in world coordinates
-        center = [
-            original_origin[0] + (dims[0] * spacing[0]) / 2.0,
-            original_origin[1] + (dims[1] * spacing[1]) / 2.0,
-            original_origin[2] + (dims[2] * spacing[2]) / 2.0,
-        ]
-
-        # Shift the origin to center the image in the world coordinate system
-        new_origin = [
-            original_origin[0] - center[0],
-            original_origin[1] - center[1],
-            0.0,
-        ]
-        self.vtk_image.SetOrigin(new_origin)
-        
-        print('new_origin: ', new_origin)
-
-        self.image_original_origin = original_origin
-
+        pass
 
     def print_properties(self):
-        """Print the properties of the camera, image, and line widgets."""
-        # Camera properties
-        camera = self.base_renderer.GetActiveCamera()
-        print("Camera Properties:")
-        print(f"  Position: {camera.GetPosition()}")
-        print(f"  Focal Point: {camera.GetFocalPoint()}")
-        print(f"  View Up: {camera.GetViewUp()}")
-        print(f"  Clipping Range: {camera.GetClippingRange()}")
-        print(f"  Parallel Scale: {camera.GetParallelScale()}")
-        print()
-
-        # Image properties
-        if self.vtk_image:
-            dims = self.vtk_image.GetDimensions()
-            spacing = self.vtk_image.GetSpacing()
-            origin = self.vtk_image.GetOrigin()
-            print("Image Properties:")
-            print(f"  Dimensions: {dims}")
-            print(f"  Spacing: {spacing}")
-            print(f"  Origin: {origin}")
-            print()
-
-        # Line widget properties
-        if self.rulers:
-            print("Line Widget Properties:")
-            for idx, line_widget in enumerate(self.rulers, start=1):
-                representation = line_widget.GetRepresentation()
-                point1 = representation.GetPoint1WorldPosition()
-                point2 = representation.GetPoint2WorldPosition()
-                print(f"  Line Widget {idx}:")
-                print(f"    Point 1: {point1}")
-                print(f"    Point 2: {point2}")
-                print()
-        else:
-            print("No Line Widgets Present.")
+        pass
 
     def reset_camera_parameters(self):
-        """Align the camera viewport center to the center of the loaded image."""
-        if self.vtk_image is None:
-            print("No image data loaded.")
-            return
-
-        # Get the image center
-        dims = self.vtk_image.GetDimensions()
-        spacing = self.vtk_image.GetSpacing()
-        origin = self.vtk_image.GetOrigin()
-
-        # Calculate the center of the image in world coordinates
-        image_center = [
-            origin[0] + (dims[0] * spacing[0]) / 2.0,
-            origin[1] + (dims[1] * spacing[1]) / 2.0,
-            origin[2] + (dims[2] * spacing[2]) / 2.0,
-        ]
-
-        # Set the camera parameters
-        camera = self.base_renderer.GetActiveCamera()
-
-        # Position the camera at the center of the image, slightly offset in Z
-        camera.SetPosition(image_center[0], image_center[1], image_center[2] + 100)  # Adjust Z for visibility
-
-        # Set the focal point to the center of the image
-        camera.SetFocalPoint(image_center)
-
-        # Set the view-up vector
-        camera.SetViewUp(0.0, -1.0, 0.0)  # Y-axis up in world coordinates
-
-        # Adjust the parallel scale to fit the image height
-        camera.SetParallelScale((dims[1] * spacing[1]) / 2.0)
-
-        # Reset the clipping range for visibility
-        camera.SetClippingRange(1, 1000)
-
-        print(f"Camera aligned to image center: {image_center}")
-        print(f"Camera Position: {camera.GetPosition()}")
-        print(f"Camera Focal Point: {camera.GetFocalPoint()}")
-        print(f"Camera View Up: {camera.GetViewUp()}")
-
-        # Render the changes
-        self.render_window.Render()
+        pass
             
     def toggle_base_image(self, visible):
-        """Toggle the visibility of the base image."""
-        self.base_image_visible = visible
-        self.image_actor.SetVisibility(self.base_image_visible)
-        self.render_window.Render()
+        pass
 
     def toggle_panning_mode(self, checked):
-        """Enable or disable panning mode."""
-        self.panning.enable(checked)
+        pass
 
     def toggle_zooming_mode(self, checked):
-        """Enable or disable panning mode."""
-        self.zooming.enable(checked)
-  
+        pass
+
     def toggle_paintbrush(self, enabled):
-        """Enable or disable the paintbrush tool."""
-        self.painting_enabled = enabled
-        self.brush_actor.SetVisibility(enabled)  # Show brush if enabled
-        self.render_window.Render()
+        pass
 
     def render(self):
-        self.get_render_window().Render()
+        pass
 
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
@@ -691,7 +459,7 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout()
 
         # VTK Viewer
-        self.vtk_viewer = VTKViewer2D(parent = self, main_window = self)
+        self.vtk_viewer = VTKViewer3D(parent = self, main_window = self)
         self.layout.addWidget(self.vtk_viewer)
 
         self.main_widget.setLayout(self.layout)

@@ -44,13 +44,13 @@ from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QSettings
 settings = QSettings("_settings.conf", QSettings.IniFormat)
 
-
 from vtk_segmentation_list_manager import SegmentationListManager
 from vtk_point_list_manager import PointListManager
 from vtk_line_list_manager import LineListManager
 from vtk_rect_list_manager import RectListManager
 
-class MainWindow(QMainWindow):
+class MainWindow2D(QMainWindow):
+
     def __init__(self):
         super().__init__()
 
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         """
         _info("MainWindow is closing.")
 
-        
+        self.vtk_viewer.cleanup_vtk(event)
 
         super().closeEvent(event)  # Call the base class method to ensure proper behavior
 
@@ -869,7 +869,7 @@ if __name__ == "__main__":
 
     app.aboutToQuit.connect(lambda: _info("Application is quitting."))
 
-    main_window = MainWindow()
+    main_window = MainWindow2D()
     #main_window.show()
     main_window.showMaximized()
     sys.exit(app.exec_())
