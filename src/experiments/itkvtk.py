@@ -31,25 +31,18 @@ def sitk_to_vtk(sitk_image):
     import numpy as np
     from vtk.util.numpy_support import numpy_to_vtk
 
+    # Get the numpy array from SimpleITK
+    np_array = sitk.GetArrayFromImage(sitk_image)
+    
     # Get image dimensions and metadata
     dims = sitk_image.GetSize()
     spacing = sitk_image.GetSpacing()
     origin = sitk_image.GetOrigin()
     direction = sitk_image.GetDirection()
-    if len(dims) == 2:
-        dims = (dims[0], dims[1], 1)
-        spacing = (spacing[0], spacing[1], 1.0)  # Typically 1.0 or some default slice thickness
-        origin = (origin[0], origin[1], 0.0)
-        direction = [
-            direction[0], direction[1], 0.0,
-            direction[2], direction[3], 0.0,
-            0.0,             0.0,             1.0
-        ]
-
 
     # Create a VTK image
     vtk_image = vtk.vtkImageData()
-    vtk_image.SetDimensions(dims)  # Reverse dimensions to match VTK
+    vtk_image.SetDimensions(np_array.shape[::-1])  # Reverse dimensions to match VTK
     vtk_image.SetSpacing(spacing)
     vtk_image.SetOrigin(origin)
 
@@ -60,9 +53,6 @@ def sitk_to_vtk(sitk_image):
             for j in range(3):
                 vtk_matrix.SetElement(i, j, direction[i * 3 + j])  # Convert flat list to 3x3
         vtk_image.SetDirectionMatrix(vtk_matrix)
-
-    # Get the numpy array from SimpleITK
-    np_array = sitk.GetArrayFromImage(sitk_image)
 
     # Convert numpy array to VTK array
     vtk_type = numpy_dtype_to_vtk_type(np_array.dtype)

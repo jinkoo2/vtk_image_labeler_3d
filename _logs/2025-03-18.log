@@ -1,0 +1,174 @@
+2025-03-18 11:18:54,636 - INFO - Application started
+2025-03-18 11:18:54,727 - INFO - SegmentationListManager initialized
+2025-03-18 11:18:56,849 - INFO - MainWindow initialized
+2025-03-18 11:19:09,317 - INFO - MainWindow is closing.
+2025-03-18 11:19:09,350 - INFO - Application is quitting.
+2025-03-18 11:20:35,711 - INFO - Application started
+2025-03-18 11:20:35,793 - INFO - SegmentationListManager initialized
+2025-03-18 11:20:36,754 - INFO - MainWindow initialized
+2025-03-18 11:20:56,344 - INFO - MainWindow is closing.
+2025-03-18 11:20:56,375 - INFO - Application is quitting.
+2025-03-18 11:30:11,951 - INFO - Application started
+2025-03-18 11:30:12,037 - INFO - SegmentationListManager initialized
+2025-03-18 11:30:12,986 - INFO - MainWindow initialized
+2025-03-18 11:30:14,930 - INFO - MainWindow is closing.
+2025-03-18 11:30:14,962 - INFO - Application is quitting.
+2025-03-18 11:37:30,613 - INFO - Application started
+2025-03-18 11:37:31,014 - INFO - SegmentationListManager initialized
+2025-03-18 11:37:32,925 - INFO - MainWindow initialized
+2025-03-18 11:37:47,397 - INFO - MainWindow is closing.
+2025-03-18 11:37:47,411 - INFO - Application is quitting.
+2025-03-18 11:39:34,870 - INFO - Application started
+2025-03-18 11:39:34,957 - INFO - SegmentationListManager initialized
+2025-03-18 11:39:35,927 - INFO - MainWindow initialized
+2025-03-18 11:39:44,539 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 11:39:46,624 - ERROR - Failed to load image:SetDimensions argument 1: expected a sequence of 3 values, got 2 values
+2025-03-18 11:40:09,948 - INFO - MainWindow is closing.
+2025-03-18 11:40:09,963 - INFO - Application is quitting.
+2025-03-18 11:42:07,114 - INFO - Application started
+2025-03-18 11:42:07,202 - INFO - SegmentationListManager initialized
+2025-03-18 11:42:08,138 - INFO - MainWindow initialized
+2025-03-18 11:42:27,725 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 11:42:32,359 - INFO - Image loaded successfully
+2025-03-18 11:42:43,760 - INFO - MainWindow is closing.
+2025-03-18 11:42:43,790 - INFO - Application is quitting.
+2025-03-18 11:45:00,611 - INFO - Application started
+2025-03-18 11:45:00,700 - INFO - SegmentationListManager initialized
+2025-03-18 11:45:01,639 - INFO - MainWindow initialized
+2025-03-18 11:45:18,381 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 11:45:23,024 - INFO - Image loaded successfully
+2025-03-18 11:45:30,164 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-03-18 11:45:33,382 - INFO - Paint tool activated
+2025-03-18 11:45:36,337 - INFO - Paint tool deactivated
+2025-03-18 11:45:36,337 - INFO - Erase tool activated
+2025-03-18 11:45:40,162 - INFO - Added point at [132.30717829829163, 99.19805059119227, 1.0]
+2025-03-18 11:45:51,630 - INFO - Added line: pt1=[104.74641579556128, 99.19805059119227, 1.0], pt2=[159.86794080102197, 99.19805059119227, 1.0]
+2025-03-18 11:45:51,630 - INFO - Added line Line 1
+2025-03-18 11:46:14,807 - INFO - MainWindow is closing.
+2025-03-18 11:46:14,848 - INFO - Application is quitting.
+2025-03-18 11:48:40,918 - INFO - Application started
+2025-03-18 11:48:41,023 - INFO - SegmentationListManager initialized
+2025-03-18 11:48:42,010 - INFO - MainWindow initialized
+2025-03-18 11:49:07,140 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:07:35,317 - INFO - Application started
+2025-03-18 12:07:35,410 - INFO - SegmentationListManager initialized
+2025-03-18 12:07:36,379 - INFO - MainWindow initialized
+2025-03-18 12:07:53,569 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:07:53,569 - INFO - File extension: .dcm
+2025-03-18 12:08:10,209 - ERROR - Failed to load image:name 'scaled_factor' is not defined
+2025-03-18 12:09:06,230 - INFO - Application started
+2025-03-18 12:09:06,321 - INFO - SegmentationListManager initialized
+2025-03-18 12:09:07,313 - INFO - MainWindow initialized
+2025-03-18 12:09:12,541 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:09:12,541 - INFO - File extension: .dcm
+2025-03-18 12:11:43,007 - INFO - Application started
+2025-03-18 12:11:43,097 - INFO - SegmentationListManager initialized
+2025-03-18 12:11:44,090 - INFO - MainWindow initialized
+2025-03-18 12:11:48,683 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:11:48,683 - INFO - File extension: .dcm
+2025-03-18 12:12:40,480 - INFO - Image loaded successfully
+2025-03-18 12:12:56,333 - INFO - Added line: pt1=[104.74641579556128, 99.19805059119227, 1.0], pt2=[159.86794080102197, 99.19805059119227, 1.0]
+2025-03-18 12:12:56,333 - INFO - Added line Line 1
+2025-03-18 12:13:23,567 - INFO - MainWindow is closing.
+2025-03-18 12:13:23,605 - INFO - Application is quitting.
+2025-03-18 12:14:54,487 - INFO - Application started
+2025-03-18 12:14:54,591 - INFO - SegmentationListManager initialized
+2025-03-18 12:14:55,606 - INFO - MainWindow initialized
+2025-03-18 12:15:03,200 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:15:03,200 - INFO - File extension: .dcm
+2025-03-18 12:15:16,059 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:15:16,059 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:15:16,059 - ERROR - Failed to load image:_info() takes 1 positional argument but 2 were given
+2025-03-18 12:15:25,841 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:15:25,841 - INFO - File extension: .dcm
+2025-03-18 12:15:27,287 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:15:27,287 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:15:27,287 - ERROR - Failed to load image:_info() takes 1 positional argument but 2 were given
+2025-03-18 12:16:29,750 - INFO - Application started
+2025-03-18 12:16:29,842 - INFO - SegmentationListManager initialized
+2025-03-18 12:16:30,813 - INFO - MainWindow initialized
+2025-03-18 12:16:35,424 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:16:35,424 - INFO - File extension: .dcm
+2025-03-18 12:16:55,993 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:17:05,016 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:18:20,765 - INFO - Application started
+2025-03-18 12:18:20,855 - INFO - SegmentationListManager initialized
+2025-03-18 12:18:21,807 - INFO - MainWindow initialized
+2025-03-18 12:18:25,688 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:18:25,688 - INFO - File extension: .dcm
+2025-03-18 12:18:35,489 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:18:35,489 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:18:35,489 - INFO - dims=(1024, 768, 1)
+2025-03-18 12:18:35,489 - INFO - spacing=(0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:18:35,489 - ERROR - Failed to load image:_info() takes 1 positional argument but 2 were given
+2025-03-18 12:18:41,420 - INFO - MainWindow is closing.
+2025-03-18 12:18:41,446 - INFO - Application is quitting.
+2025-03-18 12:18:58,127 - INFO - Application started
+2025-03-18 12:18:58,230 - INFO - SegmentationListManager initialized
+2025-03-18 12:18:59,160 - INFO - MainWindow initialized
+2025-03-18 12:19:03,207 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:19:03,207 - INFO - File extension: .dcm
+2025-03-18 12:19:15,080 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:19:15,080 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:19:15,081 - INFO - dims=(1024, 768, 1)
+2025-03-18 12:19:15,081 - INFO - spacing=(0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:19:15,100 - INFO - original_origin=(0.0, 0.0, 0.0)
+2025-03-18 12:19:19,395 - INFO - Image loaded successfully
+2025-03-18 12:19:38,163 - INFO - MainWindow is closing.
+2025-03-18 12:19:38,204 - INFO - Application is quitting.
+2025-03-18 12:19:43,364 - INFO - Application started
+2025-03-18 12:19:43,454 - INFO - SegmentationListManager initialized
+2025-03-18 12:19:44,428 - INFO - MainWindow initialized
+2025-03-18 12:19:46,213 - INFO - MainWindow is closing.
+2025-03-18 12:19:46,244 - INFO - Application is quitting.
+2025-03-18 12:20:00,779 - INFO - Application started
+2025-03-18 12:20:00,866 - INFO - SegmentationListManager initialized
+2025-03-18 12:20:01,828 - INFO - MainWindow initialized
+2025-03-18 12:21:03,557 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:21:05,757 - INFO - File extension: .mha
+2025-03-18 12:21:19,253 - ERROR - Failed to load image:SetDimensions argument 1: expected a sequence of 3 values, got 2 values
+2025-03-18 12:22:27,957 - INFO - Application started
+2025-03-18 12:22:28,032 - INFO - SegmentationListManager initialized
+2025-03-18 12:22:28,972 - INFO - MainWindow initialized
+2025-03-18 12:22:42,170 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:22:45,036 - INFO - File extension: .mha
+2025-03-18 12:25:26,502 - INFO - Application started
+2025-03-18 12:25:26,593 - INFO - SegmentationListManager initialized
+2025-03-18 12:25:27,565 - INFO - MainWindow initialized
+2025-03-18 12:25:34,480 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:25:34,480 - INFO - File extension: .mha
+2025-03-18 12:31:21,047 - INFO - Application started
+2025-03-18 12:31:21,137 - INFO - SegmentationListManager initialized
+2025-03-18 12:31:22,067 - INFO - MainWindow initialized
+2025-03-18 12:31:25,604 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:31:25,604 - INFO - File extension: .mha
+2025-03-18 12:31:57,143 - ERROR - Failed to load image:SetDimensions argument 1: expected a sequence of 3 values, got 2 values
+2025-03-18 12:32:25,258 - INFO - Application started
+2025-03-18 12:32:25,348 - INFO - SegmentationListManager initialized
+2025-03-18 12:32:26,304 - INFO - MainWindow initialized
+2025-03-18 12:32:29,613 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:32:29,613 - INFO - File extension: .mha
+2025-03-18 12:37:45,339 - INFO - Application started
+2025-03-18 12:37:45,429 - INFO - SegmentationListManager initialized
+2025-03-18 12:37:46,365 - INFO - MainWindow initialized
+2025-03-18 12:37:50,690 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset847_FourCirclesOnJawCalKv2/imagesTr/image_0_0000.mha
+2025-03-18 12:37:50,690 - INFO - File extension: .mha
+2025-03-18 12:38:42,008 - INFO - dims=(1024, 768, 1)
+2025-03-18 12:38:42,008 - INFO - spacing=(0.2586639598165707, 0.2586639598165707, 1.0)
+2025-03-18 12:38:42,008 - INFO - original_origin=(0.0, 0.0, 0.0)
+2025-03-18 12:38:46,346 - INFO - Image loaded successfully
+2025-03-18 12:39:08,334 - INFO - MainWindow is closing.
+2025-03-18 12:39:08,368 - INFO - Application is quitting.
+2025-03-18 12:39:21,515 - INFO - Application started
+2025-03-18 12:39:21,616 - INFO - SegmentationListManager initialized
+2025-03-18 12:39:22,541 - INFO - MainWindow initialized
+2025-03-18 12:39:37,542 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_2d/sample_images/jaw_cal_with_wire_kv/image_000.dcm
+2025-03-18 12:39:37,542 - INFO - File extension: .dcm
+2025-03-18 12:40:03,140 - INFO - User clicked Yes to the SID to SAD scaling question
+2025-03-18 12:40:03,140 - INFO - Updated the spacing: (0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:40:03,140 - INFO - dims=(1024, 768, 1)
+2025-03-18 12:40:03,140 - INFO - spacing=(0.25866506021171387, 0.25866506021171387, 1.0)
+2025-03-18 12:40:03,140 - INFO - original_origin=(0.0, 0.0, 0.0)
+2025-03-18 12:40:07,306 - INFO - Image loaded successfully
+2025-03-18 12:40:12,023 - INFO - MainWindow is closing.
+2025-03-18 12:40:12,062 - INFO - Application is quitting.

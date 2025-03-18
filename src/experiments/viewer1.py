@@ -61,21 +61,21 @@ class VTKViewer(QWidget):
         reslice.SetBackgroundLevel(background_value)
 
         imgo_H_sliceo = vtk.vtkMatrix4x4()
-        if axis == 2:
+        if axis == 2: # axial
             z_index = self.slider.value()
             imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
                                     0, 1, 0, 0,
-                                    0, 0, 1, z_index * spacing[2] + origin[2], # this only works when the image direction vector is unit vector
+                                    0, 0, 1, z_index * spacing[2], # this only works when the image direction vector is unit vector
                                     0, 0, 0, 1))
-        elif axis == 1:
+        elif axis == 1: # coronal
             y_index = self.slider.value()
             imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-                            0, 0, -1, y_index * spacing[1]+origin[1],  # this only works when the image direction vector is unit vector
+                            0, 0, -1, y_index * spacing[1],  # this only works when the image direction vector is unit vector
                             0, 1, 0, 0,
                             0, 0, 0, 1))
-        elif axis == 0:
+        elif axis == 0: # sagittal
             x_index = self.slider.value()
-            imgo_H_sliceo.DeepCopy((0, 0, -1, x_index * spacing[0]+origin[0],  # this only works when the image direction vector is unit vector
+            imgo_H_sliceo.DeepCopy((0, 0, -1, x_index * spacing[0],  # this only works when the image direction vector is unit vector
                                     0, 1, 0, 0,
                                     1, 0, 0, 0,
                                     0, 0, 0, 1))

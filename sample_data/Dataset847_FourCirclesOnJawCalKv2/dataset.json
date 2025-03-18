@@ -1,0 +1,20 @@
+{
+    "name": "FourCirclesOnJawCalKv2",
+    "description": "four circle labels on jaw calibration plate kV images",
+    "reference": "SB",
+    "licence": "CC-BY-SA 4.0",
+    "tensorImageSize": "2D",
+    "labels": {
+        "background": 0,
+        "top left": 1,
+        "top right": 2,
+        "bottom left": 3,
+        "bottom right": 4
+    },
+    "channel_names": {
+        "0": "RI"
+    },
+    "file_ending": ".mha",
+    "numTraining": 20,
+    "numTest": 2
+}
