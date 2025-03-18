@@ -348,6 +348,25 @@ class VTKViewer3D(QWidget):
         self.clear()
 
         self.vtk_image = vtk_image
+
+        import reslicer
+        self.reslicer_ax = reslicer.Reslicer(vtk_image, reslicer.AXIAL)
+        self.reslicer_cr = reslicer.Reslicer(vtk_image, reslicer.CORONAL)
+        self.reslicer_sg = reslicer.Reslicer(vtk_image, reslicer.SAGITTAL)
+
+        slice_ax, index_ax = self.reslicer_ax.get_slice_image_at_center()
+        slice_cr, index_cr = self.reslicer_cr.get_slice_image_at_center()
+        slice_sg, index_sg = self.reslicer_sg.get_slice_image_at_center()
+
+        self.axial_viewer.set_vtk_image(slice_ax, window, level)
+        self.coronal_viewer.set_vtk_image(slice_cr, window, level)
+        self.sagittal_viewer.set_vtk_image(slice_sg, window, level)
+
+
+    
+
+        
+
                 
   
 

@@ -159,7 +159,7 @@ class MainWindow3D(QMainWindow):
         self.nnunet_client_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
         self.managers.append(self.nnunet_client_manager)
         self.nnunet_client_manager_widget = dock
-        self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, True)
+        self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, False)
 
         #self.tabifyDockWidget(self.nnunet_client_manager, self.rect_list_dock_widget)
 
@@ -550,122 +550,68 @@ class MainWindow3D(QMainWindow):
 
             self.print_status(f"Window: {window}, Level: {level}")
 
-    def get_list_dir(self):
+    def get_last_dir(self):
         if settings.contains('last_directory'):
             return settings.value('last_directory')
         else:
             return '.'
 
     def import_image_clicked(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_list_dir(), "Medical Image Files (*.dcm *.mhd *.mha);;DICOM Files (*.dcm);;MetaImage Files (*.mhd *.mha);;All Files (*)")
+        #file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
         
+        file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
         if file_path == '':
             return 
         
         # save to last_directory
         settings.setValue("last_directory", os.path.dirname(file_path))
 
-        try:
-            _info(f"Loading image from {file_path}")
-            self.image_path = file_path 
+    
+        _info(f"Loading image from {file_path}")
+        self.image_path = file_path 
 
-            _,file_extension = os.path.splitext(file_path)
-            file_extension = file_extension.lower()
+        _,file_extension = os.path.splitext(file_path)
+        file_extension = file_extension.lower()
 
-            _info(f"File extension: {file_extension}")  # Output: .mha , .dcm    
+        _info(f"File extension: {file_extension}")  # Output: .mha    
 
-            image_type = ""
-            from itkvtk import load_vtk_image_using_sitk
-            if file_extension == ".dcm" or is_dicom(file_path):
-                # NOTE: this did not work for RTImage reading. So, using sitk to read images.
-                #reader = vtk.vtkDICOMImageReader()
-                self.vtk_image = load_vtk_image_using_sitk(file_path)
-                image_type = "dicom"
-            elif file_extension == ".mhd" or file_extension == ".mha":
-                self.vtk_image = load_vtk_image_using_sitk(file_path)
-                image_type = "meta"
-            else:
-                raise Exception("Only dicom or meta image formats are supported at the moment.")
+        image_type = ""
+        from itkvtk import load_vtk_image_using_sitk
+        if file_extension == ".mhd" or file_extension == ".mha":
+            self.vtk_image = load_vtk_image_using_sitk(file_path)
+            image_type = "meta"
+        else:
+            raise Exception("Only meta image formats are supported at the moment.")
 
-            # Extract correct spacing for RTImage using pydicom
-            if image_type == "dicom":
-                
-                import pydicom
-                dicom_dataset = pydicom.dcmread(file_path)
-                if hasattr(dicom_dataset, "Modality") and dicom_dataset.Modality == "RTIMAGE":
+        self.image_type = image_type
 
-                    # Extract necessary tags
-                    if hasattr(dicom_dataset, "ImagePlanePixelSpacing"):
-                        pixel_spacing = dicom_dataset.ImagePlanePixelSpacing  # [row spacing, column spacing]
-                    else:
-                        raise ValueError("RTImage is missing ImagePlanePixelSpacing")
+        # align the center of the image to the center of the world coordiante system
+        # Get image properties
+        dims = self.vtk_image.GetDimensions()
+        spacing = self.vtk_image.GetSpacing()
+        original_origin = self.vtk_image.GetOrigin()
 
-                    SAD = None
-                    if hasattr(dicom_dataset, "RadiationMachineSAD"):
-                        SAD = float(dicom_dataset.RadiationMachineSAD)
-                    else:
-                        raise ValueError("RTImage is missing RadiationMachineSAD")
+        _info(f'dims={dims}')
+        _info(f'spacing={spacing}')
+        _info(f'original_origin={original_origin}')
 
-                    SID = None
-                    if hasattr(dicom_dataset, "RTImageSID"):
-                        SID = float(dicom_dataset.RTImageSID)
-                    else:
-                        raise ValueError("RTImage is missing RTImageSID")
+        # Get the scalar range (pixel intensity range)
+        scalar_range = self.vtk_image.GetScalarRange()
 
+        self.range_slider.range_min = scalar_range[0]
+        self.range_slider.range_max = scalar_range[1]
+        self.range_slider.low_value = scalar_range[0]
+        self.range_slider.high_value = scalar_range[1]
+        self.range_slider.update()  
+        
+        self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
 
-                    if SAD and SID:
-                        scaling_factor = SAD / SID
-                        if scaling_factor < 0.995 or scaling_factor > 1.005: # check if the difference is 0.5%
-                            reply = QMessageBox.question(self, 'Scale Image?',
-                                        f"The selected image is an RTImage (dicom) with the source-to-image distance [SID={SID/10.0:.1f} cm] and the source-to-axis distance [SAD={SAD/10.0:.1f}] not same. Do you want to project the image to the isocenter [scaling_factor={scaling_factor}]?",
-                                        QMessageBox.Yes | QMessageBox.No,
-                                        QMessageBox.Yes)
-
-                            if reply == QMessageBox.Yes:
-                                _info("User clicked Yes to the SID to SAD scaling question")
-
-                                # Scale pixel spacing to SAD scale
-                                scaled_spacing = [spacing * scaling_factor for spacing in pixel_spacing]
-
-                                # Update spacing in vtkImageData
-                                self.vtk_image.SetSpacing(scaled_spacing[1], scaled_spacing[0], 1.0)  # Column, Row, Depth
-
-                                # Print the updated spacing
-                                _info(f"Updated the spacing: {self.vtk_image.GetSpacing()}")
-                            else:
-                                _info("User clicked No to the SID to SAD scaling question")
-
-            
-            self.image_type = image_type
-
-            # align the center of the image to the center of the world coordiante system
-            # Get image properties
-            dims = self.vtk_image.GetDimensions()
-            spacing = self.vtk_image.GetSpacing()
-            original_origin = self.vtk_image.GetOrigin()
-
-            _info(f'dims={dims}')
-            _info(f'spacing={spacing}')
-            _info(f'original_origin={original_origin}')
-
-            # Get the scalar range (pixel intensity range)
-            scalar_range = self.vtk_image.GetScalarRange()
-
-            self.range_slider.range_min = scalar_range[0]
-            self.range_slider.range_max = scalar_range[1]
-            self.range_slider.low_value = scalar_range[0]
-            self.range_slider.high_value = scalar_range[1]
-            self.range_slider.update()  
-            
-            self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-
-
-            self.setWindowTitle(f"Image Labeler 2D - {os.path.basename(file_path)}")
-            
-            _info("Image loaded successfully")
-        except Exception as e:
-            _err(f"Failed to load image:{e}") 
-            self.show_popup("Load Image", f"Error: Load Image Failed, {str(e)}", QMessageBox.Critical)
+        self.setWindowTitle(f"Image Labeler 3D - {os.path.basename(file_path)}")
+        
+        _info("Image loaded successfully")
+        #except Exception as e:
+        #    _err(f"Failed to load image:{e}") 
+        #    self.show_popup("Load Image", f"Error: Load Image Failed, {str(e)}", QMessageBox.Critical)
 
 
     def modified(self):
@@ -784,7 +730,7 @@ class MainWindow3D(QMainWindow):
         import os
 
         """Load a workspace from a folder."""
-        workspace_json_path, _ = QFileDialog.getOpenFileName(self, "Select Workspace File", self.get_list_dir(), "JSON Files (*.json)")
+        workspace_json_path, _ = QFileDialog.getOpenFileName(self, "Select Workspace File", self.get_last_dir(), "JSON Files (*.json)")
         if not workspace_json_path:
            _info("Load workspace operation canceled by user.")
            return

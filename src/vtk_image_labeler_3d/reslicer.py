@@ -2,7 +2,7 @@ import vtk
 import SimpleITK as sitk
 import numpy as np
 
-def reslice_image_z(vtk_image, z_index, background_value=-1000):
+def reslice_image_z(vtk_image, z_index, background_value=-1000, vtk_image_reslice=None):
     """
     Reslice a vtkImageData along the Z-axis (axial) at a given index with a specified background value.
     
@@ -23,8 +23,12 @@ def reslice_image_z(vtk_image, z_index, background_value=-1000):
     if not (z_min <= z_index <= z_max):
         raise ValueError(f"z_index {z_index} out of bounds. Must be between {z_min} and {z_max}")
 
-    # Create reslicer
-    reslice = vtk.vtkImageReslice()
+    # Create reslicer if not given
+    if not vtk_image_reslice:
+        reslice = vtk.vtkImageReslice()
+    else:
+        reslice = vtk_image_reslice
+
     reslice.SetInputData(vtk_image)
     reslice.SetOutputDimensionality(2)
 
@@ -42,7 +46,7 @@ def reslice_image_z(vtk_image, z_index, background_value=-1000):
 
     return reslice.GetOutput()
 
-def reslice_image_x(vtk_image, x_index, background_value=-1000):
+def reslice_image_x(vtk_image, x_index, background_value=-1000, vtk_image_reslice=None):
     """
     Reslice a vtkImageData along the X-axis (sagittal) at a given index with a specified background value.
     
@@ -63,8 +67,14 @@ def reslice_image_x(vtk_image, x_index, background_value=-1000):
     if not (x_min <= x_index <= x_max):
         raise ValueError(f"x_index {x_index} out of bounds. Must be between {x_min} and {x_max}")
 
+
+    # Create reslicer if not given
+    if not vtk_image_reslice:
+        reslice = vtk.vtkImageReslice()
+    else:
+        reslice = vtk_image_reslice
+
     # Create reslicer
-    reslice = vtk.vtkImageReslice()
     reslice.SetInputData(vtk_image)
     reslice.SetOutputDimensionality(2)
 
@@ -82,7 +92,7 @@ def reslice_image_x(vtk_image, x_index, background_value=-1000):
 
     return reslice.GetOutput()
 
-def reslice_image_y(vtk_image, y_index, background_value=-1000):
+def reslice_image_y(vtk_image, y_index, background_value=-1000, vtk_image_reslice=None):
     """
     Reslice a vtkImageData along the Y-axis (coronal) at a given index with a specified background value.
     
@@ -103,8 +113,12 @@ def reslice_image_y(vtk_image, y_index, background_value=-1000):
     if not (y_min <= y_index <= y_max):
         raise ValueError(f"y_index {y_index} out of bounds. Must be between {y_min} and {y_max}")
 
-    # Create reslicer
-    reslice = vtk.vtkImageReslice()
+    # Create reslicer if not given
+    if not vtk_image_reslice:
+        reslice = vtk.vtkImageReslice()
+    else:
+        reslice = vtk_image_reslice
+
     reslice.SetInputData(vtk_image)
     reslice.SetOutputDimensionality(2)
 
@@ -122,18 +136,86 @@ def reslice_image_y(vtk_image, y_index, background_value=-1000):
 
     return reslice.GetOutput()
 
-from enum import Enum
-
-class Axis(Enum):
-    AXIAL = 2
-    CORONAL = 1
-    SAGGITTLE = 0
+AXIAL = 2
+CORONAL = 1
+SAGITTAL = 0
 
 class Reslicer():
-    def __init__(self, vtk_image, axis: Axis, background_value=-1000):
+    def __init__(self, vtk_image, axis, background_value=-1000):
         self.vtk_image = vtk_image
         self.background_value = background_value
         self.axis = axis
+
+        reslice = vtk.vtkImageReslice()
+        reslice.SetInputData(vtk_image)
+        reslice.SetOutputDimensionality(2)
+        reslice.SetInterpolationModeToNearestNeighbor()
+        reslice.SetBackgroundLevel(background_value)
+
+        self.vtk_image_reslice = reslice
+
+    
+    def set_slice_index(self, index):
+        
+        min, max = self.get_slice_index_min_max()
+        if not (min <= index <= max):
+            raise ValueError(f"slice index {index} is out of bounds. Must be between {min} and {max}")
+
+        spacing = self.vtk_image.GetSpacing()[self.axis]
+        offset = index * spacing
+        reslice = self.vtk_image_reslice
+        imgo_H_sliceo = vtk.vtkMatrix4x4()
+
+        if self.axis == AXIAL:
+            imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
+                                    0, 1, 0, 0,
+                                    0, 0, 1, offset,
+                                    0, 0, 0, 1))
+        elif self.axis == CORONAL:
+            imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
+                                    0, 0, -1, offset,  
+                                    0, 1, 0, 0,
+                                    0, 0, 0, 1))
+        elif self.axis == SAGITTAL:
+            imgo_H_sliceo.DeepCopy((0, 0, -1, offset,
+                            0, 1, 0, 0,
+                            1, 0, 0, 0,
+                            0, 0, 0, 1))
+        else:
+            raise Exception(f'Invalid Axis ({self.axis})')
+
+        import itkvtk
+        w_H_imgo = itkvtk.vtk_get_w_H_imageo(self.vtk_image)
+        w_H_sliceo = vtk.vtkMatrix4x4()
+        vtk.vtkMatrix4x4.Multiply4x4(w_H_imgo, imgo_H_sliceo, w_H_sliceo)
+
+        reslice.SetResliceAxes(w_H_sliceo)
+
+        reslice.Update()
+
+
+    def get_slice_index_min_max(self):
+        if not self.vtk_image:
+            raise Exception("vtk_image is not set yet.")
+
+        extent = self.vtk_image.GetExtent()
+        axis = int(self.axis)
+        return extent[axis*2], extent[axis+1]
+
+    def get_slice_image_at_center(self):
+        if not self.vtk_image:
+            raise Exception("vtk_image is not set yet.")
+        
+        min, max = self.get_slice_index_min_max()
+
+        # Center indices for each axis
+        index = (max - min) // 2 + min
+        
+        return self.get_slice_image(index), index
+
+    def get_slice_image(self, index):
+        self.set_slice_index(index)
+        return self.vtk_image_reslice.GetOutput()
 
 def main():
     input_filename = "C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha"

@@ -111,4 +111,79 @@ def load_vtk_image_using_sitk(file_path):
     vtk_image = sitk_to_vtk(sitk_image)
     print(f"Loaded {file_path}")
     return vtk_image
+
+
+def vtk_get_w_H_imageo(vtk_image):
+    """
+    Create a 4x4 homogeneous matrix from a vtkImageData's direction matrix and origin.
     
+    Args:
+        vtk_image: vtkImageData object
+    
+    Returns:
+        vtkMatrix4x4: 4x4 homogeneous transformation matrix
+    """
+    # Get the 3x3 direction matrix
+    v3x3 = vtk_image.GetDirectionMatrix()
+    
+    # Get the origin (translation)
+    org = vtk_image.GetOrigin()
+    
+    # Create a 4x4 matrix
+    matrix_4x4 = vtk.vtkMatrix4x4()
+    
+    # Populate the 3x3 rotation part
+    for i in range(3):
+        for j in range(3):
+            matrix_4x4.SetElement(i, j, v3x3.GetElement(i, j))
+    
+    # Populate the translation part (4th column)
+    matrix_4x4.SetElement(0, 3, org[0])  # Tx
+    matrix_4x4.SetElement(1, 3, org[1])  # Ty
+    matrix_4x4.SetElement(2, 3, org[2])  # Tz
+    
+    # Bottom row is [0, 0, 0, 1] by default in vtkMatrix4x4, so no need to set it explicitly
+    
+    return matrix_4x4
+
+import numpy as np
+
+def vtk_matrix4x4_to_numpy(vtk_matrix):
+    """
+    Convert a vtkMatrix4x4 to a 4x4 NumPy array.
+    
+    Args:
+        vtk_matrix: vtk.vtkMatrix4x4 object
+    
+    Returns:
+        np.ndarray: 4x4 NumPy array
+    """
+    # Initialize a 4x4 NumPy array
+    numpy_array = np.zeros((4, 4))
+    
+    # Populate the array with elements from the vtkMatrix4x4
+    for i in range(4):
+        for j in range(4):
+            numpy_array[i, j] = vtk_matrix.GetElement(i, j)
+    
+    return numpy_array
+
+def vtk_matrix3x3_to_numpy(vtk_matrix):
+    """
+    Convert a vtkMatrix4x4 to a 3x3 NumPy array.
+    
+    Args:
+        vtk_matrix: vtk.vtkMatrix3x3 object
+    
+    Returns:
+        np.ndarray: 4x4 NumPy array
+    """
+    # Initialize a 4x4 NumPy array
+    numpy_array = np.zeros((3, 3))
+    
+    # Populate the array with elements from the vtkMatrix4x4
+    for i in range(3):
+        for j in range(3):
+            numpy_array[i, j] = vtk_matrix.GetElement(i, j)
+    
+    return numpy_array
