@@ -10,172 +10,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QListWidgetItem, QColorDialog
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
 
-from logger import logger
+from logger import logger, _info
 
-
-class Panning:
-    def __init__(self, viewer=None):
-        self.viewer = viewer
-        self.left_button_is_pressed = False
-        self.last_mouse_position = None
-        self.enabled = False
-
-    def enable(self, enabled=True):
-        self.enabled = enabled
-
-        if enabled:
-            self.left_button_press_observer = self.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
-            self.mouse_move_observer = self.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
-            self.left_button_release_observer = self.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_release)
-        else:    
-            self.interactor.RemoveObserver(self.left_button_press_observer)
-            self.interactor.RemoveObserver(self.mouse_move_observer)
-            self.interactor.RemoveObserver(self.left_button_release_observer)   
-            self.last_mouse_position = None
-
-        if enabled:
-            self.viewer.setCursor(Qt.OpenHandCursor)  # Change cursor for panning mode
-        else:
-            self.viewer.setCursor(Qt.ArrowCursor)  # Reset cursor
-        
-        print(f"Panning mode: {'enabled' if enabled else 'disabled'}")
-    
-    def on_left_button_press(self, obj, event):
-        if not self.enabled:
-            return
-        
-        self.left_button_is_pressed = True
-        self.last_mouse_position = self.interactor.GetEventPosition()
-
-    def on_mouse_move(self, obj, event):
-        if not self.enabled:
-            return
-
-        if self.left_button_is_pressed:
-            self.perform_panning()
-
-        self.viewer.render_window.Render()
-
-    def on_left_button_release(self, obj, event):
-        if not self.enabled:
-            return
-        
-        self.left_button_is_pressed = False
-        self.last_mouse_position = None
-
-    def perform_panning(self):
-        """Perform panning based on mouse movement, keeping the pointer fixed on the same point in the image."""
-        current_mouse_position = self.interactor.GetEventPosition()
-
-        if self.last_mouse_position:
-            
-            renderer = self.viewer.get_renderer()
-            
-            # Get the camera and renderer
-            camera = renderer.GetActiveCamera()
-
-            # Convert mouse positions to world coordinates
-            picker = vtk.vtkWorldPointPicker()
-
-            # Pick world coordinates for the last mouse position
-            picker.Pick(self.last_mouse_position[0], self.last_mouse_position[1], 0, renderer)
-            last_world_position = picker.GetPickPosition()
-
-            # Pick world coordinates for the current mouse position
-            picker.Pick(current_mouse_position[0], current_mouse_position[1], 0, renderer)
-            current_world_position = picker.GetPickPosition()
-
-            # Compute the delta in world coordinates
-            delta_world = [
-                last_world_position[0] - current_world_position[0],
-                last_world_position[1] - current_world_position[1],
-                last_world_position[2] - current_world_position[2],
-            ]
-
-            # Update the camera position and focal point
-            camera.SetFocalPoint(
-                camera.GetFocalPoint()[0] + delta_world[0],
-                camera.GetFocalPoint()[1] + delta_world[1],
-                camera.GetFocalPoint()[2] + delta_world[2],
-            )
-            camera.SetPosition(
-                camera.GetPosition()[0] + delta_world[0],
-                camera.GetPosition()[1] + delta_world[1],
-                camera.GetPosition()[2] + delta_world[2],
-            )
-
-            # Render the updated scene
-            self.viewer.render_window.Render()
-
-        # Update the last mouse position
-        self.last_mouse_position = current_mouse_position
-        
-
-class Zooming:
-    def __init__(self, viewer=None):
-        self.viewer = viewer
-        self.enabled = False
-        self.zoom_in_factor = 1.2
-        self.zoom_out_factor = 0.8
-
-    def enable(self, enabled=True):
-        self.enabled = enabled
-
-        if enabled:
-            self.mouse_wheel_forward_observer = self.interactor.AddObserver("MouseWheelForwardEvent", self.on_mouse_wheel_forward)
-            self.on_mouse_wheel_backward_observer = self.interactor.AddObserver("MouseWheelBackwardEvent", self.on_mouse_wheel_backward)
-        else:    
-            self.interactor.RemoveObserver(self.mouse_wheel_forward_observer)
-            self.interactor.RemoveObserver(self.on_mouse_wheel_backward_observer)   
-
-        print(f"Zooming mode: {'enabled' if enabled else 'disabled'}")
-    
-    def on_mouse_wheel_forward(self, obj, event):
-        if not self.enabled:
-            return
-
-        self.zoom_in()        
-
-        self.viewer.render_window.Render()
-
-    def on_mouse_wheel_backward(self, obj, event):
-        if not self.enabled:
-            return
-
-        self.zoom_out()
-
-        self.viewer.render_window.Render()
-
-    def zoom_in(self):
-        """Zoom in the camera."""
-        camera = self.viewer.get_renderer().GetActiveCamera()
-        camera.Zoom(self.zoom_in_factor)  
-        
-        self.viewer.get_render_window().Render()
-
-    def zoom_out(self):
-        """Zoom out the camera."""
-        camera = self.viewer.get_renderer().GetActiveCamera()
-        camera.Zoom(self.zoom_out_factor)  
-        
-        self.viewer.get_render_window().Render()
-
-    def zoom_reset(self):
-        # Get the active camera
-        camera = self.viewer.get_renderer().GetActiveCamera()
-
-        if camera.GetParallelProjection():
-            # Reset parallel projection scale
-            self.viewer.get_renderer().ResetCamera()
-        else:
-            # Reset perspective projection parameters
-            camera.SetPosition(0.0, 0.0, 1000.0)
-            camera.SetFocalPoint(0.0, 0.0, 0.0)
-            camera.SetViewUp(0.0, 1.0, 0.0)
-            self.viewer.get_renderer().ResetCameraClippingRange()
-
-        # Render the updated scene
-        self.viewer.get_render_window().Render()
 
 class LineWidget:
     def __init__(self, vtk_image, pt1_w, pt2_w, line_color_vtk=[1,0,0], line_width=2, renderer=None):
@@ -249,31 +85,55 @@ class LineWidget:
         representation.text_actor.SetInput(f"{distance:.2f} mm")
         representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])       
 
+background_color = (0.5, 0.5, 0.5)
+background_color_active = (0.6, 0.6, 0.6)
+
 class SurfaceViewer(QWidget):
-    def __init__(self):
+    def __init__(self, main_window=None):
         super().__init__()
+    
+        self.main_window = main_window
+
+        # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
-        self.interactor = QVTKRenderWindowInteractor(self)
-        self.render_window = self.interactor.GetRenderWindow()
+        self.renderer.SetLayer(0)
+        self.renderer.SetBackground(*background_color)  # Set background to gray
+        self.renderer.GetActiveCamera().SetParallelProjection(False)
+        self.renderer.SetInteractive(True)
+
+        # Create a QVTKRenderWindowInteractor
+        self.vtk_widget = QVTKRenderWindowInteractor(self)
+        self.render_window = self.vtk_widget.GetRenderWindow()  # Retrieve the render window
         self.render_window.AddRenderer(self.renderer)
 
-        background_color = (0.5, 0.5, 0.5)
-        self.renderer.SetBackground(*background_color)  # Set background to gray
+        # Set up interactor style
+        self.interactor = self.render_window.GetInteractor()
+        self.interactor_style = vtk.vtkInteractorStyleUser()
+        self.interactor.SetInteractorStyle(self.interactor_style)
 
+        # Layout for embedding the VTK widget
         layout = QVBoxLayout()
-        layout.addWidget(self.interactor)
+        layout.addWidget(self.vtk_widget)
         self.setLayout(layout)
 
-        #self.volume_mapper = vtk.vtkGPUVolumeRayCastMapper()
-        #self.volume = vtk.vtkVolume()
-        #self.volume.SetMapper(self.volume_mapper)
-        #self.renderer.AddVolume(self.volume)
+        self.vtk_image = None
 
-        self.render_window.Render()
+        self.set_active(False)
 
     def set_image(self, vtk_image):
         self.volume_mapper.SetInputData(vtk_image)
         self.renderer.ResetCamera()
+        self.render_window.Render()
+
+    def set_active(self, active=True):
+        self.active = active
+        if active:
+            self.renderer.SetBackground(*background_color_active)  
+        else:
+            self.renderer.SetBackground(*background_color)  
+        self.render()
+
+    def render(self):
         self.render_window.Render()
 
     def resizeEvent(self, event):
@@ -294,6 +154,33 @@ class SurfaceViewer(QWidget):
 
         super().closeEvent(event)
 
+import viewer2d
+import reslicer
+class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
+    def __init__(self, axis, main_window):
+        super().__init__(main_window)
+        self.reslicer = reslicer.Reslicer(axis)
+        self.vtk_image_3d = None
+        self.slice = None
+        self.slice_index = None
+    
+    def set_vtk_image_3d(self, vtk_image_3d, window, level):
+        
+        self.vtk_image_3d = vtk_image_3d 
+
+        self.reslicer.set_vtk_image(vtk_image_3d)
+        
+        # get the center slice
+        slice, index = self.reslicer.get_slice_image_at_center()
+        _info(f'the center slice index is {index}')
+        
+        # save the slice & slice index
+        self.slice = slice
+        self.slice_index = index
+
+        super().set_vtk_image(slice, window, level)
+
+       
 class VTKViewer3D(QWidget):
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
@@ -304,32 +191,90 @@ class VTKViewer3D(QWidget):
         # Layout for embedding the VTK widget
         layout = QGridLayout()
         
-        import viewer2d
-        self.axial_viewer = viewer2d.VTKViewer2D(main_window)
-        self.coronal_viewer = viewer2d.VTKViewer2D(main_window)
-        self.sagittal_viewer = viewer2d.VTKViewer2D(main_window)
-        self.surface_viewer = SurfaceViewer()
 
-        layout.addWidget(self.axial_viewer, 0, 0)
-        layout.addWidget(self.coronal_viewer, 0, 1)
-        layout.addWidget(self.sagittal_viewer, 1, 0)
-        layout.addWidget(self.surface_viewer, 1, 1)
+        self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, main_window) 
+        self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, main_window) 
+        self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, main_window) 
+        self.viewer_surf = SurfaceViewer()
+
+        self.viewers_2d = [self.viewer_ax, self.viewer_cr, self.viewer_sg]
+        self.viewers = [self.viewer_ax, self.viewer_cr, self.viewer_sg, self.viewer_surf]
+        
+        for v in self.viewers_2d:
+            v.zoom_changed.connect(self.on_zoom_changed_event)
+        
+        for v in self.viewers:
+            v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_viewer)
+
+        layout.addWidget(self.viewer_ax, 0, 0)
+        layout.addWidget(self.viewer_cr, 0, 1)
+        layout.addWidget(self.viewer_sg, 1, 0)
+        layout.addWidget(self.viewer_surf, 1, 1)
 
         self.setLayout(layout)
         
-
         self.rulers = []
         self.vtk_image = None
 
-        self.zooming = Zooming(viewer=self)
-        self.panning = Panning(viewer=self)  
+        self.zooming_enabled = False
+
+
+    def wheelEvent(self, event):
+        
+        if not self.vtk_image:
+            return
+
+        # Retrieve the amount scrolled
+        delta = event.angleDelta().y()
+
+        if delta > 0:
+            print("Mouse wheel scrolled forward (up)")
+            if self.zooming_enabled:
+                self.zoom_out()
+        elif delta < 0:
+            print("Mouse wheel scrolled backward (down)")
+            if self.zooming_enabled:
+                self.zoom_in()
+
+        # Accept the event to indicate that you've handled it
+        event.accept()
+
+    def enable_zooming(self, enable):
+        self.zooming_enabled = enable
+
+    def on_zoom_changed_event(self, type, sender):
+        for v in self.viewers_2d:
+            if v is not sender:
+                v.zoom(type, emit_event=False)
+
+    def get_active_viewer(self):
+        for v in self.viewers_2d:
+                if v.active:
+                    return v
+        
+        if self.viewer_surf.active:
+            return self.viewer_surf
+        
+        return None
+
+    def on_mouse_move_on_viewer(self, obj, event):
+        # obj is the sender (interactor)
+        # event is event string, like 'LeftButtonPressEvent'
+        self.active_viewer = None
+        for v in self.viewers_2d:
+                v.set_active(v.interactor == obj)
+        
+        if self.viewer_surf.interactor == obj:
+            self.viewer_surf.set_active(True)
+        else:
+            self.viewer_surf.set_active(False)
 
     def cleanup_vtk(self, event):
-        self.axial_viewer.cleanup_vtk(event)
-        self.coronal_viewer.cleanup_vtk(event)
-        self.sagittal_viewer.cleanup_vtk(event)
-        self.surface_viewer.cleanup_vtk(event)
-    
+
+        for viewer in self.viewers_2d:
+            viewer.cleanup_vtk(event)
+
+        self.viewer_surf.cleanup_vtk(event)
         
     def clear(self):
         self.vtk_image = None
@@ -349,26 +294,38 @@ class VTKViewer3D(QWidget):
 
         self.vtk_image = vtk_image
 
-        import reslicer
-        self.reslicer_ax = reslicer.Reslicer(vtk_image, reslicer.AXIAL)
-        self.reslicer_cr = reslicer.Reslicer(vtk_image, reslicer.CORONAL)
-        self.reslicer_sg = reslicer.Reslicer(vtk_image, reslicer.SAGITTAL)
-
-        slice_ax, index_ax = self.reslicer_ax.get_slice_image_at_center()
-        slice_cr, index_cr = self.reslicer_cr.get_slice_image_at_center()
-        slice_sg, index_sg = self.reslicer_sg.get_slice_image_at_center()
-
-        self.axial_viewer.set_vtk_image(slice_ax, window, level)
-        self.coronal_viewer.set_vtk_image(slice_cr, window, level)
-        self.sagittal_viewer.set_vtk_image(slice_sg, window, level)
+        for v in self.viewers_2d:
+            v.set_vtk_image_3d(vtk_image, window, level)
 
 
-    
+    def set_window_level(self, window, level):
+        for v in self.viewers_2d:
+            v.set_window_level(window, level)
 
+    def zoom_in(self):
+        if not self.vtk_image:
+            return 
+
+        # the other viewers will zoom from zoom event
+        self.viewers_2d[0].zoom('in')
         
 
-                
-  
+    def zoom_out(self):
+        if not self.vtk_image:
+            return 
+
+        # the other viewers will zoom from zoom event
+        self.viewers_2d[0].zoom('out')
+
+
+    def zoom_reset(self):
+        if not self.vtk_image:
+            return 
+
+        # the other viewers will zoom from zoom event
+        self.viewers_2d[0].zoom('reset')
+
+
 
     def get_renderer(self):
         #return self.base_renderer

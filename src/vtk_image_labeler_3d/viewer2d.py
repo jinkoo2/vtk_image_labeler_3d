@@ -111,9 +111,15 @@ class Panning:
         # Update the last mouse position
         self.last_mouse_position = current_mouse_position
         
+from PyQt5.QtCore import pyqtSignal, QObject
 
-class Zooming:
+class Zooming(QObject):
+
+    zoomChanged = pyqtSignal(str, QObject)
+
     def __init__(self, viewer=None):
+        super().__init__()
+
         self.viewer = viewer
         self.interactor = viewer.interactor
         self.enabled = False
@@ -148,36 +154,38 @@ class Zooming:
 
         self.viewer.render_window.Render()
 
-    def zoom_in(self):
-        """Zoom in the camera."""
+    def zoom(self, type, emit_event=True):
         camera = self.viewer.get_renderer().GetActiveCamera()
-        camera.Zoom(self.zoom_in_factor)  
-        
-        self.viewer.get_render_window().Render()
-
-    def zoom_out(self):
-        """Zoom out the camera."""
-        camera = self.viewer.get_renderer().GetActiveCamera()
-        camera.Zoom(self.zoom_out_factor)  
-        
-        self.viewer.get_render_window().Render()
-
-    def zoom_reset(self):
-        # Get the active camera
-        camera = self.viewer.get_renderer().GetActiveCamera()
-
-        if camera.GetParallelProjection():
-            # Reset parallel projection scale
-            self.viewer.get_renderer().ResetCamera()
+        if type == 'in':
+            camera.Zoom(self.zoom_in_factor)  
+        elif type == 'out':
+            camera.Zoom(self.zoom_out_factor)  
+        elif type == 'reset':
+            if camera.GetParallelProjection():
+                # Reset parallel projection scale
+                self.viewer.get_renderer().ResetCamera()
+            else:
+                # Reset perspective projection parameters
+                camera.SetPosition(0.0, 0.0, 1000.0)
+                camera.SetFocalPoint(0.0, 0.0, 0.0)
+                camera.SetViewUp(0.0, 1.0, 0.0)
+                self.viewer.get_renderer().ResetCameraClippingRange()
         else:
-            # Reset perspective projection parameters
-            camera.SetPosition(0.0, 0.0, 1000.0)
-            camera.SetFocalPoint(0.0, 0.0, 0.0)
-            camera.SetViewUp(0.0, 1.0, 0.0)
-            self.viewer.get_renderer().ResetCameraClippingRange()
+            raise Exception(f'Unknown zoom type {type}!')
 
-        # Render the updated scene
+        if emit_event:
+            self.zoomChanged.emit(type, self)
+
         self.viewer.get_render_window().Render()
+
+    def zoom_in(self, emit_event=True):
+        self.zoom('in', emit_event)
+
+    def zoom_out(self, emit_event=True):
+        self.zoom('out', emit_event)
+
+    def zoom_reset(self, emit_event=True):
+        self.zoom('reset', emit_event)
 
 class LineWidget:
     def __init__(self, vtk_image, pt1_w, pt2_w, line_color_vtk=[1,0,0], line_width=2, renderer=None):
@@ -251,22 +259,23 @@ class LineWidget:
         representation.text_actor.SetInput(f"{distance:.2f} mm")
         representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])       
 
+background_color = (0.5, 0.5, 0.5)
+background_color_active = (0.6, 0.6, 0.6)
 
 class VTKViewer2D(QWidget):
+    zoom_changed = pyqtSignal(str, QObject)
+
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
     
-        if main_window is not None:
-            self.main_window = main_window
-
-        background_color = (0.5, 0.5, 0.5)
+        self.main_window = main_window
 
         # Create a VTK Renderer
-        self.base_renderer = vtk.vtkRenderer()
-        self.base_renderer.SetLayer(0)
-        self.base_renderer.SetBackground(*background_color)  # Set background to gray
-        self.base_renderer.GetActiveCamera().SetParallelProjection(True)
-        self.base_renderer.SetInteractive(True)
+        self.renderer = vtk.vtkRenderer()
+        self.renderer.SetLayer(0)
+        self.renderer.SetBackground(*background_color)  # Set background to gray
+        self.renderer.GetActiveCamera().SetParallelProjection(True)
+        self.renderer.SetInteractive(True)
 
         # Create a VTK Renderer for the brush actor
         #self.brush_renderer = vtk.vtkRenderer()
@@ -277,7 +286,7 @@ class VTKViewer2D(QWidget):
         self.vtk_widget = QVTKRenderWindowInteractor(self)
         self.render_window = self.vtk_widget.GetRenderWindow()  # Retrieve the render window
         #self.render_window.SetNumberOfLayers(2)
-        self.render_window.AddRenderer(self.base_renderer)
+        self.render_window.AddRenderer(self.renderer)
         #self.render_window.AddRenderer(self.brush_renderer)
 
         # Set up interactor style
@@ -299,7 +308,22 @@ class VTKViewer2D(QWidget):
         self.vtk_image = None
 
         self.zooming = Zooming(viewer=self)
+        self.zooming.zoomChanged.connect(self.on_zoom_changed_event)
+
         self.panning = Panning(viewer=self)  
+
+        self.set_active(False)
+
+    def set_active(self, active=True):
+        self.active = active
+        if active:
+            self.renderer.SetBackground(*background_color_active)  # Set background to gray
+        else:
+            self.renderer.SetBackground(*background_color)  # Set background to gray
+        self.render()
+
+    def on_zoom_changed_event(self, zoom_type, sender):
+        self.zoom_changed.emit(zoom_type, self)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -359,15 +383,22 @@ class VTKViewer2D(QWidget):
 
         self.get_render_window().Render()
 
+    def set_window_level(self, window, level):
+        if self.window_level_filter:
+            self.window_level_filter.SetWindow(window)
+            self.window_level_filter.SetLevel(level)
+            self.window_level_filter.Update()
+            self.get_render_window().Render()
+
     def get_renderer(self):
-        return self.base_renderer
+        return self.renderer
     
     def get_render_window(self):
         return self.render_window
     
     def get_camera_info(self):
         """Retrieve the camera's position and direction in the world coordinate system."""
-        camera = self.base_renderer.GetActiveCamera()
+        camera = self.renderer.GetActiveCamera()
 
         # Get the camera origin (position in world coordinates)
         camera_position = camera.GetPosition()
@@ -396,7 +427,7 @@ class VTKViewer2D(QWidget):
     def print_camera_viewport_info(self):
         """Print the viewport and camera information."""
         # Get the renderer and camera
-        renderer = self.base_renderer
+        renderer = self.renderer
         camera = renderer.GetActiveCamera()
 
         # Viewport settings
@@ -473,7 +504,7 @@ class VTKViewer2D(QWidget):
         # Get the image data
         vtk_image = self.vtk_image
         if not vtk_image:
-            print("No image loaded.")
+            #print("No image loaded.")
             return
 
         # Get image properties
@@ -536,7 +567,7 @@ class VTKViewer2D(QWidget):
     def print_properties(self):
         """Print the properties of the camera, image, and line widgets."""
         # Camera properties
-        camera = self.base_renderer.GetActiveCamera()
+        camera = self.renderer.GetActiveCamera()
         print("Camera Properties:")
         print(f"  Position: {camera.GetPosition()}")
         print(f"  Focal Point: {camera.GetFocalPoint()}")
@@ -589,7 +620,7 @@ class VTKViewer2D(QWidget):
         ]
 
         # Set the camera parameters
-        camera = self.base_renderer.GetActiveCamera()
+        camera = self.renderer.GetActiveCamera()
 
         # Position the camera at the center of the image, slightly offset in Z
         camera.SetPosition(image_center[0], image_center[1], image_center[2] + 100)  # Adjust Z for visibility
@@ -633,6 +664,12 @@ class VTKViewer2D(QWidget):
         self.painting_enabled = enabled
         self.brush_actor.SetVisibility(enabled)  # Show brush if enabled
         self.render_window.Render()
+
+    def zoom(self, type, emit_event=True):
+        if not self.vtk_image:
+            return 
+        
+        self.zooming.zoom(type, emit_event)
 
     def render(self):
         self.get_render_window().Render()

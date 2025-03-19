@@ -141,19 +141,25 @@ CORONAL = 1
 SAGITTAL = 0
 
 class Reslicer():
-    def __init__(self, vtk_image, axis, background_value=-1000):
+    def __init__(self, axis, vtk_image=None, background_value=-1000):
         self.vtk_image = vtk_image
         self.background_value = background_value
         self.axis = axis
 
         reslice = vtk.vtkImageReslice()
-        reslice.SetInputData(vtk_image)
+        
+        if vtk_image:
+            reslice.SetInputData(vtk_image)
+        
         reslice.SetOutputDimensionality(2)
         reslice.SetInterpolationModeToNearestNeighbor()
         reslice.SetBackgroundLevel(background_value)
 
         self.vtk_image_reslice = reslice
 
+    def set_vtk_image(self, vtk_image):
+        self.vtk_image = vtk_image
+        self.vtk_image_reslice.SetInputData(vtk_image)
     
     def set_slice_index(self, index):
         
@@ -200,7 +206,7 @@ class Reslicer():
 
         extent = self.vtk_image.GetExtent()
         axis = int(self.axis)
-        return extent[axis*2], extent[axis+1]
+        return extent[axis*2], extent[axis*2+1]
 
     def get_slice_image_at_center(self):
         if not self.vtk_image:

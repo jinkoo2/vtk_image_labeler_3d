@@ -310,17 +310,17 @@ class MainWindow3D(QMainWindow):
         
         # Zoom In
         zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.triggered.connect(self.vtk_viewer.zooming.zoom_in)
+        zoom_in_action.triggered.connect(self.vtk_viewer.zoom_in)
         view_menu.addAction(zoom_in_action)
 
         # Zoom Out
         zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.triggered.connect(self.vtk_viewer.zooming.zoom_out)
+        zoom_out_action.triggered.connect(self.vtk_viewer.zoom_out)
         view_menu.addAction(zoom_out_action)
 
         # Zoom Reset
         zoom_reset_action = QAction("Zoom Reset", self)
-        zoom_reset_action.triggered.connect(self.vtk_viewer.zooming.zoom_reset)
+        zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         view_menu.addAction(zoom_reset_action)
         
         self.create_managers_menu(view_menu)
@@ -376,23 +376,23 @@ class MainWindow3D(QMainWindow):
         
         # zoom in action
         zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.triggered.connect(self.vtk_viewer.zooming.zoom_in)
+        zoom_in_action.triggered.connect(self.vtk_viewer.zoom_in)
         toolbar.addAction(zoom_in_action)    
         
          # zoom out action
         zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.triggered.connect(self.vtk_viewer.zooming.zoom_out)
+        zoom_out_action.triggered.connect(self.vtk_viewer.zoom_out)
         toolbar.addAction(zoom_out_action)    
 
         # zoom reset button
         zoom_reset_action = QAction("Zoom Reset", self)
-        zoom_reset_action.triggered.connect(self.vtk_viewer.zooming.zoom_reset)
+        zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         toolbar.addAction(zoom_reset_action)        
 
         # zoom toggle button
         zoom_action = QAction("Zoom", self)
         zoom_action.setCheckable(True)
-        zoom_action.toggled.connect(self.vtk_viewer.toggle_zooming_mode)
+        zoom_action.toggled.connect(self.zoom_clicked)
         toolbar.addAction(zoom_action)        
 
         # pan toggle button
@@ -428,6 +428,9 @@ class MainWindow3D(QMainWindow):
         add_ruler_action = QAction("Add Ruler", self)
         add_ruler_action.triggered.connect(self.vtk_viewer.add_ruler)
         toolbar.addAction(add_ruler_action)
+
+    def zoom_clicked(self, checked):
+        self.vtk_viewer.enable_zooming(checked)
 
     def rotate_plus_90_clicked(self):
         
@@ -544,9 +547,7 @@ class MainWindow3D(QMainWindow):
             window = self.range_slider.get_width()
             level = self.range_slider.get_center()
 
-            self.vtk_viewer.window_level_filter.SetWindow(window)
-            self.vtk_viewer.window_level_filter.SetLevel(level)
-            self.vtk_viewer.get_render_window().Render()
+            self.vtk_viewer.set_window_level(window, level)
 
             self.print_status(f"Window: {window}, Level: {level}")
 
