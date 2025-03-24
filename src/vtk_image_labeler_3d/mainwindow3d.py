@@ -90,9 +90,14 @@ class MainWindow3D(QMainWindow):
             self.addDockWidget(Qt.RightDockWidgetArea, dock)
         self.add_exclusive_actions(self.segmentation_list_manager.get_exclusive_actions()) 
         self.segmentation_list_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
+        self.segmentation_list_manager.layer_added.connect(self.on_segmentation_layer_added) 
+        self.segmentation_list_manager.active_layer_changed.connect(self.on_active_segmentation_layer_changed) 
+
         self.managers.append(self.segmentation_list_manager)
         self.segmentation_list_dock_widget = dock
         self.add_manager_visibility_toggle_menu(self.segmentation_list_manager, True)
+
+        self.vtk_viewer.set_segmentation_layers(self.segmentation_list_manager.segmentation_layers)
 
         ##########################
         # Point List Manager
@@ -173,7 +178,11 @@ class MainWindow3D(QMainWindow):
         #dicom_file = "./data/jaw_cal.dcm"
         #self.load_dicom(dicom_file)
 
+    def on_segmentation_layer_added(self, layer_name, sender):
+        self.vtk_viewer.on_segmentation_layer_added(layer_name, sender)
 
+    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
+        self.vtk_viewer.on_active_segmentation_layer_changed(new_layer_name, old_layer_name, sender)
 
     def add_manager_visibility_toggle_menu(self, manager, visible):
         toggle_action = QAction(manager.name, self)

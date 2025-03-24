@@ -159,7 +159,7 @@ from PyQt5.QtCore import pyqtSignal, QObject
 
 class Slicing(QObject):
 
-    slice_changed = pyqtSignal(int, QObject)
+    slice_changed = pyqtSignal(int, int, QObject)
 
     def __init__(self, interactor, slice_index = 0, slice_step_size = 1):
         super().__init__()
@@ -180,29 +180,37 @@ class Slicing(QObject):
 
         print(f"Slicing mode: {'enabled' if enabled else 'disabled'}")
     
-    def set_index(self, index):
+    def set_index(self, new_index):
         if not self.interactor:
             return 
         
-        if self.slice_index != index:
-            self.slice_index = index
-            self.slice_changed.emit(self.slice_index, self)
+        if self.slice_index != new_index:
+            
+            old_index = self.slice_index 
+            
+            self.slice_index = new_index
+
+            self.slice_changed.emit(new_index, old_index, self)
 
     def on_mouse_wheel_forward(self, obj, event):
         if not self.enabled:
             return
 
+        current_index = self.slice_index
+
         self.slice_index += self.slicing_step_size
 
-        self.slice_changed.emit(self.slice_index, self)
+        self.slice_changed.emit(self.slice_index, current_index, self)
 
     def on_mouse_wheel_backward(self, obj, event):
         if not self.enabled:
             return
 
+        current_index = self.slice_index
+
         self.slice_index -= self.slicing_step_size
 
-        self.slice_changed.emit(self.slice_index, self)
+        self.slice_changed.emit(self.slice_index, current_index, self)
 
 from PyQt5.QtCore import QTimer
 
@@ -231,7 +239,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def render_delayed(self):
         self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
 
-    def on_slice_changed(self, new_slice_index, sender):
+    def on_slice_changed(self, new_slice_index, old_slice_index, sender):
         print(f'slice_index={new_slice_index}')
 
         if not self.vtk_image:
@@ -260,7 +268,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # debug
         #vtk_image_3d.SetOrigin([0.0, 0.0, 0.0])
 
-
         self.vtk_image_3d = vtk_image_3d 
 
         self.reslicer.set_vtk_image(vtk_image_3d)
@@ -277,7 +284,16 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         super().set_vtk_image(slice, window, level)
 
-       
+    def set_segmentation_layers(self, segmentaiton_layers):
+        self.segmentaiton_layers = segmentaiton_layers
+
+    def on_segmentation_layer_added(self, layer_name, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_added({layer_name})')
+
+    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
+        print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({new_layer_name, old_layer_name}')
+        
+
 class VTKViewer3D(QWidget):
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
@@ -287,7 +303,6 @@ class VTKViewer3D(QWidget):
 
         # Layout for embedding the VTK widget
         layout = QGridLayout()
-        
 
         self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, main_window) 
         self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, main_window) 
@@ -318,9 +333,6 @@ class VTKViewer3D(QWidget):
         
         self.rulers = []
         self.vtk_image = None
-
-    
-   
 
     def enable_zooming(self, enable):
         for v in self.viewers_2d:
@@ -397,6 +409,19 @@ class VTKViewer3D(QWidget):
         for v in self.viewers_2d:
             v.set_vtk_image_3d(vtk_image, window, level)
 
+    def set_segmentation_layers(self, segmentation_layers):
+        self.segmentation_layers = segmentation_layers
+        
+        for v in self.viewers_2d:
+            v.set_segmentation_layers(segmentation_layers)
+
+    def on_segmentation_layer_added(self, layer_name, sender):
+        for v in self.viewers_2d:
+            v.on_segmentation_layer_added(layer_name, sender)
+
+    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
+        for v in self.viewers_2d:
+            v.on_active_segmentation_layer_changed(new_layer_name, old_layer_name, sender)
 
     def set_window_level(self, window, level):
         for v in self.viewers_2d:

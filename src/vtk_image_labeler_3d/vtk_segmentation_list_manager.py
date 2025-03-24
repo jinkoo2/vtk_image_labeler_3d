@@ -307,13 +307,14 @@ from color_rotator import ColorRotator
 class SegmentationListManager(QObject):
     # Signal to emit log messages
     log_message = pyqtSignal(str, str)  # Format: log_message(type, message)
+    layer_added = pyqtSignal(str, QObject)
+    active_layer_changed = pyqtSignal(str, str, QObject)
 
     def __init__(self, vtk_viewer, name):
         super().__init__()  # Initialize QObject
 
         self.vtk_viewer = vtk_viewer
         self.vtk_renderer = vtk_viewer.get_renderer()
-        self.active_layer_name = None
         self.name = name
 
         # segmentation data
@@ -523,6 +524,12 @@ class SegmentationListManager(QObject):
     def get_active_layer(self):
         return self.segmentation_layers.get(self.active_layer_name, None)
 
+    def set_active_layer_by_name(self, active_layer_name):
+        if self.active_layer_name != active_layer_name:
+            old_name = self.active_layer_name
+            self.active_layer_name = active_layer_name
+            self.active_layer_changed.emit(active_layer_name, old_name, self)
+
     def enable_paintbrush(self, enabled=True):
         
         if self.paintbrush is None:
@@ -683,10 +690,7 @@ class SegmentationListManager(QObject):
             if item_widget and isinstance(item_widget, SegmentationListItemWidget):
                 # Access the layer_name from the custom widget
                 layer_name = item_widget.layer_name
-                if self.active_layer_name != layer_name:
-                    self.active_layer_name = layer_name
-                    self.print_status(f"Layer {layer_name} selected")
-                    
+                self.set_active_layer_by_name(layer_name)
 
     def toggle_paint_tool(self, checked):
         
@@ -752,7 +756,7 @@ class SegmentationListManager(QObject):
         self.list_widget.setItemWidget(layer_item, layer_item_widget) # This replaces the default text-based display with the custom widget that includes the checkbox and label.
 
         # set the added as active (do I need to indicate this in the list widget?)
-        self.active_layer_name = layer_name
+        self.set_active_layer_by_name(layer_name)
     
     def generate_unique_layer_name(self, base_name="Layer"):
         index = 1
@@ -760,12 +764,26 @@ class SegmentationListManager(QObject):
             index += 1
         return f"{base_name} {index}"
     
+    def is_3d(self):
+        
+        if not self.vtk_viewer:
+            return False
+        
+        vtk_image = self.get_base_image()
+
+        if not vtk_image:
+            return False
+        
+        dims = vtk_image.e.GetDimensions()
+
+        return len(dims) ==3 and dims[2] > 1
+
     def add_layer(self, segmentation, layer_name, color_vtk, alpha):
-        actor = self.create_segmentation_actor(segmentation, color=color_vtk, alpha=alpha)
-        layer_data = SegmentationItem(segmentation=segmentation, color=from_vtk_color(color_vtk), alpha=alpha, actor=actor)
+        #actor = self.create_segmentation_actor(segmentation, color=color_vtk, alpha=alpha)
+        layer_data = SegmentationItem(segmentation=segmentation, color=from_vtk_color(color_vtk), alpha=alpha)
         self.segmentation_layers[layer_name] = layer_data
-        self.vtk_renderer.AddActor(actor)
-        self.vtk_renderer.GetRenderWindow().Render()
+        #self.vtk_renderer.AddActor(actor)
+        #self.vtk_renderer.GetRenderWindow().Render()
 
         self.add_layer_widget_item(layer_name, layer_data)
 
@@ -774,6 +792,8 @@ class SegmentationListManager(QObject):
             self.list_widget.setCurrentRow(self.list_widget.count() - 1)
 
         self._modified = True
+
+        self.layer_added.emit(layer_name, self)
 
     def add_layer_clicked(self):
 
@@ -897,9 +917,9 @@ class SegmentationListManager(QObject):
         segmentation.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)  # Single component for segmentation
         segmentation.GetPointData().GetScalars().Fill(0)  # Initialize with zeros
 
-        # Set the direction matrix if supported
-        if hasattr(segmentation, 'SetDirectionMatrix') and direction_matrix is not None:
-            segmentation.SetDirectionMatrix(direction_matrix)
+        # Set the direction matrix 
+        # SetDirectionMatrix() function si required
+        segmentation.SetDirectionMatrix(direction_matrix)
 
         return segmentation
 

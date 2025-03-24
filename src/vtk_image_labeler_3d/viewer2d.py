@@ -356,7 +356,6 @@ class VTKViewer2D(QWidget):
             self.render_window.Finalize()
             del self.render_window
 
-
     def clear(self):
         # Remove the previous image actor if it exists
         if hasattr(self, 'image_actor') and self.image_actor is not None:
