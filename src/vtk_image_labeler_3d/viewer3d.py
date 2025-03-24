@@ -154,6 +154,58 @@ class SurfaceViewer(QWidget):
 
         super().closeEvent(event)
 
+
+from PyQt5.QtCore import pyqtSignal, QObject
+
+class Slicing(QObject):
+
+    slice_changed = pyqtSignal(int, QObject)
+
+    def __init__(self, interactor, slice_index = 0, slice_step_size = 1):
+        super().__init__()
+        self.interactor = interactor
+        self.enabled = False
+        self.slicing_step_size = slice_step_size
+        self.slice_index = slice_index
+
+    def enable(self, enabled=True):
+        self.enabled = enabled
+
+        if enabled:
+            self.mouse_wheel_forward_observer = self.interactor.AddObserver("MouseWheelForwardEvent", self.on_mouse_wheel_forward)
+            self.on_mouse_wheel_backward_observer = self.interactor.AddObserver("MouseWheelBackwardEvent", self.on_mouse_wheel_backward)
+        else:    
+            self.interactor.RemoveObserver(self.mouse_wheel_forward_observer)
+            self.interactor.RemoveObserver(self.on_mouse_wheel_backward_observer)   
+
+        print(f"Slicing mode: {'enabled' if enabled else 'disabled'}")
+    
+    def set_index(self, index):
+        if not self.interactor:
+            return 
+        
+        if self.slice_index != index:
+            self.slice_index = index
+            self.slice_changed.emit(self.slice_index, self)
+
+    def on_mouse_wheel_forward(self, obj, event):
+        if not self.enabled:
+            return
+
+        self.slice_index += self.slicing_step_size
+
+        self.slice_changed.emit(self.slice_index, self)
+
+    def on_mouse_wheel_backward(self, obj, event):
+        if not self.enabled:
+            return
+
+        self.slice_index -= self.slicing_step_size
+
+        self.slice_changed.emit(self.slice_index, self)
+
+from PyQt5.QtCore import QTimer
+
 import viewer2d
 import reslicer
 class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
@@ -163,9 +215,52 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.vtk_image_3d = None
         self.slice = None
         self.slice_index = None
+        self.slicing = Slicing(self.interactor)
+        self.slicing.slice_changed.connect(self.on_slice_changed)
+        self.slicing.enable(True)
+
+        # delayed rendering
+        self.render_timer = QTimer()
+        self.render_timer.setSingleShot(True)
+        self.render_timer.timeout.connect(self.render)
+        self.delayed_render_ms = 20
+
+    def render(self):
+        self.get_render_window().Render()
+
+    def render_delayed(self):
+        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
+
+    def on_slice_changed(self, new_slice_index, sender):
+        print(f'slice_index={new_slice_index}')
+
+        if not self.vtk_image:
+            return 
+
+        if self.slice_index == new_slice_index:
+            return 
+
+        # get the center slice
+        new_slice = self.reslicer.get_slice_image(new_slice_index)
     
+        self.vtk_image = new_slice
+                
+        # Connect reader to window/level filter
+        self.window_level_filter.SetInputData(new_slice)
+        self.window_level_filter.Update()
+    
+        self.render_delayed()
+
+        # save the slice & slice index
+        self.slice = new_slice
+        self.slice_index = new_slice_index
+
     def set_vtk_image_3d(self, vtk_image_3d, window, level):
-        
+
+        # debug
+        #vtk_image_3d.SetOrigin([0.0, 0.0, 0.0])
+
+
         self.vtk_image_3d = vtk_image_3d 
 
         self.reslicer.set_vtk_image(vtk_image_3d)
@@ -177,6 +272,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # save the slice & slice index
         self.slice = slice
         self.slice_index = index
+
+        self.slicing.set_index(index)
 
         super().set_vtk_image(slice, window, level)
 
@@ -203,71 +300,74 @@ class VTKViewer3D(QWidget):
         for v in self.viewers_2d:
             v.zoom_changed.connect(self.on_zoom_changed_event)
         
-        for v in self.viewers:
-            v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_viewer)
+        for v in self.viewers_2d:
+            v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_2d_viewer)
+            v.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_2d_viewer)
+            v.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_2d_viewer)
+        
+        self.viewer_surf.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_surf_viewer)
+        self.viewer_surf.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_surf_viewer)
+        self.viewer_surf.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_surf_viewer)
 
         layout.addWidget(self.viewer_ax, 0, 0)
-        layout.addWidget(self.viewer_cr, 0, 1)
-        layout.addWidget(self.viewer_sg, 1, 0)
-        layout.addWidget(self.viewer_surf, 1, 1)
+        layout.addWidget(self.viewer_cr, 1, 0)
+        layout.addWidget(self.viewer_sg, 1, 1)
+        layout.addWidget(self.viewer_surf, 0, 1)
 
         self.setLayout(layout)
         
         self.rulers = []
         self.vtk_image = None
 
-        self.zooming_enabled = False
-
-
-    def wheelEvent(self, event):
-        
-        if not self.vtk_image:
-            return
-
-        # Retrieve the amount scrolled
-        delta = event.angleDelta().y()
-
-        if delta > 0:
-            print("Mouse wheel scrolled forward (up)")
-            if self.zooming_enabled:
-                self.zoom_out()
-        elif delta < 0:
-            print("Mouse wheel scrolled backward (down)")
-            if self.zooming_enabled:
-                self.zoom_in()
-
-        # Accept the event to indicate that you've handled it
-        event.accept()
+    
+   
 
     def enable_zooming(self, enable):
-        self.zooming_enabled = enable
+        for v in self.viewers_2d:
+            v.toggle_zooming_mode(enable)
+
+    def enable_panning(self, enable):
+        for v in self.viewers_2d:
+            v.toggle_panning_mode(enable)
 
     def on_zoom_changed_event(self, type, sender):
         for v in self.viewers_2d:
             if v is not sender:
                 v.zoom(type, emit_event=False)
 
-    def get_active_viewer(self):
+    def on_pan_changed_event(self, sender):
         for v in self.viewers_2d:
-                if v.active:
-                    return v
-        
-        if self.viewer_surf.active:
-            return self.viewer_surf
-        
-        return None
+            if v is not sender:
+                # do update something on the other views.
+                print('pan chaned on a view... so need to update on this view?')
 
-    def on_mouse_move_on_viewer(self, obj, event):
-        # obj is the sender (interactor)
-        # event is event string, like 'LeftButtonPressEvent'
-        self.active_viewer = None
-        for v in self.viewers_2d:
-                v.set_active(v.interactor == obj)
-        
-        if self.viewer_surf.interactor == obj:
-            self.viewer_surf.set_active(True)
-        else:
-            self.viewer_surf.set_active(False)
+    def activate_viewer(self, viewer_interactor):
+        for v in self.viewers:
+            v.set_active(v.interactor == viewer_interactor)
+    
+    def get_active_viewer(self):
+        for v in self.viewers:
+            if v.active:
+                return v
+        return None
+    
+    def on_mouse_move_on_2d_viewer(self, obj, event):
+        pass
+
+    def on_left_button_pressed_on_2d_viewer(self, obj, event):
+        pass
+
+    def on_left_button_released_on_2d_viewer(self, obj, event):
+        self.activate_viewer(obj)
+
+    def on_mouse_move_on_surf_viewer(self, obj, event):
+        pass
+
+    def on_left_button_pressed_on_surf_viewer(self, obj, event):
+        pass
+
+    def on_left_button_released_on_surf_viewer(self, obj, event):
+        self.activate_viewer(obj)
 
     def cleanup_vtk(self, event):
 
@@ -343,7 +443,13 @@ class VTKViewer3D(QWidget):
         pass
 
     def add_ruler(self):
-        pass
+        if not self.vtk_image:
+            print('no image at the moment')
+            return 
+        
+        v = self.get_active_viewer()
+        if v and hasattr(v, 'add_ruler'):
+            v.add_ruler()
 
     def on_left_button_press(self, obj, event):
         pass

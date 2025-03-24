@@ -398,7 +398,7 @@ class MainWindow3D(QMainWindow):
         # pan toggle button
         pan_action = QAction("Pan", self)
         pan_action.setCheckable(True)
-        pan_action.toggled.connect(self.vtk_viewer.toggle_panning_mode)
+        pan_action.toggled.connect(self.pan_clicked)
         toolbar.addAction(pan_action)        
 
         # rotate plus 90 deg (x-->y)
@@ -431,6 +431,10 @@ class MainWindow3D(QMainWindow):
 
     def zoom_clicked(self, checked):
         self.vtk_viewer.enable_zooming(checked)
+
+    def pan_clicked(self, checked):
+        self.vtk_viewer.enable_panning(checked)
+
 
     def rotate_plus_90_clicked(self):
         

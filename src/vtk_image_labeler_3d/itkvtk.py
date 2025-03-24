@@ -187,3 +187,29 @@ def vtk_matrix3x3_to_numpy(vtk_matrix):
             numpy_array[i, j] = vtk_matrix.GetElement(i, j)
     
     return numpy_array
+
+def vtk_matrix4x4_to_direction_and_origin_arrays(vtk_matrix):
+    # Extract direction (rotation) and origin (translation) from matrix
+    direction = [0.0] * 9
+    origin = [0.0] * 3
+
+    for row in range(3):
+        for col in range(3):
+            direction[row * 3 + col] = vtk_matrix.GetElement(row, col)
+        origin[row] = vtk_matrix.GetElement(row, 3)
+
+    return direction, origin
+
+def vtk_matrix4x4_to_matrix3x3_and_t(matrix4x4):
+    # Extract direction (rotation) and origin (translation) from matrix
+    t = [0.0] * 3
+
+    # Create vtkMatrix3x3
+    matrix3x3 = vtk.vtkMatrix3x3()
+
+    # Copy the top-left 3x3 part
+    for i in range(3):
+        for j in range(3):
+            matrix3x3.SetElement(i, j, matrix4x4.GetElement(i, j))
+
+    return matrix3x3, t

@@ -10,11 +10,17 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QListWidgetItem, QColorDialog
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
 
+from PyQt5.QtCore import pyqtSignal, QObject
+
 from logger import logger
 
 
-class Panning:
+class Panning(QObject):
+
+    pan_changed = pyqtSignal(QObject)
+
     def __init__(self, viewer=None):
+        super().__init__()
         self.viewer = viewer
         self.interactor = viewer.interactor
         self.left_button_is_pressed = False
@@ -61,6 +67,8 @@ class Panning:
         if not self.enabled:
             return
         
+        self.pan_changed.emit(self)
+
         self.left_button_is_pressed = False
         self.last_mouse_position = None
 
@@ -111,11 +119,11 @@ class Panning:
         # Update the last mouse position
         self.last_mouse_position = current_mouse_position
         
-from PyQt5.QtCore import pyqtSignal, QObject
+
 
 class Zooming(QObject):
 
-    zoomChanged = pyqtSignal(str, QObject)
+    zoom_changed = pyqtSignal(str, QObject)
 
     def __init__(self, viewer=None):
         super().__init__()
@@ -174,7 +182,7 @@ class Zooming(QObject):
             raise Exception(f'Unknown zoom type {type}!')
 
         if emit_event:
-            self.zoomChanged.emit(type, self)
+            self.zoom_changed.emit(type, self)
 
         self.viewer.get_render_window().Render()
 
@@ -264,6 +272,7 @@ background_color_active = (0.6, 0.6, 0.6)
 
 class VTKViewer2D(QWidget):
     zoom_changed = pyqtSignal(str, QObject)
+    pan_changed = pyqtSignal(QObject)
 
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
@@ -302,15 +311,18 @@ class VTKViewer2D(QWidget):
         # Connect mouse events
         self.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
         self.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_release)
+        self.interactor.AddObserver("RightButtonPressEvent", self.on_right_button_press)
+        self.interactor.AddObserver("RightButtonReleaseEvent", self.on_right_button_release)
         self.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
 
         self.rulers = []
         self.vtk_image = None
 
         self.zooming = Zooming(viewer=self)
-        self.zooming.zoomChanged.connect(self.on_zoom_changed_event)
+        self.zooming.zoom_changed.connect(self.on_zoom_changed_event)
 
         self.panning = Panning(viewer=self)  
+        self.panning.pan_changed.connect(self.on_pan_changed_event)
 
         self.set_active(False)
 
@@ -324,6 +336,9 @@ class VTKViewer2D(QWidget):
 
     def on_zoom_changed_event(self, zoom_type, sender):
         self.zoom_changed.emit(zoom_type, self)
+
+    def on_pan_changed_event(self, sender):
+        self.pan_changed.emit(self)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -379,10 +394,68 @@ class VTKViewer2D(QWidget):
 
         self.get_renderer().AddActor(self.image_actor)
         
-        self.get_renderer().ResetCamera()
+        #self.get_renderer().ResetCamera()
+        self.setup_top_left_origin_camera()
 
         self.get_render_window().Render()
 
+    def get_window_level(self):
+        if not self.vtk_image:
+            return None
+        
+        window = self.window_level_filter.GetWindow()
+        level = self.window_level_filter.GetLevel()
+
+        return window, level
+    
+    def setup_top_left_origin_camera(self):
+        if not self.vtk_image:
+            print("No image loaded.")
+            return
+
+        dims = self.vtk_image.GetDimensions()
+        spacing = self.vtk_image.GetSpacing()
+        origin = self.vtk_image.GetOrigin()
+
+        # Handle direction matrix if available
+        if hasattr(self.vtk_image, 'GetDirectionMatrix'):
+            direction_matrix = self.vtk_image.GetDirectionMatrix()
+        else:
+            direction_matrix = vtk.vtkMatrix3x3()
+            direction_matrix.Identity()
+
+        # Convert to 3x3 Python list
+        dir_mat = [[direction_matrix.GetElement(i, j) for j in range(3)] for i in range(3)]
+
+        # Calculate the center of the image in physical space
+        center_ijk = [dims[0] / 2.0, dims[1] / 2.0, dims[2] / 2.0]
+        center_world = [origin[i] + sum(spacing[j] * center_ijk[j] * dir_mat[i][j] for j in range(3)) for i in range(3)]
+
+        # Compute view-up and direction vector using direction matrix
+        right = [dir_mat[i][0] for i in range(3)]   # x-axis in world
+        down = [dir_mat[i][1] for i in range(3)]    # y-axis in world
+        forward = [dir_mat[i][2] for i in range(3)] # z-axis in world
+
+        # Camera should be placed above the image looking "down"
+        distance = 1000.0
+        camera_position = [center_world[i] + forward[i] * distance for i in range(3)]
+        view_up = [-down[0], -down[1], -down[2]]  # Flip Y
+
+        camera = self.renderer.GetActiveCamera()
+        camera.SetParallelProjection(True)
+        camera.SetPosition(*camera_position)
+        camera.SetFocalPoint(*center_world)
+        camera.SetViewUp(*view_up)
+
+        # Set scale based on physical height of image in world space
+        image_height_world = spacing[1] * dims[1]
+        image_widtht_world = spacing[0] * dims[0]
+        camera.SetParallelScale(max(image_height_world, image_widtht_world) / 2)
+
+        self.renderer.ResetCameraClippingRange()
+        self.render_window.Render()
+        
+        
     def set_window_level(self, window, level):
         if self.window_level_filter:
             self.window_level_filter.SetWindow(window)
@@ -484,6 +557,53 @@ class VTKViewer2D(QWidget):
     def on_mouse_move(self, obj, event):
         self.print_mouse_coordiantes()
         self.render_window.Render()
+
+    def on_right_button_press(self, obj, event):
+        pass
+
+    def show_camera_properties(self):
+        import vtk_camera_property_editor
+        camera = self.renderer.GetActiveCamera()
+        editor_widget = vtk_camera_property_editor.VTKCameraPropertyEditor(camera)
+
+        import widget_dialog
+        dlg = widget_dialog.WidgetDialog(editor_widget)
+
+        dlg.exec_()  # Show modal dialog
+
+    def on_right_button_release(self, obj, event):
+        from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QAction, QVBoxLayout, QWidget
+
+        """Show a pop-up menu when the right mouse button is released."""
+        menu = QMenu(self)
+
+        # Option 1 with a submenu
+        option1_menu = QMenu("Camera", self)
+        action_camera_properties = QAction("Properties", self)
+        submenu_action2 = QAction("Sub-option 2", self)
+
+        option1_menu.addAction(action_camera_properties)
+        option1_menu.addAction(submenu_action2)
+
+        # Main menu actions
+        menu.addMenu(option1_menu)  # Add submenu under Option 1
+        action2 = QAction("Option 2", self)
+        action3 = QAction("Exit", self)
+
+        menu.addAction(action2)
+        menu.addAction(action3)
+
+        # Connect actions to functions
+        action_camera_properties.triggered.connect(self.show_camera_properties)
+        submenu_action2.triggered.connect(lambda: print("Sub-option 2 selected"))
+        action2.triggered.connect(lambda: print("Option 2 selected"))
+        action3.triggered.connect(self.close)
+
+        # Show the menu at cursor position
+        cursor_position = self.mapFromGlobal(self.cursor().pos())
+        menu.exec_(self.mapToGlobal(cursor_position))
+
+
 
     def print_mouse_coordiantes(self):
         """Update brush position and print mouse position details when inside the image."""

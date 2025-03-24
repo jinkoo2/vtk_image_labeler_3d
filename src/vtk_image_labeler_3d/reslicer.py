@@ -1,6 +1,8 @@
 import vtk
 import SimpleITK as sitk
 import numpy as np
+import itkvtk
+
 
 def reslice_image_z(vtk_image, z_index, background_value=-1000, vtk_image_reslice=None):
     """
@@ -161,32 +163,33 @@ class Reslicer():
         self.vtk_image = vtk_image
         self.vtk_image_reslice.SetInputData(vtk_image)
     
-    def set_slice_index(self, index):
+    def calculate_axes(self, index):
         
-        min, max = self.get_slice_index_min_max()
-        if not (min <= index <= max):
-            raise ValueError(f"slice index {index} is out of bounds. Must be between {min} and {max}")
-
-        spacing = self.vtk_image.GetSpacing()[self.axis]
-        offset = index * spacing
-        reslice = self.vtk_image_reslice
+        spacing = self.vtk_image.GetSpacing()
+        offset = index * spacing[self.axis]
+        #reslice = self.vtk_image_reslice
         imgo_H_sliceo = vtk.vtkMatrix4x4()
 
+        extent = self.vtk_image.GetExtent()
+        
         if self.axis == AXIAL:
             imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
                                     0, 1, 0, 0,
                                     0, 0, 1, offset,
                                     0, 0, 0, 1))
         elif self.axis == CORONAL:
+            z_offset = extent[5] * spacing[2]
             imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-                                    0, 0, -1, offset,  
-                                    0, 1, 0, 0,
+                                    0, 0,  1, offset,  
+                                    0, -1, 0, z_offset,
                                     0, 0, 0, 1))
         elif self.axis == SAGITTAL:
-            imgo_H_sliceo.DeepCopy((0, 0, -1, offset,
-                            0, 1, 0, 0,
-                            1, 0, 0, 0,
-                            0, 0, 0, 1))
+            z_offset = extent[5] * spacing[2]
+            y_offset = extent[3] * spacing[1]
+            imgo_H_sliceo.DeepCopy(( 0,  0, 1, offset,
+                                    -1,  0, 0, y_offset,
+                                     0, -1, 0, z_offset,
+                                     0,  0, 0, 1))
         else:
             raise Exception(f'Invalid Axis ({self.axis})')
 
@@ -195,10 +198,21 @@ class Reslicer():
         w_H_sliceo = vtk.vtkMatrix4x4()
         vtk.vtkMatrix4x4.Multiply4x4(w_H_imgo, imgo_H_sliceo, w_H_sliceo)
 
-        reslice.SetResliceAxes(w_H_sliceo)
+        return w_H_sliceo
+    
+    def set_slice_index(self, index):
+        
+        min, max = self.get_slice_index_min_max()
+        if not (min <= index <= max):
+            print(f"slice index {index} is out of bounds ({min}, {max})")
 
-        reslice.Update()
+        w_H_sliceo = self.calculate_axes(index)
 
+        self.vtk_image_reslice.SetResliceAxes(w_H_sliceo)
+
+        self.vtk_image_reslice.Update()
+
+        return w_H_sliceo
 
     def get_slice_index_min_max(self):
         if not self.vtk_image:
@@ -220,8 +234,20 @@ class Reslicer():
         return self.get_slice_image(index), index
 
     def get_slice_image(self, index):
-        self.set_slice_index(index)
-        return self.vtk_image_reslice.GetOutput()
+        w_H_sliceo = self.set_slice_index(index)
+
+        slice = self.vtk_image_reslice.GetOutput()
+        
+        # set slice direction & origin from w_H_sliceo,
+        # note: self.vtk_image_reslicer.SetOutputOrigin and SetOutputDirectionMatrix did not work somehow. So, setting here after obraining the slice image
+        direction, origin = itkvtk.vtk_matrix4x4_to_direction_and_origin_arrays(w_H_sliceo)
+        slice.SetOrigin(origin)
+        slice.SetDirectionMatrix(direction)
+
+        # debug
+        #itkvtk.save_vtk_image_using_sitk(slice, f'slice_{self.axis}_{index}.mhd')
+
+        return slice
 
 def main():
     input_filename = "C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha"
