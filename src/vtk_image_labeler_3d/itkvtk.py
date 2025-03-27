@@ -148,26 +148,7 @@ def vtk_get_w_H_imageo(vtk_image):
 
 import numpy as np
 
-def vtk_matrix4x4_to_numpy(vtk_matrix):
-    """
-    Convert a vtkMatrix4x4 to a 4x4 NumPy array.
-    
-    Args:
-        vtk_matrix: vtk.vtkMatrix4x4 object
-    
-    Returns:
-        np.ndarray: 4x4 NumPy array
-    """
-    # Initialize a 4x4 NumPy array
-    numpy_array = np.zeros((4, 4))
-    
-    # Populate the array with elements from the vtkMatrix4x4
-    for i in range(4):
-        for j in range(4):
-            numpy_array[i, j] = vtk_matrix.GetElement(i, j)
-    
-    return numpy_array
-
+vtk.vtkMatrix3x3
 def vtk_matrix3x3_to_numpy(vtk_matrix):
     """
     Convert a vtkMatrix4x4 to a 3x3 NumPy array.
@@ -187,6 +168,30 @@ def vtk_matrix3x3_to_numpy(vtk_matrix):
             numpy_array[i, j] = vtk_matrix.GetElement(i, j)
     
     return numpy_array
+
+def vtk_matrix4x4_to_numpy(vtk_matrix):
+    """
+    Convert a vtkMatrix4x4 to a 3x3 NumPy array.
+    
+    Args:
+        vtk_matrix: vtk.vtkMatrix3x3 object
+    
+    Returns:
+        np.ndarray: 4x4 NumPy array
+    """
+    # Initialize a 4x4 NumPy array
+    numpy_array = np.zeros((4, 4))
+    
+    # Populate the array with elements from the vtkMatrix4x4
+    for i in range(4):
+        for j in range(4):
+            numpy_array[i, j] = vtk_matrix.GetElement(i, j)
+    
+    return numpy_array
+
+def vtk_get_w_H_imageo_np(vtk_image):
+    H = vtk_get_w_H_imageo_np(vtk_image)
+    return vtk_matrix4x4_to_numpy(H)
 
 def vtk_matrix4x4_to_direction_and_origin_arrays(vtk_matrix):
     # Extract direction (rotation) and origin (translation) from matrix
@@ -213,3 +218,51 @@ def vtk_matrix4x4_to_matrix3x3_and_t(matrix4x4):
             matrix3x3.SetElement(i, j, matrix4x4.GetElement(i, j))
 
     return matrix3x3, t
+
+
+def fill_square_at_center(image, width_in_pixels, pixel_value):
+    dims = image.GetDimensions()
+    center = [dims[i] // 2 for i in range(3)]
+
+    half_size = width_in_pixels//2 
+    #start = [center[i] - half_size for i in range(3)]
+    start = [0, 0, 0]
+    end = [center[i] + half_size for i in range(3)]
+
+    # Fill central 50x50x50 with value 1
+    component = 0
+    for z in range(start[2], end[2]):
+        for y in range(start[1], end[1]):
+            for x in range(start[0], end[0]):
+                image.SetScalarComponentFromDouble(x, y, z, component, pixel_value)
+
+    image.Modified()
+
+import vtk
+
+def fill_rectangular_region(image, start_idx, end_idx, value):
+    """
+    Fill a rectangular 3D region in vtkImageData with a specified value.
+
+    Parameters:
+        image_data (vtk.vtkImageData): The VTK image object to modify.
+        start_idx (tuple): Starting index (x0, y0, z0) of the box.
+        end_idx (tuple): Ending index (x1, y1, z1) of the box (inclusive).
+        value (float): Pixel value to set.
+    """
+    dims = image.GetDimensions()
+
+    # Clip to valid bounds
+    x0, y0, z0 = [max(0, min(start_idx[i], dims[i] - 1)) for i in range(3)]
+    x1, y1, z1 = [max(0, min(end_idx[i], dims[i] - 1)) for i in range(3)]
+
+    component = 0
+
+    for z in range(z0, z1 + 1):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                # Calculate flat index
+                image.SetScalarComponentFromDouble(x, y, z, component, value)
+
+    image.Modified()
+

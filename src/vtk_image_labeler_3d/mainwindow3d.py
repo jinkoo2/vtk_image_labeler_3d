@@ -70,6 +70,7 @@ class MainWindow3D(QMainWindow):
 
         # VTK Viewer
         self.vtk_viewer = viewer3d.VTKViewer3D(parent = self, main_window = self)
+        self.vtk_viewer.status_message.connect(self.on_status_message_from_viewer)
         self.layout.addWidget(self.vtk_viewer)
 
         self.main_widget.setLayout(self.layout)
@@ -91,6 +92,7 @@ class MainWindow3D(QMainWindow):
         self.add_exclusive_actions(self.segmentation_list_manager.get_exclusive_actions()) 
         self.segmentation_list_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
         self.segmentation_list_manager.layer_added.connect(self.on_segmentation_layer_added) 
+        self.segmentation_list_manager.layer_removed.connect(self.on_segmentation_layer_removed) 
         self.segmentation_list_manager.active_layer_changed.connect(self.on_active_segmentation_layer_changed) 
 
         self.managers.append(self.segmentation_list_manager)
@@ -181,6 +183,9 @@ class MainWindow3D(QMainWindow):
     def on_segmentation_layer_added(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_added(layer_name, sender)
 
+    def on_segmentation_layer_removed(self, layer_name, sender):
+        self.vtk_viewer.on_segmentation_layer_removed(layer_name, sender)
+
     def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
         self.vtk_viewer.on_active_segmentation_layer_changed(new_layer_name, old_layer_name, sender)
 
@@ -267,6 +272,9 @@ class MainWindow3D(QMainWindow):
         for action in actions:
             self.exclusive_actions.append(action)
             action.triggered.connect(self.on_exclusiave_action_clicked)
+
+    def on_status_message_from_viewer(self, msg, sender):
+        self.status_bar.showMessage(msg)
 
     def print_status(self, msg):
         self.status_bar.showMessage(msg)
@@ -604,6 +612,9 @@ class MainWindow3D(QMainWindow):
         dims = self.vtk_image.GetDimensions()
         spacing = self.vtk_image.GetSpacing()
         original_origin = self.vtk_image.GetOrigin()
+
+        #for debug
+        self.vtk_image.SetOrigin([0.0, 0.0, 0.0])
 
         _info(f'dims={dims}')
         _info(f'spacing={spacing}')

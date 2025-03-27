@@ -159,6 +159,8 @@ class Reslicer():
 
         self.vtk_image_reslice = reslice
 
+        self.slice_index = 0
+
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
         self.vtk_image_reslice.SetInputData(vtk_image)
@@ -212,6 +214,8 @@ class Reslicer():
 
         self.vtk_image_reslice.Update()
 
+        self.slice_index = index 
+
         return w_H_sliceo
 
     def get_slice_index_min_max(self):
@@ -248,6 +252,38 @@ class Reslicer():
         #itkvtk.save_vtk_image_using_sitk(slice, f'slice_{self.axis}_{index}.mhd')
 
         return slice
+
+    
+class ReslicerWithImageActor(Reslicer):
+    def __init__(self, axis, vtk_image=None, background_value=-1000, vtk_color=(1,0,0), alpha=0.8):
+        super().__init__(axis, vtk_image, background_value)
+        self._create_slice_actor(vtk_color, alpha)
+
+    def _create_slice_actor(self, vtk_color, alpha):
+        # Create a lookup table for coloring the segmentation
+        lookup_table = vtk.vtkLookupTable()
+        lookup_table.SetNumberOfTableValues(2)  # For 0 (background) and 1 (segmentation)
+        lookup_table.SetTableRange(0, 1)       # Scalar range
+        lookup_table.SetTableValue(0, 0, 0, 0, 0)  # Background: Transparent
+        lookup_table.SetTableValue(1, vtk_color[0], vtk_color[1], vtk_color[2], alpha)  # Segmentation: Red with 50% opacity
+        lookup_table.Build()
+        
+        mapper = vtk.vtkImageMapToColors()
+        mapper.SetLookupTable(lookup_table)
+        #mapper.Update()
+
+        actor = vtk.vtkImageActor()
+        actor.GetMapper().SetInputConnection(mapper.GetOutputPort())
+
+        self.slice_mapper = mapper      
+        self.slice_actor = actor
+
+    def set_slice_index_and_update_slice_actor(self, index):
+        slice = super().get_slice_image(index)
+        self.slice_mapper.SetInputData(slice)
+        self.slice_actor.Update()
+
+
 
 def main():
     input_filename = "C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha"

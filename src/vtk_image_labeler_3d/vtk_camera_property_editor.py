@@ -5,8 +5,12 @@ from PyQt5.QtCore import Qt
 import vtk
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from PyQt5.QtCore import pyqtSignal, QObject
 
 class VTKCameraPropertyEditor(QTreeWidget):
+
+    property_changed = pyqtSignal(str, QObject)
+
     def __init__(self, camera, parent=None):
         super().__init__(parent)
         self.camera = camera  # Store reference to the VTK camera
@@ -58,19 +62,22 @@ class VTKCameraPropertyEditor(QTreeWidget):
             # Apply changes to VTK camera
             if prop_name == "Position":
                 self.camera.SetPosition(new_value)
+                self.property_changed.emit(prop_name, self)
             elif prop_name == "Focal Point":
                 self.camera.SetFocalPoint(new_value)
+                self.property_changed.emit(prop_name, self)
             elif prop_name == "View Up":
                 self.camera.SetViewUp(new_value)
+                self.property_changed.emit(prop_name, self)
             elif prop_name == "Clipping Range":
                 self.camera.SetClippingRange(new_value)
+                self.property_changed.emit(prop_name, self)
             elif prop_name == "View Angle":
                 self.camera.SetViewAngle(new_value)
+                self.property_changed.emit(prop_name, self)
             elif prop_name == "Parallel Scale":
                 self.camera.SetParallelScale(new_value)
-
-            # Refresh camera view
-            self.camera.GetRenderer().GetRenderWindow().Render()
+                self.property_changed.emit(prop_name, self)
 
 
 class VTKViewer2D(QWidget):

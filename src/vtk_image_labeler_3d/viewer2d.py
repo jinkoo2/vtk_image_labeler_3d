@@ -273,6 +273,7 @@ background_color_active = (0.6, 0.6, 0.6)
 class VTKViewer2D(QWidget):
     zoom_changed = pyqtSignal(str, QObject)
     pan_changed = pyqtSignal(QObject)
+    status_message = pyqtSignal(str, QObject)
 
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
@@ -326,6 +327,7 @@ class VTKViewer2D(QWidget):
 
         self.set_active(False)
 
+
     def set_active(self, active=True):
         self.active = active
         if active:
@@ -369,7 +371,9 @@ class VTKViewer2D(QWidget):
     def print_status(self, msg):
         if self.main_window is not None:
             self.main_window.print_status(msg)
-
+        else:
+            self.status_message.emit(msg, self)
+        
     def get_vtk_image(self):
         return self.vtk_image
     
@@ -453,7 +457,6 @@ class VTKViewer2D(QWidget):
 
         self.renderer.ResetCameraClippingRange()
         self.render_window.Render()
-        
         
     def set_window_level(self, window, level):
         if self.window_level_filter:
@@ -562,13 +565,27 @@ class VTKViewer2D(QWidget):
 
     def show_camera_properties(self):
         import vtk_camera_property_editor
+        import widget_dialog
+
         camera = self.renderer.GetActiveCamera()
         editor_widget = vtk_camera_property_editor.VTKCameraPropertyEditor(camera)
 
-        import widget_dialog
+        # Connect the signal
+        editor_widget.property_changed.connect(self.on_camera_property_changed)
+
         dlg = widget_dialog.WidgetDialog(editor_widget)
 
-        dlg.exec_()  # Show modal dialog
+        # Disconnect the signal after the dialog is closed
+        def cleanup():
+            editor_widget.property_changed.disconnect(self.on_camera_property_changed)
+
+        dlg.finished.connect(cleanup)  # Will be called when the dialog is closed
+
+        dlg.exec_()
+    
+    def on_camera_property_changed(self, property_name, sender):
+        print(f'on_camera_property_changed({property_name})')
+        self.render()
 
     def on_right_button_release(self, obj, event):
         from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QAction, QVBoxLayout, QWidget
@@ -605,6 +622,10 @@ class VTKViewer2D(QWidget):
 
 
     def print_mouse_coordiantes(self):
+
+        if not self.vtk_image:
+            return 
+       
         """Update brush position and print mouse position details when inside the image."""
         mouse_pos = self.interactor.GetEventPosition()
 
@@ -620,23 +641,30 @@ class VTKViewer2D(QWidget):
             print("Mouse is outside the render area.")
             return
 
+        print(f'mouse_pose=({mouse_pos[0]},{mouse_pos[1]})')
+        print(f'mouse_pose=({world_pos[0]},{world_pos[1]},{world_pos[2]})')
+
         # Get the image data
         vtk_image = self.vtk_image
         if not vtk_image:
-            #print("No image loaded.")
+            print("No image loaded.")
             return
+
+        import itkvtk
+        import numpy as np
+
+        vtk_w_H_imgo = itkvtk.vtk_get_w_H_imageo(vtk_image)
+        w_H_imgo = itkvtk.vtk_matrix4x4_to_numpy(vtk_w_H_imgo)
+        imgo_H_w = np.linalg.inv(w_H_imgo)
+        w_pt = np.append(np.array(world_pos), 1.0)
+        imgo_pt = imgo_H_w @ w_pt
 
         # Get image properties
         dims = vtk_image.GetDimensions()
-        spacing = vtk_image.GetSpacing()
+        spacing = np.array(vtk_image.GetSpacing())
         origin = vtk_image.GetOrigin()
 
-        # Convert world coordinates to image index
-        image_index = [
-            int((world_pos[0] - origin[0]) / spacing[0] + 0.5),
-            int((world_pos[1] - origin[1]) / spacing[1] + 0.5),
-            int((world_pos[2] - origin[2]) / spacing[2] + 0.5)
-        ]
+        image_index = np.round(imgo_pt[:3] / spacing).astype(int)
 
         # Check if the index is within bounds
         if not (0 <= image_index[0] < dims[0] and 0 <= image_index[1] < dims[1] and 0 <= image_index[2] < dims[2]):

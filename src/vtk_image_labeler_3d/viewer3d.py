@@ -88,7 +88,12 @@ class LineWidget:
 background_color = (0.5, 0.5, 0.5)
 background_color_active = (0.6, 0.6, 0.6)
 
+from PyQt5.QtCore import pyqtSignal, QObject
+
 class SurfaceViewer(QWidget):
+    
+    status_message = pyqtSignal(str, QObject)
+
     def __init__(self, main_window=None):
         super().__init__()
     
@@ -153,6 +158,13 @@ class SurfaceViewer(QWidget):
             del self.render_window
 
         super().closeEvent(event)
+
+    def on_segmentation_layer_added(self, layer_name, sender):
+        print(f'SurfaceViewer: on_segmentation_layer_added(layername={layer_name}')
+
+    def on_segmentation_layer_removed(self, layer_name, sender):
+        print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')
+        
 
 
 from PyQt5.QtCore import pyqtSignal, QObject
@@ -227,11 +239,15 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.slicing.slice_changed.connect(self.on_slice_changed)
         self.slicing.enable(True)
 
+        self.segmentation_layer_reslicers = {}
+
         # delayed rendering
         self.render_timer = QTimer()
         self.render_timer.setSingleShot(True)
         self.render_timer.timeout.connect(self.render)
         self.delayed_render_ms = 20
+
+
 
     def render(self):
         self.get_render_window().Render()
@@ -257,11 +273,69 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.window_level_filter.SetInputData(new_slice)
         self.window_level_filter.Update()
     
+        # update the segmentation reslicers
+        for layer_name in self.segmentation_layer_reslicers.keys():
+            self.segmentation_layer_reslicers[layer_name].set_slice_index_and_update_slice_actor(new_slice_index)
+
         self.render_delayed()
 
         # save the slice & slice index
         self.slice = new_slice
         self.slice_index = new_slice_index
+
+    def reset_camera(self):
+        if not self.vtk_image_3d:
+            print("No image loaded.")
+            return
+
+        camera = self.renderer.GetActiveCamera()
+        camera.SetParallelProjection(True)
+
+        # set the camera position to the center of the volume
+        import vtk_image_wrapper
+        wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
+
+        dims = wrapper.get_dimensions()
+        spacing = wrapper.get_spacing()
+        #w_H_imgo = wrapper.get_w_H_o() # homogenious transform for point transforms from o to w
+        #w_R_imgo = w_H_imgo[:3,:3] # rotation matrix for vector transforms from o to w
+
+        camera_position = wrapper.get_center_point_w()
+        camera.SetPosition(*camera_position)
+
+        import numpy as np
+
+        # central slice coodinate system
+        center_slice = dims[self.reslicer.axis]//2
+        vkt_w_H_sliceo = self.reslicer.calculate_axes(center_slice)
+        import itkvtk
+        w_H_sliceo = itkvtk.vtk_matrix4x4_to_numpy(vkt_w_H_sliceo)
+
+        # viewup and focal point in sliceo
+        viewup_sliceo = np.array([0.0, -1.0, 0.0]).reshape(3,1)
+        wrapper_slice = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
+        pt_center_sliceo = wrapper_slice.get_center_point_o()
+        focal_pt_sliceo = np.array([pt_center_sliceo[0], pt_center_sliceo[1], 100.0 , 1.0]).reshape(4,1)
+
+        # set the view up vector
+        w_R_sliceo = w_H_sliceo[:3,:3]
+        viewup_w = w_R_sliceo @ viewup_sliceo
+        camera.SetViewUp(*viewup_w)
+
+        # set focal point to the far end of the image bound through the image center
+        focal_pt_w = (w_H_sliceo @ focal_pt_sliceo)[:3]
+        camera.SetFocalPoint(*focal_pt_w)
+        
+        # Set scale based on physical height of image in world space
+        max_half_size_physical = (spacing * dims / 2.0).max()
+        camera.SetParallelScale(max_half_size_physical)
+
+        # set clip range
+        z_near = max_half_size_physical * -3.0
+        z_far = max_half_size_physical * 3.0
+        camera.SetClippingRange([z_near, z_far])
+
+        self.render_window.Render()
 
     def set_vtk_image_3d(self, vtk_image_3d, window, level):
 
@@ -284,17 +358,76 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         super().set_vtk_image(slice, window, level)
 
+        self.reset_camera()
+
     def set_segmentation_layers(self, segmentaiton_layers):
         self.segmentaiton_layers = segmentaiton_layers
 
     def on_segmentation_layer_added(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_added({layer_name})')
 
+        # seg item
+        seg_item = self.segmentaiton_layers[layer_name]
+        seg3d = seg_item.segmentation
+        vtk_color = seg_item.get_vtk_color()
+        alpha = seg_item.get_alpha()
+        
+        # create a reslicer with actor
+        axis = self.reslicer.axis
+        slice_index = self.reslicer.slice_index 
+        seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, vtk_color = vtk_color, alpha=alpha)
+        seg_reslicer.set_slice_index_and_update_slice_actor(slice_index)
+        self.get_renderer().AddActor(seg_reslicer.slice_actor)
+        
+        # add to segmentaion reslicer list        
+        seg_item.reslicer = seg_reslicer
+        self.segmentation_layer_reslicers[layer_name] =  seg_reslicer
+                
+        self.render()
+
+        seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
+        seg_item.name_changed.connect(self.on_layer_name_changed)
+
+    def on_segmentation_layer_removed(self, layer_name, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
+
+        # check if removed rom self.segmentation_layers. it should not be there.
+        if layer_name in self.segmentaiton_layers:
+            logger.error(f'I am in on_segmentation_layer_removed(layer_name={layer_name})  handler, but segmenatino item still exists on segmenation_layers list')
+        
+        if layer_name in self.segmentation_layer_reslicers:
+            seg_reslicer = self.segmentation_layer_reslicers[layer_name]
+            self.get_renderer().RemoveActor(seg_reslicer.slice_actor)
+            self.render()
+
+    def on_layer_visibility_changed(self, sender): 
+        layer_name = sender.get_name()
+        new_visibility = sender.get_visible()
+        print(f'Visibility changed to {new_visibility} for {layer_name}')
+
+        if layer_name in self.segmentation_layer_reslicers:
+            self.segmentation_layer_reslicers[layer_name].slice_actor.SetVisibility(new_visibility)
+            self.render()
+        else:
+            print(f'Layer {layer_name} not found in segmentation_layer_reslicers')
+
+    def on_layer_name_changed(self, old_layer_name, sender):
+        new_layer_name = sender.get_name()
+        print(f'name changed from {old_layer_name} to {new_layer_name}')
+
+        if old_layer_name in self.segmentation_layer_reslicers:
+            self.segmentation_layer_reslicers[new_layer_name] = self.segmentation_layer_reslicers.pop(old_layer_name)
+        else:
+            print(f'Warning: layer {old_layer_name} not found in segmentation_layer_reslicers')
+
     def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({new_layer_name, old_layer_name}')
         
 
 class VTKViewer3D(QWidget):
+    
+    status_message = pyqtSignal(str, QObject)
+
     def __init__(self, parent=None, main_window=None):
         super().__init__(parent)
     
@@ -319,7 +452,10 @@ class VTKViewer3D(QWidget):
             v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_2d_viewer)
             v.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_2d_viewer)
             v.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_2d_viewer)
-        
+
+        for v in self.viewers:
+            v.status_message.connect(self.on_status_message_from_viewer)
+
         self.viewer_surf.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_surf_viewer)
         self.viewer_surf.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_surf_viewer)
         self.viewer_surf.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_surf_viewer)
@@ -333,6 +469,10 @@ class VTKViewer3D(QWidget):
         
         self.rulers = []
         self.vtk_image = None
+
+    def on_status_message_from_viewer(self, msg, sender):
+        self.print_status(msg)
+        
 
     def enable_zooming(self, enable):
         for v in self.viewers_2d:
@@ -395,6 +535,8 @@ class VTKViewer3D(QWidget):
     def print_status(self, msg):
         if self.main_window is not None:
             self.main_window.print_status(msg)
+        else:
+            self.status_message.emit(msg, self)
 
     def get_vtk_image(self):
         return self.vtk_image
@@ -416,8 +558,13 @@ class VTKViewer3D(QWidget):
             v.set_segmentation_layers(segmentation_layers)
 
     def on_segmentation_layer_added(self, layer_name, sender):
-        for v in self.viewers_2d:
+        for v in self.viewers:
             v.on_segmentation_layer_added(layer_name, sender)
+
+    def on_segmentation_layer_removed(self, layer_name, sender):
+        for v in self.viewers:
+            v.on_segmentation_layer_removed(layer_name, sender)
+
 
     def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
         for v in self.viewers_2d:
