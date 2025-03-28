@@ -12,6 +12,7 @@ from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
 
 from logger import logger, _info
 
+import numpy as np
 
 class LineWidget:
     def __init__(self, vtk_image, pt1_w, pt2_w, line_color_vtk=[1,0,0], line_width=2, renderer=None):
@@ -90,81 +91,7 @@ background_color_active = (0.6, 0.6, 0.6)
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
-class SurfaceViewer(QWidget):
-    
-    status_message = pyqtSignal(str, QObject)
-
-    def __init__(self, main_window=None):
-        super().__init__()
-    
-        self.main_window = main_window
-
-        # Create a VTK Renderer
-        self.renderer = vtk.vtkRenderer()
-        self.renderer.SetLayer(0)
-        self.renderer.SetBackground(*background_color)  # Set background to gray
-        self.renderer.GetActiveCamera().SetParallelProjection(False)
-        self.renderer.SetInteractive(True)
-
-        # Create a QVTKRenderWindowInteractor
-        self.vtk_widget = QVTKRenderWindowInteractor(self)
-        self.render_window = self.vtk_widget.GetRenderWindow()  # Retrieve the render window
-        self.render_window.AddRenderer(self.renderer)
-
-        # Set up interactor style
-        self.interactor = self.render_window.GetInteractor()
-        self.interactor_style = vtk.vtkInteractorStyleUser()
-        self.interactor.SetInteractorStyle(self.interactor_style)
-
-        # Layout for embedding the VTK widget
-        layout = QVBoxLayout()
-        layout.addWidget(self.vtk_widget)
-        self.setLayout(layout)
-
-        self.vtk_image = None
-
-        self.set_active(False)
-
-    def set_image(self, vtk_image):
-        self.volume_mapper.SetInputData(vtk_image)
-        self.renderer.ResetCamera()
-        self.render_window.Render()
-
-    def set_active(self, active=True):
-        self.active = active
-        if active:
-            self.renderer.SetBackground(*background_color_active)  
-        else:
-            self.renderer.SetBackground(*background_color)  
-        self.render()
-
-    def render(self):
-        self.render_window.Render()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if hasattr(self, 'render_window') and self.render_window is not None:
-            self.render_window.SetSize(self.width(), self.height())
-            self.render_window.Render()
-
-    def cleanup_vtk(self, event):
-        if hasattr(self, 'interactor') and self.interactor is not None:
-            self.interactor.Disable()
-            self.interactor.TerminateApp()
-            del self.interactor
-
-        if hasattr(self, 'render_window') and self.render_window is not None:
-            self.render_window.Finalize()
-            del self.render_window
-
-        super().closeEvent(event)
-
-    def on_segmentation_layer_added(self, layer_name, sender):
-        print(f'SurfaceViewer: on_segmentation_layer_added(layername={layer_name}')
-
-    def on_segmentation_layer_removed(self, layer_name, sender):
-        print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')
-        
+from model_viewer import ModelViewer
 
 
 from PyQt5.QtCore import pyqtSignal, QObject
@@ -226,14 +153,74 @@ class Slicing(QObject):
 
 from PyQt5.QtCore import QTimer
 
+class SlicePlaneObject():
+    def __init__(self):
+        self.plane_source = vtk.vtkPlaneSource()
+        self.texture = vtk.vtkTexture()
+        self.texture.InterpolateOn()
+
+        self.tex_coords = vtk.vtkFloatArray()
+        self.tex_coords.SetNumberOfComponents(2)
+        self.tex_coords.SetName("TextureCoordinates")
+        self.tex_coords.InsertNextTuple2(0.0, 0.0)
+        self.tex_coords.InsertNextTuple2(1.0, 0.0)
+        self.tex_coords.InsertNextTuple2(0.0, 1.0)
+        self.tex_coords.InsertNextTuple2(1.0, 1.0)
+
+        self.mapper = vtk.vtkPolyDataMapper()
+
+        self.actor = vtk.vtkActor()
+
+        self.vtk_image_slice = None
+
+    def update(self, vtk_texture_image, w_H_sliceo):
+        
+        self.vtk_image_slice = vtk_texture_image
+
+        dims = vtk_texture_image.GetDimensions()
+        spacing = vtk_texture_image.GetSpacing()
+
+        # Image plane corners in index space
+        p0_o = np.array([0, 0, 0, 1.0]).reshape(4,1)           # origin
+        p1_o = np.array([dims[0]*spacing[0], 0, 0, 1.0]).reshape(4,1)     # along i-axis
+        p2_o = np.array([0, dims[1]*spacing[1], 0, 1.0]).reshape(4,1)     # along j-axis
+
+        # points in w
+        p0_w = (w_H_sliceo @ p0_o).flatten()[:3]
+        p1_w = (w_H_sliceo @ p1_o).flatten()[:3]
+        p2_w = (w_H_sliceo @ p2_o).flatten()[:3]
+        
+        # Create a plane with correct geometry
+        self.plane_source.SetOrigin(*p0_w)
+        self.plane_source.SetPoint1(*p1_w)
+        self.plane_source.SetPoint2(*p2_w)
+        self.plane_source.Update()
+
+        # Texture map the slice
+        self.texture.SetInputData(vtk_texture_image)
+
+        # Map texture coordinates
+        polydata = self.plane_source.GetOutput()
+        polydata.GetPointData().SetTCoords(self.tex_coords)
+
+        # mapper
+        self.mapper.SetInputData(polydata)
+
+        # actor
+        self.actor.SetMapper(self.mapper)
+        self.actor.SetTexture(self.texture)
+
 import viewer2d
 import reslicer
 class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
+    
+    slice_changed = pyqtSignal(QObject)
+
     def __init__(self, axis, main_window):
         super().__init__(main_window)
         self.reslicer = reslicer.Reslicer(axis)
         self.vtk_image_3d = None
-        self.slice = None
+        self._set_slice(None)
         self.slice_index = None
         self.slicing = Slicing(self.interactor)
         self.slicing.slice_changed.connect(self.on_slice_changed)
@@ -247,6 +234,17 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.render_timer.timeout.connect(self.render)
         self.delayed_render_ms = 20
 
+        self.slice_plane_object = SlicePlaneObject()
+
+    def _set_slice(self, slice):
+        self.slice = slice
+        self.vtk_image = slice
+
+    def _get_slice(self):
+        return self.vtk_image
+
+    def update_slice_indicator(self, axis, slice_index):
+        print(f'update_slice_indicator(axis={axis}, slice_index={slice_index})')
 
 
     def render(self):
@@ -267,7 +265,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # get the center slice
         new_slice = self.reslicer.get_slice_image(new_slice_index)
     
-        self.vtk_image = new_slice
+        self._set_slice(new_slice)
+        self.slice_index = new_slice_index
                 
         # Connect reader to window/level filter
         self.window_level_filter.SetInputData(new_slice)
@@ -277,11 +276,26 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         for layer_name in self.segmentation_layer_reslicers.keys():
             self.segmentation_layer_reslicers[layer_name].set_slice_index_and_update_slice_actor(new_slice_index)
 
+        # update slice plane object
+        self.update_slice_plane_object()
+
+        self.slice_changed.emit(self)
+
         self.render_delayed()
 
-        # save the slice & slice index
-        self.slice = new_slice
-        self.slice_index = new_slice_index
+    def update_slice_plane_object(self):
+        import vtk_image_wrapper
+        wrapper = vtk_image_wrapper.vtk_image_wrapper(self._get_slice())
+        self.slice_plane_object.update(self.window_level_filter.GetOutput(), wrapper.get_w_H_o())
+
+    def set_window_level(self, window, level):
+        if self.window_level_filter:
+            self.window_level_filter.SetWindow(window)
+            self.window_level_filter.SetLevel(level)
+            self.window_level_filter.Update()
+            self.get_render_window().Render()
+
+            self.update_slice_plane_object()
 
     def reset_camera(self):
         if not self.vtk_image_3d:
@@ -351,12 +365,14 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         _info(f'the center slice index is {index}')
         
         # save the slice & slice index
-        self.slice = slice
+        self._set_slice(slice)
         self.slice_index = index
 
         self.slicing.set_index(index)
 
         super().set_vtk_image(slice, window, level)
+
+        self.update_slice_plane_object()
 
         self.reset_camera()
 
@@ -440,13 +456,18 @@ class VTKViewer3D(QWidget):
         self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, main_window) 
         self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, main_window) 
         self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, main_window) 
-        self.viewer_surf = SurfaceViewer()
+        
+        self.viewer_surf = ModelViewer()
+        self.viewer_surf.add_actor(self.viewer_ax.slice_plane_object.actor)
+        self.viewer_surf.add_actor(self.viewer_cr.slice_plane_object.actor)
+        self.viewer_surf.add_actor(self.viewer_sg.slice_plane_object.actor)
 
         self.viewers_2d = [self.viewer_ax, self.viewer_cr, self.viewer_sg]
         self.viewers = [self.viewer_ax, self.viewer_cr, self.viewer_sg, self.viewer_surf]
         
         for v in self.viewers_2d:
             v.zoom_changed.connect(self.on_zoom_changed_event)
+            v.slice_changed.connect(self.on_slice_changed)
         
         for v in self.viewers_2d:
             v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_2d_viewer)
@@ -472,7 +493,18 @@ class VTKViewer3D(QWidget):
 
     def on_status_message_from_viewer(self, msg, sender):
         self.print_status(msg)
+    
+    def on_slice_changed(self, sender):
         
+        viewer = sender
+        slice_index = viewer.slice_index
+        axis = viewer.reslicer.axis
+
+        for v in self.viewers_2d:
+            if v is not sender:
+                v.update_slice_indicator(axis, slice_index)
+        
+        self.viewer_surf.render()
 
     def enable_zooming(self, enable):
         for v in self.viewers_2d:
@@ -551,6 +583,9 @@ class VTKViewer3D(QWidget):
         for v in self.viewers_2d:
             v.set_vtk_image_3d(vtk_image, window, level)
 
+        self.viewer_surf.set_vtk_image(vtk_image)
+
+        
     def set_segmentation_layers(self, segmentation_layers):
         self.segmentation_layers = segmentation_layers
         
@@ -573,6 +608,8 @@ class VTKViewer3D(QWidget):
     def set_window_level(self, window, level):
         for v in self.viewers_2d:
             v.set_window_level(window, level)
+
+        self.viewer_surf.render()
 
     def zoom_in(self):
         if not self.vtk_image:

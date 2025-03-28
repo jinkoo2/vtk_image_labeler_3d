@@ -91,6 +91,9 @@ class vtk_image_wrapper:
 
         return w_H_o
 
+    def get_o_H_w(self):
+        return np.linalg.inv(self.get_w_H_o())
+    
     def get_o_H_I(self):
         """
         Returns the 4x4 matrix converting from image index to origin (voxel spacing):
@@ -102,9 +105,15 @@ class vtk_image_wrapper:
         np.fill_diagonal(o_H_I[:3, :3], spacing)
         return o_H_I
 
+    def get_I_H_o(self):
+        return np.linalg.inv(self.get_o_H_I())
+
     def get_w_H_I(self):
         """Returns world_H_index = world_H_origin @ origin_H_index"""
         return self.get_w_H_o() @ self.get_o_H_I()
+
+    def get_I_H_w(self):
+        return np.linalg.inv(self.get_w_H_I())
 
     def get_center_point_o(self):
         """Center in origin (physical) coordinate frame"""

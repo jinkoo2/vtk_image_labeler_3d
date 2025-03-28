@@ -530,18 +530,31 @@ class VTKViewer2D(QWidget):
     def add_ruler(self):
         """Add a ruler to the center of the current view and enable interaction."""
         camera = self.get_renderer().GetActiveCamera()
-        focal_point = camera.GetFocalPoint()
-        view_extent = camera.GetParallelScale()  # Approximate size of the visible area
+        
+        import vtk_camera_wrapper, numpy as np
 
-        # Calculate ruler start and end points
-        start_point = [focal_point[0] - view_extent / 6, focal_point[1], focal_point[2]+0.1]
-        end_point = [focal_point[0] + view_extent / 6, focal_point[1], focal_point[2]+0.1]
+        cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
+        w_H_camo = cam.get_w_H_o()
+        view_extent = cam.get_parallel_scale()
+
+        line_length = view_extent/3.0 
+
+        clip_range = cam.get_clip_range()
+        z_near = clip_range[0]
+
+        # the line on a axis on the near plane, but within the view volume (+0.001), so it is always display in the view, regardless where the image plane is.
+        pt0_camo = np.array([-line_length, 0.0, z_near+0.001, 1.0]).reshape(4,1)
+        pt1_camo = np.array([line_length, 0.0, z_near+0.001, 1.0]).reshape(4,1)
+        
+        # line in world coordiante system
+        pt0_w = (w_H_camo @ pt0_camo).flatten()[:3]
+        pt1_w = (w_H_camo @ pt1_camo).flatten()[:3]
 
         # Create a ruler using vtkLineWidget2
         line_widget = LineWidget(
             vtk_image=self.vtk_image,
-            pt1_w=start_point, 
-            pt2_w=end_point, 
+            pt1_w=pt0_w, 
+            pt2_w=pt1_w, 
             line_color_vtk=[1,0,0], 
             line_width=2, 
             renderer=self.get_renderer())
@@ -619,8 +632,6 @@ class VTKViewer2D(QWidget):
         cursor_position = self.mapFromGlobal(self.cursor().pos())
         menu.exec_(self.mapToGlobal(cursor_position))
 
-
-
     def print_mouse_coordiantes(self):
 
         if not self.vtk_image:
@@ -641,8 +652,8 @@ class VTKViewer2D(QWidget):
             print("Mouse is outside the render area.")
             return
 
-        print(f'mouse_pose=({mouse_pos[0]},{mouse_pos[1]})')
-        print(f'mouse_pose=({world_pos[0]},{world_pos[1]},{world_pos[2]})')
+        #print(f'mouse_pose=({mouse_pos[0]},{mouse_pos[1]})')
+        #print(f'world_pos=({world_pos[0]},{world_pos[1]},{world_pos[2]})')
 
         # Get the image data
         vtk_image = self.vtk_image
@@ -650,36 +661,30 @@ class VTKViewer2D(QWidget):
             print("No image loaded.")
             return
 
-        import itkvtk
+        import vtk_image_wrapper
         import numpy as np
 
-        vtk_w_H_imgo = itkvtk.vtk_get_w_H_imageo(vtk_image)
-        w_H_imgo = itkvtk.vtk_matrix4x4_to_numpy(vtk_w_H_imgo)
-        imgo_H_w = np.linalg.inv(w_H_imgo)
-        w_pt = np.append(np.array(world_pos), 1.0)
-        imgo_pt = imgo_H_w @ w_pt
+        slice_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
+        dims = slice_wrapper.get_dimensions()
+        sliceI_H_w = slice_wrapper.get_I_H_w()
 
-        # Get image properties
-        dims = vtk_image.GetDimensions()
-        spacing = np.array(vtk_image.GetSpacing())
-        origin = vtk_image.GetOrigin()
+        pt_w = np.array([*world_pos, 1.0]).reshape(4,1)
+        pt_sliceI = (sliceI_H_w @ pt_w).flatten()
 
-        image_index = np.round(imgo_pt[:3] / spacing).astype(int)
+        image_index = np.rint(pt_sliceI[:2]).astype(int)
 
-        # Check if the index is within bounds
-        if not (0 <= image_index[0] < dims[0] and 0 <= image_index[1] < dims[1] and 0 <= image_index[2] < dims[2]):
+        # if within image bound
+        if 0 <= image_index[0] < dims[0] and 0 <= image_index[1] < dims[1]:
+            # Get the pixel value
+            scalars = vtk_image.GetPointData().GetScalars()
+            flat_index = image_index[1] * dims[1] + image_index[0]
+            pixel_value = scalars.GetTuple1(flat_index)
+
             # Print details
-            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}))")
-            return
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f}) Index: ({image_index[0]}, {image_index[1]}), Value: {pixel_value} )")
+        else:
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
 
-        # Get the pixel value
-        scalars = vtk_image.GetPointData().GetScalars()
-        flat_index = image_index[2] * dims[0] * dims[1] + image_index[1] * dims[0] + image_index[0]
-        pixel_value = scalars.GetTuple1(flat_index)
-
-        # Print details
-        self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}) Index: ({image_index[0]}, {image_index[1]}), Value: {pixel_value} )")
-        
         
 
     def on_left_button_release(self, obj, event):
