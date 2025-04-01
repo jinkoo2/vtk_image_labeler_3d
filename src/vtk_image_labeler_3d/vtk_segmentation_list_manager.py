@@ -14,17 +14,21 @@ import math
 
 from vtk_tools import from_vtk_color, to_vtk_color
 
+import reslicer 
 
 class PaintBrush:
-    def __init__(self, radius_in_pixel=(20,20), pixel_spacing=(1.0, 1.0), color= (0,255,0), line_thickness= 1):
+    def __init__(self, radius_in_pixel=(20,20), pixel_spacing=(1.0, 1.0), color= (0,255,0), line_thickness= 1, viewer=None):
         self.radius_in_pixel = radius_in_pixel
         self.pixel_spacing = pixel_spacing
+        self.viewer = viewer
 
         # Paintbrush setup
         self.enabled = False
 
         # Brush actor for visualization
-        self.brush_actor = vtk.vtkActor()
+        self.brush_actor = vtk.vtkFollower()
+        camera = viewer.get_renderer().GetActiveCamera()
+        self.brush_actor.SetCamera(camera) # camera to follow
         self.brush_actor.SetVisibility(False)  # Initially hidden
 
         # Create a green brush representation
@@ -32,7 +36,6 @@ class PaintBrush:
         self.brush_source = vtk.vtkPolyData()
         self.circle_points = vtk.vtkPoints()
         self.circle_lines = vtk.vtkCellArray()
-
 
         self.brush_source.SetPoints(self.circle_points)
         self.brush_source.SetLines(self.circle_lines)
@@ -58,6 +61,7 @@ class PaintBrush:
 
         self.update_circle_geometry(radius_in_real)
 
+     
     def update_circle_geometry(self, radius_in_real):
         """Update the circle geometry to reflect the current radius."""
         self.circle_points.Reset()
@@ -87,7 +91,6 @@ class PaintBrush:
         self.circle_points.Modified()
         self.circle_lines.Modified()
         self.brush_source.Modified()
-
 
     def paint(self, segmentation, x, y, value=1):
         """Draw a circle on the segmentation at (x, y) with the given radius."""
@@ -382,8 +385,6 @@ class SegmentationListManager(QObject):
         self.erase_active = False
         self.erase_brush_color = [0, 0.5, 1.0]
 
-        self.paintbrush = None
-
         self.color_rotator = ColorRotator()
 
         self._modified = False
@@ -420,7 +421,6 @@ class SegmentationListManager(QObject):
         
         return False
 
-
     def setup_ui(self):   
         toolbar = self.create_toolbar()
         dock = self.create_dock_widget()
@@ -432,7 +432,6 @@ class SegmentationListManager(QObject):
 
     def create_toolbar(self):
         
-        from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
         from labeled_slider import LabeledSlider
 
         # Create a toolbar
@@ -520,7 +519,6 @@ class SegmentationListManager(QObject):
         self.segmentation_layers.clear()
         self.list_widget.clear()
 
-
     def save_segmentation_layer(self, segmentation, file_path):
         from itkvtk import save_vtk_image_using_sitk
         save_vtk_image_using_sitk(segmentation, file_path)
@@ -591,28 +589,28 @@ class SegmentationListManager(QObject):
 
     def enable_paintbrush(self, enabled=True):
         
-        if self.paintbrush is None:
-            self.paintbrush = PaintBrush()
-            self.paintbrush.set_radius_in_pixel(radius_in_pixel=(20, 20), pixel_spacing=self.vtk_viewer.vtk_image.GetSpacing())
-            self.vtk_viewer.get_renderer().AddActor(self.paintbrush.get_actor())
+        for v in self.vtk_viewer.get_viewers_2d():
+            if not hasattr(v, 'paintbrush') or v.paintbrush is None:
+                v.paintbrush = PaintBrush(viewer=v)
+                v.paintbrush.set_radius_in_pixel(radius_in_pixel=(20, 20), pixel_spacing=v.vtk_image.GetSpacing())
+                v.get_renderer().AddActor(v.paintbrush.get_actor())
 
-        self.paintbrush.enabled = enabled
+            v.paintbrush.enabled = enabled
 
-        interactor = self.vtk_viewer.interactor 
-        if enabled:
-            self.left_button_press_observer = interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
-            self.mouse_move_observer = interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
-            self.left_button_release_observer = interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_release)
-        else:    
-            interactor.RemoveObserver(self.left_button_press_observer)
-            interactor.RemoveObserver(self.mouse_move_observer)
-            interactor.RemoveObserver(self.left_button_release_observer)   
+            interactor = v.interactor 
+            if enabled:
+                v.left_button_press_observer = interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
+                v.mouse_move_observer = interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
+                v.left_button_release_observer = interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_release)
+            else:    
+                interactor.RemoveObserver(v.left_button_press_observer)
+                interactor.RemoveObserver(v.mouse_move_observer)
+                interactor.RemoveObserver(v.left_button_release_observer)   
         
         self.left_button_is_pressed = False
         self.last_mouse_position = None
         
         print(f"Painbrush mode: {'enabled' if enabled else 'disabled'}")
-
 
     def paint_at_mouse_position(self):
         
@@ -663,47 +661,107 @@ class SegmentationListManager(QObject):
         self._modified = True
         self.render()
 
+    def _find_viewer_from_interactor(self, interactor):
+        for v in self.vtk_viewer.get_viewers():
+            if v.get_interactor() == interactor:
+                return v
+        return None
+
     def on_left_button_press(self, obj, event):
-        if not self.paintbrush.enabled:
+        # obj is the sender, which is vtkRenderWindowInteractor
+        # event = LeftButtonPressEvent string
+        v = self._find_viewer_from_interactor(obj)
+        
+        if not v:
+            return 
+        
+        if not hasattr(v, 'paintbrush') or not v.paintbrush.enabled:
             return
         
         self.left_button_is_pressed = True
-        self.last_mouse_position = self.vtk_viewer.interactor.GetEventPosition()
+        self.last_mouse_position = v.get_interactor().GetEventPosition()
         
-        if self.left_button_is_pressed and self.paintbrush.enabled and self.active_layer_name is not None:
+        if self.left_button_is_pressed and v.paintbrush.enabled and self.active_layer_name is not None:
             print('paint...')
             self.paint_at_mouse_position()
        
     def on_mouse_move(self, obj, event):
-        if not self.paintbrush.enabled:
+        # obj is the sender, which is vtkRenderWindowInteractor
+        # event = MouseMoveEvent string
+        interactor = obj
+        
+        v = self._find_viewer_from_interactor(interactor)
+        
+        if not v:
+            return 
+        
+        if not hasattr(v, 'paintbrush') or not v.paintbrush.enabled:
             return
-
-        if self.paintbrush.enabled:
-            mouse_pos = self.vtk_viewer.interactor.GetEventPosition()
+        
+        paintbrush = v.paintbrush
+        renderer = v.get_renderer()
+        if paintbrush.enabled:
+            mouse_pos = interactor.GetEventPosition()
             picker = vtk.vtkWorldPointPicker()
-            picker.Pick(mouse_pos[0], mouse_pos[1], 0, self.vtk_viewer.get_renderer())
+            picker.Pick(mouse_pos[0], mouse_pos[1], 0, renderer)
 
             # Get world position
             world_pos = picker.GetPickPosition()
 
-            # Update the brush position (ensure Z remains on the image plane + 0.1 to show on top of the image)
-            self.paintbrush.get_actor().SetPosition(world_pos[0], world_pos[1], world_pos[2] + 0.1)
-            self.paintbrush.get_actor().SetVisibility(True)  # Make the brush visible
+            # camera
+            camera = renderer.GetActiveCamera()
+            import vtk_camera_wrapper, numpy as np
+            cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
+            w_H_camo = cam.get_w_H_o()
+            camo_H_w = cam.get_o_H_w()
+            print(f'world_pos={world_pos}')
+            print(f'axis={v.reslicer.axis}')
+            print(f'w_H_camo={w_H_camo}')
+            print(f'camo_H_w={camo_H_w}')
 
+
+            # interaction point in camo
+            w_pt_interaction = np.append(np.array(world_pos), 1.0).reshape(4,1)
+            camo_pt_interaction = camo_H_w @ w_pt_interaction
+
+            print(f'w_pt_interaction={w_pt_interaction}')
+            print(f'camo_pt_interaction={camo_pt_interaction}')
+
+            # project to the camera near plane
+            clip_range = cam.get_clip_range()
+            z_near = clip_range[0]
+            camo_pt_interaction[2,0] = z_near+0.1
+
+            # projected interaction point in w
+            w_pt_on_near_plane =  (w_H_camo @ camo_pt_interaction).flatten()[:3]
+
+            print(f'w_pt_on_near_plane={w_pt_on_near_plane}')
+
+            # Update the brush position (ensure Z remains on the image plane + 0.1 to show on top of the image)
+            paintbrush.get_actor().SetPosition(w_pt_on_near_plane[0], w_pt_on_near_plane[1], w_pt_on_near_plane[2])
+            paintbrush.get_actor().SetVisibility(True)  # Make the brush visible
+        
             if self.paint_active:
-                self.paintbrush.set_color(self.paint_brush_color)
+                paintbrush.set_color(self.paint_brush_color)
             else:
-                self.paintbrush.set_color(self.erase_brush_color)
+                paintbrush.set_color(self.erase_brush_color)
 
             # Paint 
-            if self.left_button_is_pressed and self.paintbrush.enabled and self.active_layer_name is not None:
+            if self.left_button_is_pressed and paintbrush.enabled and self.active_layer_name is not None:
                 print('paint...')
                 self.paint_at_mouse_position()
         else:
-            self.paintbrush.get_actor().SetVisibility(False)  # Hide the brush when not painting
+            paintbrush.get_actor().SetVisibility(False)  # Hide the brush when not painting
        
     def on_left_button_release(self, obj, event):
-        if not self.paintbrush.enabled:
+        interactor = obj
+        
+        v = self._find_viewer_from_interactor(interactor)
+        
+        if not v:
+            return 
+        
+        if not hasattr(v,'paintbrush') or not v.paintbrush.enabled:
             return
         
         self.left_button_is_pressed = False
@@ -761,6 +819,7 @@ class SegmentationListManager(QObject):
         self.erase_action.setChecked(False)
         self.paint_action.setChecked(False)
 
+        # activate paint
         self.paint_active = checked
         self.paint_action.setChecked(checked)
         

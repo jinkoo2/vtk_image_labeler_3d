@@ -307,37 +307,37 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         # set the camera position to the center of the volume
         import vtk_image_wrapper
-        wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
+        wrapper_image3d = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
 
-        dims = wrapper.get_dimensions()
-        spacing = wrapper.get_spacing()
+        dims = wrapper_image3d.get_dimensions()
+        spacing = wrapper_image3d.get_spacing()
         #w_H_imgo = wrapper.get_w_H_o() # homogenious transform for point transforms from o to w
         #w_R_imgo = w_H_imgo[:3,:3] # rotation matrix for vector transforms from o to w
 
-        camera_position = wrapper.get_center_point_w()
-        camera.SetPosition(*camera_position)
+        w_camera_position = wrapper_image3d.get_center_point_w()
+        camera.SetPosition(*w_camera_position)
 
         import numpy as np
 
         # central slice coodinate system
-        center_slice = dims[self.reslicer.axis]//2
-        vkt_w_H_sliceo = self.reslicer.calculate_axes(center_slice)
+        center_slice_index = dims[self.reslicer.axis]//2
+        vkt_w_H_center_sliceo = self.reslicer.calculate_axes(center_slice_index)
         import itkvtk
-        w_H_sliceo = itkvtk.vtk_matrix4x4_to_numpy(vkt_w_H_sliceo)
+        w_H_center_sliceo = itkvtk.vtk_matrix4x4_to_numpy(vkt_w_H_center_sliceo)
 
         # viewup and focal point in sliceo
-        viewup_sliceo = np.array([0.0, -1.0, 0.0]).reshape(3,1)
+        sliceo_viewup = np.array([0.0, -1.0, 0.0]).reshape(3,1)
         wrapper_slice = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
-        pt_center_sliceo = wrapper_slice.get_center_point_o()
-        focal_pt_sliceo = np.array([pt_center_sliceo[0], pt_center_sliceo[1], 100.0 , 1.0]).reshape(4,1)
+        sliceo_pt_center = wrapper_slice.get_center_point_o()
+        sliceo_focal_pt = np.array([sliceo_pt_center[0], sliceo_pt_center[1], 100.0 , 1.0]).reshape(4,1)
 
         # set the view up vector
-        w_R_sliceo = w_H_sliceo[:3,:3]
-        viewup_w = w_R_sliceo @ viewup_sliceo
-        camera.SetViewUp(*viewup_w)
+        w_R_sliceo = w_H_center_sliceo[:3,:3]
+        w_viewup = w_R_sliceo @ sliceo_viewup
+        camera.SetViewUp(*w_viewup)
 
         # set focal point to the far end of the image bound through the image center
-        focal_pt_w = (w_H_sliceo @ focal_pt_sliceo)[:3]
+        focal_pt_w = (w_H_center_sliceo @ sliceo_focal_pt)[:3]
         camera.SetFocalPoint(*focal_pt_w)
         
         # Set scale based on physical height of image in world space
@@ -490,6 +490,12 @@ class VTKViewer3D(QWidget):
         
         self.rulers = []
         self.vtk_image = None
+
+    def get_viewers_2d(self):
+        return self.viewers_2d
+
+    def get_viewers(self):
+        return self.viewers
 
     def on_status_message_from_viewer(self, msg, sender):
         self.print_status(msg)

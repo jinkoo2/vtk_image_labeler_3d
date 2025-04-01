@@ -117,7 +117,8 @@ class vtk_image_wrapper:
 
     def get_center_point_o(self):
         """Center in origin (physical) coordinate frame"""
-        return (self.get_spacing() * self.get_dimensions()) / 2.0
+        # the origin is at the center of the first cell, so need to subtract the half size of the pixel.
+        return (self.get_spacing() * self.get_dimensions()) / 2.0 - self.get_spacing() / 2.0
 
     def get_center_point_w(self):
         """Center in world coordinate frame"""

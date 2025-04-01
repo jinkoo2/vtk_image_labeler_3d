@@ -613,7 +613,7 @@ class MainWindow3D(QMainWindow):
         spacing = self.vtk_image.GetSpacing()
         original_origin = self.vtk_image.GetOrigin()
 
-        #for debug
+        ##for debug
         self.vtk_image.SetOrigin([0.0, 0.0, 0.0])
 
         _info(f'dims={dims}')

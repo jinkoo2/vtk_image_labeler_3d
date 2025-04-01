@@ -465,6 +465,9 @@ class VTKViewer2D(QWidget):
             self.window_level_filter.Update()
             self.get_render_window().Render()
 
+    def get_interactor(self):
+        return self.interactor
+
     def get_renderer(self):
         return self.renderer
     
