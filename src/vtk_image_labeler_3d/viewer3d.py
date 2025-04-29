@@ -216,8 +216,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     
     slice_changed = pyqtSignal(QObject)
 
-    def __init__(self, axis, main_window):
-        super().__init__(main_window)
+    def __init__(self, axis, parent):
+        super().__init__(parent=parent)
         self.reslicer = reslicer.Reslicer(axis)
         self.vtk_image_3d = None
         self._set_slice(None)
@@ -245,7 +245,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
     def update_slice_indicator(self, axis, slice_index):
         print(f'update_slice_indicator(axis={axis}, slice_index={slice_index})')
-
 
     def render(self):
         self.get_render_window().Render()
@@ -404,6 +403,14 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
         seg_item.name_changed.connect(self.on_layer_name_changed)
 
+    def on_segmentation_layer_modified(self, layer_name, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer_name})')
+
+        if layer_name in self.segmentation_layer_reslicers:
+            seg_reslicer = self.segmentation_layer_reslicers[layer_name]
+            seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
+            self.render()
+
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
 
@@ -440,22 +447,64 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({new_layer_name, old_layer_name}')
         
 
+    def get_mouse_event_coordiantes(self):
+
+        # event data on the 2d slice image
+        event_data = super().get_mouse_event_coordiantes()
+                
+        import vtk_image_wrapper
+        slice_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
+        image_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
+        
+        # convert from slice I to 3d image I
+        w_H_sliceI = slice_wrapper.get_w_H_I()
+        imageI_H_w = image_wrapper.get_I_H_w()
+        imageI_H_sliceI = imageI_H_w @ w_H_sliceI
+
+        # index on the slice
+        sliceI = np.array([event_data['image_index'][0],event_data['image_index'][1], 0.0, 1.0], dtype=float).reshape(4,1)
+
+        # index on the 3d image
+        imageI = (imageI_H_sliceI @ sliceI).flatten()
+
+        # override image_index
+        event_data["image_index"] = np.rint(imageI[:3]).astype(int)
+
+        return event_data
+        
+    def print_mouse_coordiantes(self):
+        
+        if not self.vtk_image_3d:
+            return 
+
+        event_data = self.get_mouse_event_coordiantes()       
+
+        # if within image bound
+        if 'world_point' in event_data and 'image_index' in event_data and 'pixel_value' in event_data:
+            # Print details
+            world_pos = event_data['world_point']
+            image_index = event_data['image_index']
+            pixel_value = event_data['pixel_value']
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f}) Index: ({image_index[0]}, {image_index[1]}, , {image_index[2]}), Value: {pixel_value} )")
+        elif 'world_point' in event_data:
+            world_pos = event_data['world_point']
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
+
+
+
 class VTKViewer3D(QWidget):
     
     status_message = pyqtSignal(str, QObject)
 
-    def __init__(self, parent=None, main_window=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
     
-        if main_window is not None:
-            self.main_window = main_window
+        self.rulers = []
+        self.vtk_image = None
 
-        # Layout for embedding the VTK widget
-        layout = QGridLayout()
-
-        self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, main_window) 
-        self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, main_window) 
-        self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, main_window) 
+        self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, self) 
+        self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, self) 
+        self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, self) 
         
         self.viewer_surf = ModelViewer()
         self.viewer_surf.add_actor(self.viewer_ax.slice_plane_object.actor)
@@ -465,31 +514,35 @@ class VTKViewer3D(QWidget):
         self.viewers_2d = [self.viewer_ax, self.viewer_cr, self.viewer_sg]
         self.viewers = [self.viewer_ax, self.viewer_cr, self.viewer_sg, self.viewer_surf]
         
+        # listen to view chnages from viewers
         for v in self.viewers_2d:
             v.zoom_changed.connect(self.on_zoom_changed_event)
+
+        # listen to slice changes from viewers
+        for v in self.viewers_2d:
             v.slice_changed.connect(self.on_slice_changed)
-        
+
+        # listen to mouse events form viewers
         for v in self.viewers_2d:
             v.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_2d_viewer)
             v.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_2d_viewer)
             v.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_2d_viewer)
-
-        for v in self.viewers:
-            v.status_message.connect(self.on_status_message_from_viewer)
-
         self.viewer_surf.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move_on_surf_viewer)
         self.viewer_surf.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_pressed_on_surf_viewer)
         self.viewer_surf.interactor.AddObserver("LeftButtonReleaseEvent", self.on_left_button_released_on_surf_viewer)
 
+        # listen to status message events from viewers
+        for v in self.viewers:
+            v.status_message.connect(self.on_status_message_from_viewer)
+
+        # Grid Layout for viewers
+        layout = QGridLayout()
         layout.addWidget(self.viewer_ax, 0, 0)
         layout.addWidget(self.viewer_cr, 1, 0)
         layout.addWidget(self.viewer_sg, 1, 1)
         layout.addWidget(self.viewer_surf, 0, 1)
-
         self.setLayout(layout)
         
-        self.rulers = []
-        self.vtk_image = None
 
     def get_viewers_2d(self):
         return self.viewers_2d
@@ -571,10 +624,7 @@ class VTKViewer3D(QWidget):
         self.render()
 
     def print_status(self, msg):
-        if self.main_window is not None:
-            self.main_window.print_status(msg)
-        else:
-            self.status_message.emit(msg, self)
+        self.status_message.emit(msg, self)
 
     def get_vtk_image(self):
         return self.vtk_image
@@ -601,6 +651,10 @@ class VTKViewer3D(QWidget):
     def on_segmentation_layer_added(self, layer_name, sender):
         for v in self.viewers:
             v.on_segmentation_layer_added(layer_name, sender)
+
+    def on_segmentation_layer_modified(self, layer_name, sender):
+        for v in self.viewers:
+            v.on_segmentation_layer_modified(layer_name, sender)            
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         for v in self.viewers:

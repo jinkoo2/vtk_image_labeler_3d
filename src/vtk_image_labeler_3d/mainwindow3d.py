@@ -51,8 +51,6 @@ from vtk_rect_list_manager import RectListManager
 
 class MainWindow3D(QMainWindow):
     
-
-
     def __init__(self):
         super().__init__()
 
@@ -69,7 +67,7 @@ class MainWindow3D(QMainWindow):
         self.layout = QVBoxLayout()
 
         # VTK Viewer
-        self.vtk_viewer = viewer3d.VTKViewer3D(parent = self, main_window = self)
+        self.vtk_viewer = viewer3d.VTKViewer3D(parent = self)
         self.vtk_viewer.status_message.connect(self.on_status_message_from_viewer)
         self.layout.addWidget(self.vtk_viewer)
 
@@ -92,6 +90,7 @@ class MainWindow3D(QMainWindow):
         self.add_exclusive_actions(self.segmentation_list_manager.get_exclusive_actions()) 
         self.segmentation_list_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
         self.segmentation_list_manager.layer_added.connect(self.on_segmentation_layer_added) 
+        self.segmentation_list_manager.layer_modified.connect(self.on_segmentation_layer_modified) 
         self.segmentation_list_manager.layer_removed.connect(self.on_segmentation_layer_removed) 
         self.segmentation_list_manager.active_layer_changed.connect(self.on_active_segmentation_layer_changed) 
 
@@ -182,6 +181,9 @@ class MainWindow3D(QMainWindow):
 
     def on_segmentation_layer_added(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_added(layer_name, sender)
+
+    def on_segmentation_layer_modified(self, layer_name, sender):
+        self.vtk_viewer.on_segmentation_layer_modified(layer_name, sender)
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_removed(layer_name, sender)

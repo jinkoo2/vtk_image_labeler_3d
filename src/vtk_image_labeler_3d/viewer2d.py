@@ -275,10 +275,8 @@ class VTKViewer2D(QWidget):
     pan_changed = pyqtSignal(QObject)
     status_message = pyqtSignal(str, QObject)
 
-    def __init__(self, parent=None, main_window=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-    
-        self.main_window = main_window
 
         # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
@@ -369,10 +367,7 @@ class VTKViewer2D(QWidget):
         self.render()
 
     def print_status(self, msg):
-        if self.main_window is not None:
-            self.main_window.print_status(msg)
-        else:
-            self.status_message.emit(msg, self)
+        self.status_message.emit(msg, self)
         
     def get_vtk_image(self):
         return self.vtk_image
@@ -635,13 +630,16 @@ class VTKViewer2D(QWidget):
         cursor_position = self.mapFromGlobal(self.cursor().pos())
         menu.exec_(self.mapToGlobal(cursor_position))
 
-    def print_mouse_coordiantes(self):
+    def get_mouse_event_coordiantes(self):
 
+        event_data = {}
+        
         if not self.vtk_image:
-            return 
+            return event_data
        
-        """Update brush position and print mouse position details when inside the image."""
+        """Update position and print mouse position details when inside the image."""
         mouse_pos = self.interactor.GetEventPosition()
+        event_data["mouse_point"] = mouse_pos
 
         # Use a picker to get world coordinates
         picker = vtk.vtkWorldPointPicker()
@@ -653,7 +651,9 @@ class VTKViewer2D(QWidget):
         # Check if the world position is valid
         if not picker.GetPickPosition():
             print("Mouse is outside the render area.")
-            return
+            return event_data
+
+        event_data["world_point"] = world_pos
 
         #print(f'mouse_pose=({mouse_pos[0]},{mouse_pos[1]})')
         #print(f'world_pos=({world_pos[0]},{world_pos[1]},{world_pos[2]})')
@@ -662,7 +662,7 @@ class VTKViewer2D(QWidget):
         vtk_image = self.vtk_image
         if not vtk_image:
             print("No image loaded.")
-            return
+            return event_data
 
         import vtk_image_wrapper
         import numpy as np
@@ -675,6 +675,7 @@ class VTKViewer2D(QWidget):
         pt_sliceI = (sliceI_H_w @ pt_w).flatten()
 
         image_index = np.rint(pt_sliceI[:2]).astype(int)
+        event_data["image_index"] = image_index
 
         # if within image bound
         if 0 <= image_index[0] < dims[0] and 0 <= image_index[1] < dims[1]:
@@ -683,11 +684,27 @@ class VTKViewer2D(QWidget):
             flat_index = image_index[1] * dims[1] + image_index[0]
             pixel_value = scalars.GetTuple1(flat_index)
 
-            # Print details
-            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f}) Index: ({image_index[0]}, {image_index[1]}), Value: {pixel_value} )")
-        else:
-            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
+            event_data['pixel_value'] = pixel_value
 
+        return event_data
+    
+    def print_mouse_coordiantes(self):
+
+        if not self.vtk_image:
+            return 
+
+        event_data = self.get_mouse_event_coordiantes()       
+
+        # if within image bound
+        if 'world_point' in event_data and 'image_index' in event_data and 'pixel_value' in event_data:
+            # Print details
+            world_pos = event_data['world_point']
+            image_index = event_data['image_index']
+            pixel_value = event_data['pixel_value']
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f}) Index: ({image_index[0]}, {image_index[1]}), Value: {pixel_value} )")
+        elif 'world_point' in event_data:
+            world_pos = event_data['world_point']
+            self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
         
 
     def on_left_button_release(self, obj, event):

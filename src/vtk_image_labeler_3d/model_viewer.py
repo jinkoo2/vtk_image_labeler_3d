@@ -90,8 +90,10 @@ class ModelViewer(QWidget):
     def on_segmentation_layer_added(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_added(layername={layer_name}')
 
+    def on_segmentation_layer_modified(self, layer_name, sender):
+        print(f'SurfaceViewer: on_segmentation_layer_modified(layername={layer_name}')
+
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')
         
-
 

@@ -92,7 +92,20 @@ class PaintBrush:
         self.circle_lines.Modified()
         self.brush_source.Modified()
 
-    def paint(self, segmentation, x, y, value=1):
+    def paint(self, segmentation, x, y, z=0, value=1):
+        import reslicer
+        axis = self.viewer.reslicer.axis
+
+        if axis == reslicer.AXIAL:
+            self.paint_ax(segmentation, x, y, z, value)
+        elif axis == reslicer.CORONAL:
+            self.paint_cr(segmentation, x, y, z, value)
+        elif axis == reslicer.SAGITTAL:
+            self.paint_sg(segmentation, x, y, z, value)
+        else:
+            raise Exception(f"Invalid axis: {self.viewer.axis}")
+
+    def paint_ax(self, segmentation, x, y, z, value=1):
         """Draw a circle on the segmentation at (x, y) with the given radius."""
         dims = segmentation.GetDimensions()
         scalars = segmentation.GetPointData().GetScalars()
@@ -104,14 +117,62 @@ class PaintBrush:
 
         for i in range(-radius_in_pixelx, radius_in_pixelx + 1):
             for j in range(-radius_in_pixely, radius_in_pixely + 1):
+                for k in [0]:
                 
-                # Check if the pixel is within the circle
-                if ((i/radius_in_pixelx)**2 + (j/radius_in_pixely)**2) <= 1.0:
-                    xi = x + i
-                    yj = y + j
-                    if extent[0] <= xi <= extent[1] and extent[2] <= yj <= extent[3]:
-                        idx = (yj - extent[2]) * dims[0] + (xi - extent[0])
-                        scalars.SetTuple1(idx, value)
+                    # Check if the pixel is within the circle
+                    if ((i/radius_in_pixelx)**2 + (j/radius_in_pixely)**2) <= 1.0:
+                        xi = x + i
+                        yj = y + j
+                        zk = z + k
+                        if extent[0] <= xi <= extent[1] and extent[2] <= yj <= extent[3] and extent[4] <= zk <= extent[5]:
+                            idx = (zk - extent[4]) *  (dims[0] * dims[1])+(yj - extent[2]) * dims[0] + (xi - extent[0])
+                            scalars.SetTuple1(idx, value)
+
+    def paint_cr(self, segmentation, x, y, z, value=1):
+        """Draw a circle on the segmentation at (x, y) with the given radius."""
+        dims = segmentation.GetDimensions()
+        scalars = segmentation.GetPointData().GetScalars()
+        extent = segmentation.GetExtent()
+
+        # radius in pixel space
+        radius_in_pixelx = self.radius_in_pixel[0]
+        radius_in_pixely = self.radius_in_pixel[1]
+
+        for i in range(-radius_in_pixelx, radius_in_pixelx + 1):
+            for j in [0]:
+                for k in range(-radius_in_pixely, radius_in_pixely + 1):
+                
+                    # Check if the pixel is within the circle
+                    if ((i/radius_in_pixelx)**2 + (k/radius_in_pixely)**2) <= 1.0:
+                        xi = x + i
+                        yj = y + j
+                        zk = z + k
+                        if extent[0] <= xi <= extent[1] and extent[2] <= yj <= extent[3] and extent[4] <= zk <= extent[5]:
+                            idx = (zk - extent[4]) *  (dims[0] * dims[1])+(yj - extent[2]) * dims[0] + (xi - extent[0])
+                            scalars.SetTuple1(idx, value)
+
+    def paint_sg(self, segmentation, x, y, z, value=1):
+        """Draw a circle on the segmentation at (x, y) with the given radius."""
+        dims = segmentation.GetDimensions()
+        scalars = segmentation.GetPointData().GetScalars()
+        extent = segmentation.GetExtent()
+
+        # radius in pixel space
+        radius_in_pixelx = self.radius_in_pixel[0]
+        radius_in_pixely = self.radius_in_pixel[1]
+
+        for i in [0]:
+            for j in range(-radius_in_pixelx, radius_in_pixelx + 1):
+                for k in range(-radius_in_pixely, radius_in_pixely + 1):
+                
+                    # Check if the pixel is within the circle
+                    if ((j/radius_in_pixelx)**2 + (k/radius_in_pixely)**2) <= 1.0:
+                        xi = x + i
+                        yj = y + j
+                        zk = z + k
+                        if extent[0] <= xi <= extent[1] and extent[2] <= yj <= extent[3] and extent[4] <= zk <= extent[5]:
+                            idx = (zk - extent[4]) *  (dims[0] * dims[1])+(yj - extent[2]) * dims[0] + (xi - extent[0])
+                            scalars.SetTuple1(idx, value)
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -363,7 +424,9 @@ class SegmentationListManager(QObject):
     # Signal to emit log messages
     log_message = pyqtSignal(str, str)  # Format: log_message(type, message)
     layer_added = pyqtSignal(str, QObject)
+    layer_modified = pyqtSignal(str, QObject)
     layer_removed = pyqtSignal(str, QObject)
+
     active_layer_changed = pyqtSignal(str, str, QObject)
 
     layer_changed = pyqtSignal(str, QObject)
@@ -612,33 +675,26 @@ class SegmentationListManager(QObject):
         
         print(f"Painbrush mode: {'enabled' if enabled else 'disabled'}")
 
-    def paint_at_mouse_position(self):
+    def paint_at_mouse_position(self, v2d):
         
-        vtk_viewer = self.vtk_viewer
-        vtk_image = vtk_viewer.vtk_image
+        event_data = v2d.get_mouse_event_coordiantes()
+
+        if 'mouse_point' in event_data:
+            mouse_pos = event_data['mouse_point']
+            print(f"Mouse position: ({mouse_pos[0]:.2f}, {mouse_pos[1]:.2f})")
+        else:
+            return    
         
-        mouse_pos = vtk_viewer.interactor.GetEventPosition()
-        picker = vtk.vtkWorldPointPicker()
-        picker.Pick(mouse_pos[0], mouse_pos[1], 0, vtk_viewer.get_renderer())
-        world_pos = picker.GetPickPosition()
+        if 'world_point' in event_data:
+            world_pos = event_data['world_point']
+            print(f"World position: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
+        else:
+            return
 
-        print(f"World position: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})"
-              f"Mouse position: ({mouse_pos[0]:.2f}, {mouse_pos[1]:.2f})")
-        
-        dims = vtk_image.GetDimensions()
-        spacing = vtk_image.GetSpacing()
-        origin = vtk_image.GetOrigin()
-
-        print(f"Image dimensions: {dims}")
-        print(f"Image spacing: {spacing}")
-        print(f"Image origin: {origin}")
-
-        x = int((world_pos[0] - origin[0]) / spacing[0] + 0.49999999)
-        y = int((world_pos[1] - origin[1]) / spacing[1] + 0.49999999)
-
-
-        if not (0 <= x < dims[0] and 0 <= y < dims[1]):
-            print(f"Point ({x}, {y}) is outside the image bounds.")
+        if 'image_index' in event_data:
+            image_index = event_data['image_index']
+            print(f"Index: ({image_index[0]:.2f}, {image_index[1]:.2f}, {image_index[2]:.2f})")
+        else:
             return
 
         layer = self.get_active_layer()
@@ -646,21 +702,24 @@ class SegmentationListManager(QObject):
             print("No active layer selected.")
             return
 
-        segmentation = layer.segmentation
-        
         # paint or erase
         if self.paint_active:
             value = 1
         else:
             value = 0
 
-        self.paintbrush.paint(segmentation, x, y, value)
+        # paint
+        v2d.paintbrush.paint(layer.segmentation, image_index[0], image_index[1], image_index[2], value)
         
-        segmentation.Modified() # flag vtkImageData as Modified to update the pipeline.
-        
+        # flag vtkImageData as Modified to update the pipeline.
+        layer.segmentation.Modified() 
+    
+        # flag manager data has been modified (for saving)
         self._modified = True
-        self.render()
 
+        # emit event
+        self.layer_modified.emit(self.active_layer_name, self)
+        
     def _find_viewer_from_interactor(self, interactor):
         for v in self.vtk_viewer.get_viewers():
             if v.get_interactor() == interactor:
@@ -670,36 +729,36 @@ class SegmentationListManager(QObject):
     def on_left_button_press(self, obj, event):
         # obj is the sender, which is vtkRenderWindowInteractor
         # event = LeftButtonPressEvent string
-        v = self._find_viewer_from_interactor(obj)
+        v2d = self._find_viewer_from_interactor(obj)
         
-        if not v:
+        if not v2d:
             return 
         
-        if not hasattr(v, 'paintbrush') or not v.paintbrush.enabled:
+        if not hasattr(v2d, 'paintbrush') or not v2d.paintbrush.enabled:
             return
         
         self.left_button_is_pressed = True
-        self.last_mouse_position = v.get_interactor().GetEventPosition()
+        self.last_mouse_position = v2d.get_interactor().GetEventPosition()
         
-        if self.left_button_is_pressed and v.paintbrush.enabled and self.active_layer_name is not None:
+        if self.left_button_is_pressed and v2d.paintbrush.enabled and self.active_layer_name is not None:
             print('paint...')
-            self.paint_at_mouse_position()
+            self.paint_at_mouse_position(v2d)
        
     def on_mouse_move(self, obj, event):
         # obj is the sender, which is vtkRenderWindowInteractor
         # event = MouseMoveEvent string
         interactor = obj
         
-        v = self._find_viewer_from_interactor(interactor)
+        v2d = self._find_viewer_from_interactor(interactor)
         
-        if not v:
+        if not v2d:
             return 
         
-        if not hasattr(v, 'paintbrush') or not v.paintbrush.enabled:
+        if not hasattr(v2d, 'paintbrush') or not v2d.paintbrush.enabled:
             return
         
-        paintbrush = v.paintbrush
-        renderer = v.get_renderer()
+        paintbrush = v2d.paintbrush
+        renderer = v2d.get_renderer()
         if paintbrush.enabled:
             mouse_pos = interactor.GetEventPosition()
             picker = vtk.vtkWorldPointPicker()
@@ -715,10 +774,9 @@ class SegmentationListManager(QObject):
             w_H_camo = cam.get_w_H_o()
             camo_H_w = cam.get_o_H_w()
             print(f'world_pos={world_pos}')
-            print(f'axis={v.reslicer.axis}')
+            print(f'axis={v2d.reslicer.axis}')
             print(f'w_H_camo={w_H_camo}')
             print(f'camo_H_w={camo_H_w}')
-
 
             # interaction point in camo
             w_pt_interaction = np.append(np.array(world_pos), 1.0).reshape(4,1)
@@ -749,7 +807,7 @@ class SegmentationListManager(QObject):
             # Paint 
             if self.left_button_is_pressed and paintbrush.enabled and self.active_layer_name is not None:
                 print('paint...')
-                self.paint_at_mouse_position()
+                self.paint_at_mouse_position(v2d)
         else:
             paintbrush.get_actor().SetVisibility(False)  # Hide the brush when not painting
        
