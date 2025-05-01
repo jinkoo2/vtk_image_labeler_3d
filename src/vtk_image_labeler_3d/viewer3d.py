@@ -565,8 +565,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             world_pos = event_data['world_point']
             self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
 
-
-
 class VTKViewer3D(QWidget):
     
     status_message = pyqtSignal(str, QObject)
@@ -617,7 +615,6 @@ class VTKViewer3D(QWidget):
         layout.addWidget(self.viewer_sg, 1, 1)
         layout.addWidget(self.viewer_surf, 0, 1)
         self.setLayout(layout)
-        
 
     def get_viewers_2d(self):
         return self.viewers_2d
@@ -718,9 +715,7 @@ class VTKViewer3D(QWidget):
                 if v is not source_viewer:
                     v.update_slice_indicator(source_viewer)
 
-
         self.viewer_surf.set_vtk_image(vtk_image)
-
         
     def set_segmentation_layers(self, segmentation_layers):
         self.segmentation_layers = segmentation_layers

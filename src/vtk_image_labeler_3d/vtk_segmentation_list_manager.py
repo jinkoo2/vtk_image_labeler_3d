@@ -48,16 +48,23 @@ class PaintBrush:
     def get_actor(self):
         return self.brush_actor
     
+    def set_enabled(self, enabled):
+        self.enabled = enabled
+        self.brush_actor.SetVisibility(enabled)  
+ 
     def set_color(self, color_vtk):
         if hasattr(self, 'brush_actor') and self.brush_actor is not None:
             self.brush_actor.GetProperty().SetColor(color_vtk[0], color_vtk[1], color_vtk[2]) 
 
-    def set_radius_in_pixel(self, radius_in_pixel, pixel_spacing):
+    def set_radius_in_pixel(self, radius_in_pixel, pixel_spacing=None):
         
         self.radius_in_pixel = radius_in_pixel
-        self.pixel_spacing = pixel_spacing
-
-        radius_in_real = (radius_in_pixel[0] * pixel_spacing[0], radius_in_pixel[1] * pixel_spacing[1])
+        
+        if pixel_spacing:
+            self.pixel_spacing = pixel_spacing
+            radius_in_real = (radius_in_pixel[0] * pixel_spacing[0], radius_in_pixel[1] * pixel_spacing[1])
+        else:
+            radius_in_real = (radius_in_pixel[0] * self.pixel_spacing[0], radius_in_pixel[1] * self.pixel_spacing[1])
 
         self.update_circle_geometry(radius_in_real)
 
@@ -658,7 +665,7 @@ class SegmentationListManager(QObject):
                 v.paintbrush.set_radius_in_pixel(radius_in_pixel=(20, 20), pixel_spacing=v.vtk_image.GetSpacing())
                 v.get_renderer().AddActor(v.paintbrush.get_actor())
 
-            v.paintbrush.enabled = enabled
+            v.paintbrush.set_enabled(enabled)
 
             interactor = v.interactor 
             if enabled:
@@ -852,10 +859,9 @@ class SegmentationListManager(QObject):
             button.setStyleSheet("QToolButton { opacity: 0.5; }")  # Dimmed icon
 
     def update_brush_size(self, value):
-        self.paintbrush.set_radius_in_pixel(
-            radius_in_pixel=(value, value), 
-            pixel_spacing=self.get_base_image().GetSpacing())
-
+        for v in self.vtk_viewer.get_viewers_2d():
+            if hasattr(v, 'paintbrush'):
+                v.paintbrush.set_radius_in_pixel(radius_in_pixel=(value, value))
 
     def list_widget_on_current_item_changed(self, current, previous):
         if current:

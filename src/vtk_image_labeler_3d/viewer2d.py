@@ -267,6 +267,62 @@ class LineWidget:
         representation.text_actor.SetInput(f"{distance:.2f} mm")
         representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])       
 
+class TextArea():
+    def __init__(self, renderer, render_window, position="bottom_left", margins=[10, 10], font_size=16, color=[1.0, 1.0, 1.0], text="hello"):
+
+        # Create text actor
+        text_actor = vtk.vtkTextActor()
+        text_actor.SetInput(text)
+        text_actor.GetTextProperty().SetFontSize(font_size)
+        text_actor.GetTextProperty().SetColor(*color)  # white
+        text_actor.SetPosition(10, 10)  # adjust offsets as needed
+        
+        self.text_actor = text_actor
+
+        self.margins = margins
+        self.position = position
+        self.renderer = renderer
+        self.render_windown = render_window
+
+        render_window.AddObserver("RenderEvent", self.update_text_position)
+
+        renderer.AddActor2D(text_actor)
+
+
+    # Position in top-right corner (dynamically)
+    def update_text_position(self, obj, event):
+        window_size = self.render_windown.GetSize()
+        text_box_size = [0,0]
+        self.text_actor.GetSize(self.renderer, text_box_size)
+
+        if self.position == "bottom_left":
+            x = self.margins[0]
+            y = self.margins[1]
+        elif self.position == "top_left": 
+            x = self.margins[0]
+            y = window_size[1] - (self.margins[1]+text_box_size[1])
+        elif self.position == "bottom_right": 
+            x = window_size[0] - (self.margins[0]+text_box_size[0])
+            y = self.margins[1]
+        elif self.position == "top_right": 
+            x = window_size[0] - (self.margins[0]+text_box_size[0])
+            y = window_size[1] - (self.margins[1]+text_box_size[1])
+        else:
+            x=0
+            y=0
+            print(f'unknown position')
+
+        self.text_actor.SetPosition(x, y)  
+
+    def set_text(self, text):
+        self.text_actor.SetInput(text)
+
+    def set_position(self, pos):
+        self.text_actor.SetPosition(*pos)
+    
+    def set_color(self, *color):
+        self.text_actor.GetTextProperty().SetColor(*color)
+
 background_color = (0.5, 0.5, 0.5)
 background_color_active = (0.6, 0.6, 0.6)
 
@@ -280,18 +336,12 @@ class VTKViewer2D(QWidget):
 
         self.name = name
 
-
         # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
         self.renderer.SetLayer(0)
         self.renderer.SetBackground(*background_color)  # Set background to gray
         self.renderer.GetActiveCamera().SetParallelProjection(True)
         self.renderer.SetInteractive(True)
-
-        # Create a VTK Renderer for the brush actor
-        #self.brush_renderer = vtk.vtkRenderer()
-        #self.brush_renderer.SetLayer(1)  # Higher layer index
-        #self.brush_renderer.SetBackground(*background_color)  # Transparent background
 
         # Create a QVTKRenderWindowInteractor
         self.vtk_widget = QVTKRenderWindowInteractor(self)
@@ -326,8 +376,17 @@ class VTKViewer2D(QWidget):
         self.panning = Panning(viewer=self)  
         self.panning.pan_changed.connect(self.on_pan_changed_event)
 
-        self.set_active(False)
 
+        # text areas
+        font_size = 14
+        margins = [10, 10]
+        self.text_bottom_left = TextArea(self.renderer, self.render_window, position="bottom_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Bottom Left")
+        self.text_bottom_right = TextArea(self.renderer, self.render_window, position="bottom_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Bottom Right")
+        self.text_top_left = TextArea(self.renderer, self.render_window, position="top_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Top Left")
+        self.text_top_right = TextArea(self.renderer, self.render_window, position="top_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Top Right")
+       
+        self.set_active(False)
+  
 
     def get_interactor(self):
         return self.interactor
