@@ -154,7 +154,9 @@ class Slicing(QObject):
 from PyQt5.QtCore import QTimer
 
 class SlicePlaneObject():
-    def __init__(self):
+    def __init__(self, color):
+
+        self.color = color
         self.plane_source = vtk.vtkPlaneSource()
         self.texture = vtk.vtkTexture()
         self.texture.InterpolateOn()
@@ -210,14 +212,49 @@ class SlicePlaneObject():
         self.actor.SetMapper(self.mapper)
         self.actor.SetTexture(self.texture)
 
+        # keep the points
+        self.pt0_w = p0_w
+        self.pt1_w = p1_w
+        self.pt2_w = p2_w
+
+class SliceIndicator():
+    def __init__(self):
+        # 1. Create a line from point A to B
+        line_source = vtk.vtkLineSource()
+        line_source.SetPoint1(0, 0, 0)
+        line_source.SetPoint2(0, 0, 0)
+        line_source.Update()
+
+        # 2. Mapper
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(line_source.GetOutputPort())
+
+        # 3. Actor
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetLineWidth(1)
+        actor.GetProperty().SetColor(1, 1, 1) 
+
+        self.line_source = line_source
+        self.mapper = mapper
+        self.actor = actor
+
+    def set_points(self, pt0_w, pt1_w):
+        self.line_source.SetPoint1(*pt0_w)
+        self.line_source.SetPoint2(*pt1_w)
+        self.line_source.Update()
+
+    def set_color(self, color):
+        self.actor.GetProperty().SetColor(*color) 
+
 import viewer2d
 import reslicer
 class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     
     slice_changed = pyqtSignal(QObject)
 
-    def __init__(self, axis, parent):
-        super().__init__(parent=parent)
+    def __init__(self, axis, name, slice_plane_color, parent):
+        super().__init__(name=name, parent=parent)
         self.reslicer = reslicer.Reslicer(axis)
         self.vtk_image_3d = None
         self._set_slice(None)
@@ -234,7 +271,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.render_timer.timeout.connect(self.render)
         self.delayed_render_ms = 20
 
-        self.slice_plane_object = SlicePlaneObject()
+        self.slice_plane_object = SlicePlaneObject(slice_plane_color)
+        self.slice_indicators_of_other_views = {}
 
     def _set_slice(self, slice):
         self.slice = slice
@@ -243,8 +281,44 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def _get_slice(self):
         return self.vtk_image
 
-    def update_slice_indicator(self, axis, slice_index):
+    def update_slice_indicator(self, source_viewer):
+
+        axis = source_viewer.reslicer.axis
+        slice_index = source_viewer.slice_index
+        color = source_viewer.slice_plane_object.color
         print(f'update_slice_indicator(axis={axis}, slice_index={slice_index})')
+
+
+        # plane objects points
+        pt0_w = source_viewer.slice_plane_object.pt0_w
+        pt1_w = source_viewer.slice_plane_object.pt1_w
+        pt2_w = source_viewer.slice_plane_object.pt2_w
+
+        # project to cam near plane
+        pt0_w = self.project_world_point_to_camera_near_plane(pt0_w)
+        pt1_w = self.project_world_point_to_camera_near_plane(pt1_w)
+        pt2_w = self.project_world_point_to_camera_near_plane(pt2_w)
+
+        # find the line of 
+        v1 = pt1_w - pt0_w
+        v2 = pt2_w - pt0_w
+
+        if np.linalg.norm(v1) > np.linalg.norm(v2):
+            pt1_w = pt1_w
+        else:
+            pt1_w = pt2_w
+
+        if source_viewer.name in self.slice_indicators_of_other_views:
+            slice_indicator = self.slice_indicators_of_other_views[source_viewer.name]
+        else:
+            slice_indicator = SliceIndicator()
+            self.get_renderer().AddActor(slice_indicator.actor)
+            self.slice_indicators_of_other_views[source_viewer.name] = slice_indicator
+            
+        slice_indicator.set_points(pt0_w, pt1_w)
+        slice_indicator.set_color(color)
+         
+        self.render()
 
     def render(self):
         self.get_render_window().Render()
@@ -372,6 +446,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         super().set_vtk_image(slice, window, level)
 
         self.update_slice_plane_object()
+
 
         self.reset_camera()
 
@@ -502,10 +577,10 @@ class VTKViewer3D(QWidget):
         self.rulers = []
         self.vtk_image = None
 
-        self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, self) 
-        self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, self) 
-        self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, self) 
-        
+        self.viewer_ax = VTKViewer2DWithReslicer(reslicer.AXIAL, name="Axial", slice_plane_color=[1, 0, 0],  parent=self) 
+        self.viewer_cr = VTKViewer2DWithReslicer(reslicer.CORONAL, name="Coronal", slice_plane_color=[0, 1, 0], parent=self) 
+        self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, name="Sagittal", slice_plane_color=[0, 0, 1], parent=self) 
+
         self.viewer_surf = ModelViewer()
         self.viewer_surf.add_actor(self.viewer_ax.slice_plane_object.actor)
         self.viewer_surf.add_actor(self.viewer_cr.slice_plane_object.actor)
@@ -555,13 +630,11 @@ class VTKViewer3D(QWidget):
     
     def on_slice_changed(self, sender):
         
-        viewer = sender
-        slice_index = viewer.slice_index
-        axis = viewer.reslicer.axis
+        source_viewer = sender
 
         for v in self.viewers_2d:
             if v is not sender:
-                v.update_slice_indicator(axis, slice_index)
+                v.update_slice_indicator(source_viewer)
         
         self.viewer_surf.render()
 
@@ -638,6 +711,13 @@ class VTKViewer3D(QWidget):
 
         for v in self.viewers_2d:
             v.set_vtk_image_3d(vtk_image, window, level)
+
+        # init slice indicators
+        for source_viewer in self.viewers_2d:
+            for v in self.viewers_2d:
+                if v is not source_viewer:
+                    v.update_slice_indicator(source_viewer)
+
 
         self.viewer_surf.set_vtk_image(vtk_image)
 

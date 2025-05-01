@@ -275,8 +275,11 @@ class VTKViewer2D(QWidget):
     pan_changed = pyqtSignal(QObject)
     status_message = pyqtSignal(str, QObject)
 
-    def __init__(self, parent=None):
+    def __init__(self, name = None, parent=None):
         super().__init__(parent)
+
+        self.name = name
+
 
         # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
@@ -326,6 +329,15 @@ class VTKViewer2D(QWidget):
         self.set_active(False)
 
 
+    def get_interactor(self):
+        return self.interactor
+
+    def get_renderer(self):
+        return self.renderer
+    
+    def get_render_window(self):
+        return self.render_window
+    
     def set_active(self, active=True):
         self.active = active
         if active:
@@ -460,15 +472,7 @@ class VTKViewer2D(QWidget):
             self.window_level_filter.Update()
             self.get_render_window().Render()
 
-    def get_interactor(self):
-        return self.interactor
-
-    def get_renderer(self):
-        return self.renderer
-    
-    def get_render_window(self):
-        return self.render_window
-    
+   
     def get_camera_info(self):
         """Retrieve the camera's position and direction in the world coordinate system."""
         camera = self.renderer.GetActiveCamera()
@@ -525,12 +529,36 @@ class VTKViewer2D(QWidget):
         clipping_range = camera.GetClippingRange()
         print(f"Clipping Range: {clipping_range}")
 
+
+    def project_world_point_to_camera_near_plane(self, pt_w):
+
+        camera = self.get_renderer().GetActiveCamera()
+
+        import vtk_camera_wrapper, numpy as np
+        cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
+        camo_H_w = cam.get_o_H_w()
+            
+        # pt in camo
+        pt_camo = camo_H_w @ np.array([pt_w[0], pt_w[1], pt_w[2], 1.0]).reshape(4,1)
+        
+        # projec to near plane
+        clip_range = cam.get_clip_range()
+        z_near = clip_range[0]
+        pt_camo[2,0] = z_near+0.001
+        
+        # back to w
+        w_H_camo = cam.get_w_H_o()
+            
+        pt_near_w = w_H_camo @ pt_camo
+        
+        return pt_near_w.flatten()[:3]
+       
+
     def add_ruler(self):
         """Add a ruler to the center of the current view and enable interaction."""
         camera = self.get_renderer().GetActiveCamera()
         
         import vtk_camera_wrapper, numpy as np
-
         cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
         w_H_camo = cam.get_w_H_o()
         view_extent = cam.get_parallel_scale()
@@ -540,7 +568,7 @@ class VTKViewer2D(QWidget):
         clip_range = cam.get_clip_range()
         z_near = clip_range[0]
 
-        # the line on a axis on the near plane, but within the view volume (+0.001), so it is always display in the view, regardless where the image plane is.
+        # the line on a axis on the near plane, but within the view volume (+0.001), so it is always displayed in the view, regardless where the image plane is.
         pt0_camo = np.array([-line_length, 0.0, z_near+0.001, 1.0]).reshape(4,1)
         pt1_camo = np.array([line_length, 0.0, z_near+0.001, 1.0]).reshape(4,1)
         
@@ -553,7 +581,7 @@ class VTKViewer2D(QWidget):
             vtk_image=self.vtk_image,
             pt1_w=pt0_w, 
             pt2_w=pt1_w, 
-            line_color_vtk=[1,0,0], 
+            line_color_vtk=[0,1,0], 
             line_width=2, 
             renderer=self.get_renderer())
         

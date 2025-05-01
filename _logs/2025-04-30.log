@@ -1,0 +1,305 @@
+2025-04-30 14:24:12,603 - INFO - Application started
+2025-04-30 14:24:26,042 - INFO - Application started
+2025-04-30 14:24:33,081 - INFO - SegmentationListManager initialized
+2025-04-30 14:24:35,248 - INFO - MainWindow initialized
+2025-04-30 14:24:37,319 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:24:37,320 - INFO - File extension: .mha
+2025-04-30 14:24:37,818 - INFO - dims=(512, 512, 160)
+2025-04-30 14:24:37,819 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:24:37,819 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:24:37,942 - INFO - the center slice index is 79
+2025-04-30 14:24:38,014 - INFO - the center slice index is 255
+2025-04-30 14:24:38,070 - INFO - the center slice index is 255
+2025-04-30 14:24:38,150 - INFO - Image loaded successfully
+2025-04-30 14:26:06,494 - INFO - Application started
+2025-04-30 14:26:13,009 - INFO - SegmentationListManager initialized
+2025-04-30 14:26:14,047 - INFO - MainWindow initialized
+2025-04-30 14:26:16,215 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:26:16,215 - INFO - File extension: .mha
+2025-04-30 14:26:16,727 - INFO - dims=(512, 512, 160)
+2025-04-30 14:26:16,728 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:26:16,728 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:26:16,848 - INFO - the center slice index is 79
+2025-04-30 14:26:16,940 - INFO - the center slice index is 255
+2025-04-30 14:26:16,996 - INFO - the center slice index is 255
+2025-04-30 14:26:17,052 - INFO - Image loaded successfully
+2025-04-30 14:26:30,096 - INFO - MainWindow is closing.
+2025-04-30 14:26:30,156 - INFO - Application is quitting.
+2025-04-30 14:38:04,568 - INFO - Application started
+2025-04-30 14:38:42,312 - INFO - Application started
+2025-04-30 14:38:48,979 - INFO - SegmentationListManager initialized
+2025-04-30 14:38:50,006 - INFO - MainWindow initialized
+2025-04-30 14:38:55,930 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:38:55,930 - INFO - File extension: .mha
+2025-04-30 14:38:56,447 - INFO - dims=(512, 512, 160)
+2025-04-30 14:38:56,448 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:38:56,448 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:38:56,571 - INFO - the center slice index is 79
+2025-04-30 14:38:56,641 - INFO - the center slice index is 255
+2025-04-30 14:38:56,696 - INFO - the center slice index is 255
+2025-04-30 14:38:56,776 - INFO - Image loaded successfully
+2025-04-30 14:39:40,420 - INFO - MainWindow is closing.
+2025-04-30 14:39:40,534 - INFO - Application is quitting.
+2025-04-30 14:41:04,574 - INFO - Application started
+2025-04-30 14:41:11,262 - INFO - SegmentationListManager initialized
+2025-04-30 14:41:12,283 - INFO - MainWindow initialized
+2025-04-30 14:41:17,936 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:41:17,937 - INFO - File extension: .mha
+2025-04-30 14:41:18,453 - INFO - dims=(512, 512, 160)
+2025-04-30 14:41:18,453 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:41:18,454 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:41:18,585 - INFO - the center slice index is 79
+2025-04-30 14:41:18,658 - INFO - the center slice index is 255
+2025-04-30 14:41:18,714 - INFO - the center slice index is 255
+2025-04-30 14:41:18,791 - INFO - Image loaded successfully
+2025-04-30 14:42:10,104 - INFO - Application started
+2025-04-30 14:42:16,605 - INFO - SegmentationListManager initialized
+2025-04-30 14:42:17,642 - INFO - MainWindow initialized
+2025-04-30 14:42:19,615 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:42:19,616 - INFO - File extension: .mha
+2025-04-30 14:42:20,094 - INFO - dims=(512, 512, 160)
+2025-04-30 14:42:20,094 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:42:20,095 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:42:20,216 - INFO - the center slice index is 79
+2025-04-30 14:42:20,287 - INFO - the center slice index is 255
+2025-04-30 14:42:20,343 - INFO - the center slice index is 255
+2025-04-30 14:42:20,424 - INFO - Image loaded successfully
+2025-04-30 14:47:49,722 - INFO - Application started
+2025-04-30 14:47:56,105 - INFO - SegmentationListManager initialized
+2025-04-30 14:47:57,113 - INFO - MainWindow initialized
+2025-04-30 14:47:59,292 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:47:59,293 - INFO - File extension: .mha
+2025-04-30 14:47:59,780 - INFO - dims=(512, 512, 160)
+2025-04-30 14:47:59,781 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:47:59,781 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:47:59,904 - INFO - the center slice index is 79
+2025-04-30 14:47:59,976 - INFO - the center slice index is 255
+2025-04-30 14:48:00,032 - INFO - the center slice index is 255
+2025-04-30 14:48:00,112 - INFO - Image loaded successfully
+2025-04-30 14:48:08,101 - INFO - MainWindow is closing.
+2025-04-30 14:48:08,167 - INFO - Application is quitting.
+2025-04-30 14:54:43,127 - INFO - Application started
+2025-04-30 14:55:17,052 - INFO - Application started
+2025-04-30 14:55:23,460 - INFO - SegmentationListManager initialized
+2025-04-30 14:55:24,497 - INFO - MainWindow initialized
+2025-04-30 14:55:36,888 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:55:36,889 - INFO - File extension: .mha
+2025-04-30 14:55:37,372 - INFO - dims=(512, 512, 160)
+2025-04-30 14:55:37,372 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:55:37,373 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:55:37,495 - INFO - the center slice index is 79
+2025-04-30 14:55:37,568 - INFO - the center slice index is 255
+2025-04-30 14:55:37,628 - INFO - the center slice index is 255
+2025-04-30 14:55:37,709 - INFO - Image loaded successfully
+2025-04-30 14:55:44,936 - INFO - MainWindow is closing.
+2025-04-30 14:55:45,047 - INFO - Application is quitting.
+2025-04-30 14:56:10,673 - INFO - Application started
+2025-04-30 14:59:03,711 - INFO - Application started
+2025-04-30 14:59:13,053 - INFO - SegmentationListManager initialized
+2025-04-30 14:59:14,063 - INFO - MainWindow initialized
+2025-04-30 14:59:15,887 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 14:59:15,887 - INFO - File extension: .mha
+2025-04-30 14:59:16,370 - INFO - dims=(512, 512, 160)
+2025-04-30 14:59:16,370 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 14:59:16,370 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 14:59:16,493 - INFO - the center slice index is 79
+2025-04-30 14:59:16,569 - INFO - the center slice index is 255
+2025-04-30 14:59:16,627 - INFO - the center slice index is 255
+2025-04-30 14:59:16,709 - INFO - Image loaded successfully
+2025-04-30 14:59:23,487 - INFO - MainWindow is closing.
+2025-04-30 14:59:23,589 - INFO - Application is quitting.
+2025-04-30 15:00:07,536 - INFO - Application started
+2025-04-30 15:00:18,949 - INFO - SegmentationListManager initialized
+2025-04-30 15:00:19,993 - INFO - MainWindow initialized
+2025-04-30 15:00:21,958 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:00:21,959 - INFO - File extension: .mha
+2025-04-30 15:00:22,446 - INFO - dims=(512, 512, 160)
+2025-04-30 15:00:22,446 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:00:22,447 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:00:22,571 - INFO - the center slice index is 79
+2025-04-30 15:00:38,400 - INFO - Application started
+2025-04-30 15:00:48,037 - INFO - SegmentationListManager initialized
+2025-04-30 15:00:49,066 - INFO - MainWindow initialized
+2025-04-30 15:00:55,704 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:00:55,705 - INFO - File extension: .mha
+2025-04-30 15:00:56,224 - INFO - dims=(512, 512, 160)
+2025-04-30 15:00:56,224 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:00:56,225 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:00:56,347 - INFO - the center slice index is 79
+2025-04-30 15:01:14,840 - INFO - the center slice index is 255
+2025-04-30 15:01:26,682 - INFO - the center slice index is 255
+2025-04-30 15:01:36,204 - INFO - Image loaded successfully
+2025-04-30 15:01:57,284 - INFO - Application started
+2025-04-30 15:02:09,326 - INFO - SegmentationListManager initialized
+2025-04-30 15:02:10,377 - INFO - MainWindow initialized
+2025-04-30 15:02:12,221 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:02:12,221 - INFO - File extension: .mha
+2025-04-30 15:02:12,716 - INFO - dims=(512, 512, 160)
+2025-04-30 15:02:12,716 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:02:12,717 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:02:12,842 - INFO - the center slice index is 79
+2025-04-30 15:02:12,918 - INFO - the center slice index is 255
+2025-04-30 15:02:12,976 - INFO - the center slice index is 255
+2025-04-30 15:02:13,057 - INFO - Image loaded successfully
+2025-04-30 15:15:41,203 - INFO - Application started
+2025-04-30 15:15:47,942 - INFO - SegmentationListManager initialized
+2025-04-30 15:15:48,994 - INFO - MainWindow initialized
+2025-04-30 15:16:01,143 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:16:01,143 - INFO - File extension: .mha
+2025-04-30 15:16:01,635 - INFO - dims=(512, 512, 160)
+2025-04-30 15:16:01,635 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:16:01,636 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:16:01,758 - INFO - the center slice index is 79
+2025-04-30 15:16:01,829 - INFO - the center slice index is 255
+2025-04-30 15:16:01,891 - INFO - the center slice index is 255
+2025-04-30 15:16:01,971 - INFO - Image loaded successfully
+2025-04-30 15:16:11,335 - INFO - MainWindow is closing.
+2025-04-30 15:16:11,395 - INFO - Application is quitting.
+2025-04-30 15:17:17,152 - INFO - Application started
+2025-04-30 15:17:23,565 - INFO - SegmentationListManager initialized
+2025-04-30 15:17:24,593 - INFO - MainWindow initialized
+2025-04-30 15:17:26,447 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:17:26,448 - INFO - File extension: .mha
+2025-04-30 15:17:26,959 - INFO - dims=(512, 512, 160)
+2025-04-30 15:17:26,959 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:17:26,960 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:17:27,082 - INFO - the center slice index is 79
+2025-04-30 15:17:27,169 - INFO - the center slice index is 255
+2025-04-30 15:17:27,225 - INFO - the center slice index is 255
+2025-04-30 15:17:27,305 - INFO - Image loaded successfully
+2025-04-30 15:17:31,974 - INFO - MainWindow is closing.
+2025-04-30 15:17:32,080 - INFO - Application is quitting.
+2025-04-30 15:19:54,029 - INFO - Application started
+2025-04-30 15:20:00,762 - INFO - SegmentationListManager initialized
+2025-04-30 15:20:01,805 - INFO - MainWindow initialized
+2025-04-30 15:20:04,366 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:20:04,367 - INFO - File extension: .mha
+2025-04-30 15:20:04,870 - INFO - dims=(512, 512, 160)
+2025-04-30 15:20:04,870 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:20:04,871 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:20:04,995 - INFO - the center slice index is 79
+2025-04-30 15:20:05,067 - INFO - the center slice index is 255
+2025-04-30 15:20:05,124 - INFO - the center slice index is 255
+2025-04-30 15:20:05,204 - INFO - Image loaded successfully
+2025-04-30 15:20:41,214 - INFO - MainWindow is closing.
+2025-04-30 15:20:41,325 - INFO - Application is quitting.
+2025-04-30 15:21:34,673 - INFO - Application started
+2025-04-30 15:22:10,850 - INFO - Application started
+2025-04-30 15:22:17,386 - INFO - SegmentationListManager initialized
+2025-04-30 15:22:18,415 - INFO - MainWindow initialized
+2025-04-30 15:22:20,436 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:22:20,437 - INFO - File extension: .mha
+2025-04-30 15:22:20,936 - INFO - dims=(512, 512, 160)
+2025-04-30 15:22:20,937 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:22:20,937 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:22:21,062 - INFO - the center slice index is 79
+2025-04-30 15:22:37,412 - INFO - the center slice index is 255
+2025-04-30 15:22:37,470 - INFO - the center slice index is 255
+2025-04-30 15:22:37,551 - INFO - Image loaded successfully
+2025-04-30 15:25:14,606 - INFO - MainWindow is closing.
+2025-04-30 15:25:14,710 - INFO - Application is quitting.
+2025-04-30 15:25:52,844 - INFO - Application started
+2025-04-30 15:25:59,528 - INFO - SegmentationListManager initialized
+2025-04-30 15:26:00,551 - INFO - MainWindow initialized
+2025-04-30 15:26:02,362 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:26:02,362 - INFO - File extension: .mha
+2025-04-30 15:26:02,872 - INFO - dims=(512, 512, 160)
+2025-04-30 15:26:02,872 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:26:02,873 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:26:02,999 - INFO - the center slice index is 79
+2025-04-30 15:26:03,068 - INFO - the center slice index is 255
+2025-04-30 15:26:03,123 - INFO - the center slice index is 255
+2025-04-30 15:26:03,200 - INFO - Image loaded successfully
+2025-04-30 15:26:18,007 - INFO - MainWindow is closing.
+2025-04-30 15:26:18,107 - INFO - Application is quitting.
+2025-04-30 15:30:51,963 - INFO - Application started
+2025-04-30 15:33:43,190 - INFO - Application started
+2025-04-30 15:33:49,727 - INFO - SegmentationListManager initialized
+2025-04-30 15:33:50,756 - INFO - MainWindow initialized
+2025-04-30 15:33:52,519 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:33:52,519 - INFO - File extension: .mha
+2025-04-30 15:33:53,017 - INFO - dims=(512, 512, 160)
+2025-04-30 15:33:53,018 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:33:53,018 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:33:53,140 - INFO - the center slice index is 79
+2025-04-30 15:34:06,679 - INFO - Application started
+2025-04-30 15:34:13,230 - INFO - SegmentationListManager initialized
+2025-04-30 15:34:14,277 - INFO - MainWindow initialized
+2025-04-30 15:34:16,095 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:34:16,095 - INFO - File extension: .mha
+2025-04-30 15:34:16,601 - INFO - dims=(512, 512, 160)
+2025-04-30 15:34:16,602 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:34:16,602 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:34:16,727 - INFO - the center slice index is 79
+2025-04-30 15:34:16,817 - INFO - the center slice index is 255
+2025-04-30 15:34:16,873 - INFO - the center slice index is 255
+2025-04-30 15:34:16,954 - INFO - Image loaded successfully
+2025-04-30 15:35:06,689 - INFO - MainWindow is closing.
+2025-04-30 15:35:06,770 - INFO - Application is quitting.
+2025-04-30 15:37:24,053 - INFO - Application started
+2025-04-30 15:37:43,685 - INFO - Application started
+2025-04-30 15:37:50,280 - INFO - SegmentationListManager initialized
+2025-04-30 15:37:51,304 - INFO - MainWindow initialized
+2025-04-30 15:37:53,277 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:37:53,277 - INFO - File extension: .mha
+2025-04-30 15:37:53,795 - INFO - dims=(512, 512, 160)
+2025-04-30 15:37:53,796 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:37:53,796 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:37:53,921 - INFO - the center slice index is 79
+2025-04-30 15:37:53,997 - INFO - the center slice index is 255
+2025-04-30 15:37:54,053 - INFO - the center slice index is 255
+2025-04-30 15:37:54,133 - INFO - Image loaded successfully
+2025-04-30 15:38:05,029 - INFO - MainWindow is closing.
+2025-04-30 15:38:05,097 - INFO - Application is quitting.
+2025-04-30 15:39:06,210 - INFO - Application started
+2025-04-30 15:39:12,722 - INFO - SegmentationListManager initialized
+2025-04-30 15:39:13,752 - INFO - MainWindow initialized
+2025-04-30 15:39:15,428 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:39:15,429 - INFO - File extension: .mha
+2025-04-30 15:39:15,929 - INFO - dims=(512, 512, 160)
+2025-04-30 15:39:15,929 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:39:15,929 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:39:16,053 - INFO - the center slice index is 79
+2025-04-30 15:39:16,123 - INFO - the center slice index is 255
+2025-04-30 15:39:16,179 - INFO - the center slice index is 255
+2025-04-30 15:39:16,256 - INFO - Image loaded successfully
+2025-04-30 15:39:35,140 - INFO - MainWindow is closing.
+2025-04-30 15:39:35,206 - INFO - Application is quitting.
+2025-04-30 15:42:15,525 - INFO - Application started
+2025-04-30 15:42:36,253 - INFO - Application started
+2025-04-30 15:42:42,960 - INFO - SegmentationListManager initialized
+2025-04-30 15:42:43,980 - INFO - MainWindow initialized
+2025-04-30 15:42:45,995 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:42:45,995 - INFO - File extension: .mha
+2025-04-30 15:42:46,507 - INFO - dims=(512, 512, 160)
+2025-04-30 15:42:46,507 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:42:46,508 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:42:46,654 - INFO - the center slice index is 79
+2025-04-30 15:43:19,338 - INFO - Application started
+2025-04-30 15:43:25,973 - INFO - SegmentationListManager initialized
+2025-04-30 15:43:26,985 - INFO - MainWindow initialized
+2025-04-30 15:43:28,812 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:43:28,812 - INFO - File extension: .mha
+2025-04-30 15:43:29,299 - INFO - dims=(512, 512, 160)
+2025-04-30 15:43:29,299 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:43:29,300 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:43:29,423 - INFO - the center slice index is 79
+2025-04-30 15:43:29,496 - INFO - the center slice index is 255
+2025-04-30 15:43:29,551 - INFO - the center slice index is 255
+2025-04-30 15:43:29,630 - INFO - Image loaded successfully
+2025-04-30 15:43:37,956 - INFO - MainWindow is closing.
+2025-04-30 15:43:38,042 - INFO - Application is quitting.
+2025-04-30 15:45:02,677 - INFO - Application started
+2025-04-30 15:45:09,060 - INFO - SegmentationListManager initialized
+2025-04-30 15:45:10,075 - INFO - MainWindow initialized
+2025-04-30 15:45:12,243 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-04-30 15:45:12,243 - INFO - File extension: .mha
+2025-04-30 15:45:12,724 - INFO - dims=(512, 512, 160)
+2025-04-30 15:45:12,725 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-04-30 15:45:12,725 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-04-30 15:45:12,856 - INFO - the center slice index is 79
+2025-04-30 15:45:12,922 - INFO - the center slice index is 255
+2025-04-30 15:45:12,977 - INFO - the center slice index is 255
+2025-04-30 15:45:13,057 - INFO - Image loaded successfully
+2025-04-30 15:46:42,641 - INFO - MainWindow is closing.
+2025-04-30 15:46:42,705 - INFO - Application is quitting.
