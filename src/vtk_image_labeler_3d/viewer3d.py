@@ -354,6 +354,16 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         self.slice_changed.emit(self)
 
+        # display slice index
+        if self.reslicer.axis == 2:
+            self.text_bottom_left.set_text(f"z={self.slice_index}")
+        elif self.reslicer.axis == 1:
+            self.text_bottom_left.set_text(f"y={self.slice_index}")
+        elif self.reslicer.axis == 0:
+            self.text_bottom_left.set_text(f"x={self.slice_index}")
+        else:
+            print(f'invalid axis (axis={self.reslicer.axis})')
+
         self.render_delayed()
 
     def update_slice_plane_object(self):
@@ -708,6 +718,18 @@ class VTKViewer3D(QWidget):
 
         for v in self.viewers_2d:
             v.set_vtk_image_3d(vtk_image, window, level)
+
+        # display image properties
+        dims = vtk_image.GetDimensions()
+        spacing = vtk_image.GetSpacing()
+        line1 = f"Size={dims}"
+        line2 = f"Spacing=({spacing[0]:.2f}, {spacing[1]:.2f}, {spacing[2]:.2f})"
+        self.viewer_ax.text_top_left.set_text(f"Image\n{line1}\n{line2}")
+
+        # display slice index
+        self.viewer_ax.text_bottom_left.set_text(f"z={self.viewer_ax.slice_index}")
+        self.viewer_cr.text_bottom_left.set_text(f"y={self.viewer_cr.slice_index}")
+        self.viewer_sg.text_bottom_left.set_text(f"x={self.viewer_sg.slice_index}")
 
         # init slice indicators
         for source_viewer in self.viewers_2d:

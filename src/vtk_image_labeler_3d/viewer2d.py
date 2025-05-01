@@ -380,10 +380,10 @@ class VTKViewer2D(QWidget):
         # text areas
         font_size = 14
         margins = [10, 10]
-        self.text_bottom_left = TextArea(self.renderer, self.render_window, position="bottom_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Bottom Left")
-        self.text_bottom_right = TextArea(self.renderer, self.render_window, position="bottom_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Bottom Right")
-        self.text_top_left = TextArea(self.renderer, self.render_window, position="top_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Top Left")
-        self.text_top_right = TextArea(self.renderer, self.render_window, position="top_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text="Top Right")
+        self.text_bottom_left = TextArea(self.renderer, self.render_window, position="bottom_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text=" ")
+        self.text_bottom_right = TextArea(self.renderer, self.render_window, position="bottom_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text=" ")
+        self.text_top_left = TextArea(self.renderer, self.render_window, position="top_left", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text=" ")
+        self.text_top_right = TextArea(self.renderer, self.render_window, position="top_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text=" ")
        
         self.set_active(False)
   
