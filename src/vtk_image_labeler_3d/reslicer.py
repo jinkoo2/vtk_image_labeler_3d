@@ -143,10 +143,11 @@ CORONAL = 1
 SAGITTAL = 0
 
 class Reslicer():
-    def __init__(self, axis, vtk_image=None, background_value=-1000):
+    def __init__(self, axis, vtk_image=None, background_value=-1000, viewer=None):
         self.vtk_image = vtk_image
         self.background_value = background_value
         self.axis = axis
+        self.viewer = viewer
 
         reslice = vtk.vtkImageReslice()
         
@@ -253,37 +254,261 @@ class Reslicer():
 
         return slice
 
-    
+ 
 class ReslicerWithImageActor(Reslicer):
-    def __init__(self, axis, vtk_image=None, background_value=-1000, vtk_color=(1,0,0), alpha=0.8):
-        super().__init__(axis, vtk_image, background_value)
+    def __init__(self, axis, vtk_image=None, background_value=-1000, vtk_color=(1,0,0), alpha=0.8, border_color=(1, 0, 0), viewer=None):
+        super().__init__(axis, vtk_image, background_value, viewer=viewer)
+      
         self._create_slice_actor(vtk_color, alpha)
+        self._create_contour_border(border_color)
 
     def _create_slice_actor(self, vtk_color, alpha):
-        # Create a lookup table for coloring the segmentation
-        lookup_table = vtk.vtkLookupTable()
-        lookup_table.SetNumberOfTableValues(2)  # For 0 (background) and 1 (segmentation)
-        lookup_table.SetTableRange(0, 1)       # Scalar range
-        lookup_table.SetTableValue(0, 0, 0, 0, 0)  # Background: Transparent
-        lookup_table.SetTableValue(1, vtk_color[0], vtk_color[1], vtk_color[2], alpha)  # Segmentation: Red with 50% opacity
-        lookup_table.Build()
+        # Color lookup table
+        self.lookup_table = vtk.vtkLookupTable()
+        self.lookup_table.SetNumberOfTableValues(2)
+        self.lookup_table.SetTableRange(0, 1)
+        self.lookup_table.SetTableValue(0, 0, 0, 0, 0)  # transparent
+        self.lookup_table.SetTableValue(1, *vtk_color, alpha)
+        self.lookup_table.Build()
+
+        self.slice_mapper = vtk.vtkImageMapToColors()
+        self.slice_mapper.SetLookupTable(self.lookup_table)
+
+        self.slice_actor = vtk.vtkImageActor()
+        self.slice_actor.GetMapper().SetInputConnection(self.slice_mapper.GetOutputPort())
+
+    def _create_contour_border(self, border_color):
+        # Extract border from segmentation
+        self.contour_filter = vtk.vtkContourFilter()
+        self.contour_filter.SetValue(0, 0.5)
+
+        self.border_mapper = vtk.vtkPolyDataMapper()
+        self.border_mapper.SetInputConnection(self.contour_filter.GetOutputPort())
+        self.border_mapper.ScalarVisibilityOff()  
+
+        self.border_actor = vtk.vtkActor()
+        self.border_actor.SetMapper(self.border_mapper)
+        self.border_actor.GetProperty().SetColor(*border_color)
+        self.border_actor.GetProperty().SetLineWidth(1)
+        self.border_actor.GetProperty().SetOpacity(1.0)
+        #self.border_actor.GetProperty().LightingOff()
+
+    def get_actors(self):
+        return [self.slice_actor, self.border_actor]
+        #return [self.border_actor]
+    
+    def _poly_data_point_list_to_4xN_numpy_matrix(self, points):
+
+        n_points = points.GetNumberOfPoints()
+
+        # Allocate a 3xN numpy array
+        points_array = np.ones((3, n_points))
+
+        for i in range(n_points):
+            pt = points.GetPoint(i)  # Returns a tuple of (x, y, z)
+            points_array[:, i] = pt
+
+        print(points_array.shape)  # (3, N)
+
+        N = points_array.shape[1]
+
+        # Create a new 4xN array
+        points_homogeneous = np.vstack((points_array, np.ones((1, N))))
+
+        print(points_homogeneous.shape)  # (4, N)
+
+        return points_homogeneous
+
+
+    def _4xN_numpy_matrix_to_poly_data_point_list(self, PT):
+        N = PT.shape[1]
+        new_points = vtk.vtkPoints()
+        for i in range(N):
+            x, y, z = PT[0:3, i]  # Extract x, y, z
+            new_points.InsertNextPoint(x, y, z)
+        return new_points
+
+
+    def _transform_contour_filter_output_to_w(self, poly_data, slice):
+
+        import vtk_image_wrapper
+        slice_wrapper = vtk_image_wrapper.vtk_image_wrapper(slice)
+        w_H_sliceo = slice_wrapper.get_w_H_o()
+       
+        # contour filter output point list matrix
+        PT = self._poly_data_point_list_to_4xN_numpy_matrix(poly_data.GetPoints())
+
+        # subtract origin
+        slice_org_w = np.append(slice_wrapper.get_origin(), 0.0).reshape(4,1)
+        PT_sliceo = PT - slice_org_w
+
+        # transform to w 
+        PT_w = w_H_sliceo @ PT_sliceo
+
+        # shift points towards to the camera near plane
+        camera = self.viewer.get_renderer().GetActiveCamera()
+        import vtk_camera_wrapper
+        cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
+        uz = np.append(cam.get_z_axis(), 0.0).reshape(4,1)
+
+        # shift by 10.0
+        uz10 = uz * 10.0 
+        PT2_w = PT_w - uz10
         
-        mapper = vtk.vtkImageMapToColors()
-        mapper.SetLookupTable(lookup_table)
-        #mapper.Update()
+        # convert to vtkPoints
+        new_points = self._4xN_numpy_matrix_to_poly_data_point_list(PT2_w)
 
-        actor = vtk.vtkImageActor()
-        actor.GetMapper().SetInputConnection(mapper.GetOutputPort())
-
-        self.slice_mapper = mapper      
-        self.slice_actor = actor
+        # Copy cells
+        new_polydata = vtk.vtkPolyData()
+        new_polydata.SetPoints(new_points)
+        new_polydata.SetPolys(poly_data.GetPolys())
+        new_polydata.SetLines(poly_data.GetLines())  # Optional
+        
+        return new_polydata
+        
+    def _print_poly_data_points(self, poly_data, skip):
+        num_points = poly_data.GetNumberOfPoints()
+        for i in range(int(num_points/skip)):
+            point = poly_data.GetPoint(i*skip)
+            print(f"Point {i*skip}: {point}")
 
     def set_slice_index_and_update_slice_actor(self, index):
         slice = super().get_slice_image(index)
+
+        # Update image slice
         self.slice_mapper.SetInputData(slice)
         self.slice_actor.Update()
 
+        # Update border contour
+        self.contour_filter.SetInputData(slice)
+        self.contour_filter.Update()
 
+        contour_output = self.contour_filter.GetOutput()
+        if contour_output.GetNumberOfPoints() == 0 or contour_output.GetNumberOfCells() == 0:
+            print("Contour output is empty — no valid polygons.")
+            return  # or skip further processing
+
+        print('---- before transform ---')
+        self._print_poly_data_points(contour_output, 30)
+
+        # transform contour output to w
+        poly_data_w = self._transform_contour_filter_output_to_w(contour_output, slice)
+
+        print('---- after transform ---')
+        self._print_poly_data_points(poly_data_w, 30)
+
+        # set new data to mapper
+        self.border_mapper.SetInputData(poly_data_w)
+        self.border_actor.GetProperty().SetColor(0,1,0)
+        self.border_mapper.Update()
+
+        self.border_actor.SetMapper(self.border_mapper)
+
+class ReslicerWithContourPolyActor(Reslicer):
+    def __init__(self, axis, vtk_image=None, background_value=-1000, vtk_color=(1,0,0), alpha=0.8, viewer=None):
+        super().__init__(axis, vtk_image, background_value, viewer=viewer)
+        self._create_slice_actor(vtk_color, alpha)
+
+    def _create_slice_actor(self, vtk_color, alpha):
+        self.contour_filter = vtk.vtkContourFilter()
+        self.hatch_lines = vtk.vtkAppendPolyData()
+        self.clipper = vtk.vtkClipPolyData()
+        self.loop_points = vtk.vtkPoints()
+        self.loop = vtk.vtkImplicitSelectionLoop()
+        self.mapper = vtk.vtkPolyDataMapper()
+        self.hatch_actor = vtk.vtkActor()
+    
+    def get_actors(self):
+        return [self.hatch_actor]
+
+    def _clear_data(self):
+        # Clear previous hatch lines
+        self.hatch_lines.RemoveAllInputs()
+
+        # Clear loop points (used for clipping)
+        self.loop_points.Reset()
+
+
+    def set_slice_index_and_update_slice_actor(self, index):
+        slice = super().get_slice_image(index)
+    
+        self._clear_data()
+
+        # ------------------------------
+        # Step 2: Convert mask to polygon
+        # ------------------------------
+        contour_filter = self.contour_filter
+        contour_filter.SetInputData(slice)
+        contour_filter.SetValue(0, 0.5)
+        contour_filter.Update()
+
+        output = contour_filter.GetOutput()
+        if output.GetNumberOfPoints() == 0 or output.GetNumberOfCells() == 0:
+            print("Contour output is empty — no valid polygons.")
+            return  # or skip further processing
+
+        # ------------------------------
+        # Step 3: Generate hatch lines (diagonal)
+        # ------------------------------
+        bounds = contour_filter.GetOutput().GetBounds()
+
+        # Create hatch lines across bounding box
+        hatch_lines = self.hatch_lines
+        spacing = 5.0
+        x0, x1, y0, y1 = bounds[0], bounds[1], bounds[2], bounds[3]
+        for i in np.arange(y0 - 100, y1 + 100, spacing):
+            points = vtk.vtkPoints()
+            lines = vtk.vtkCellArray()
+
+            p0 = (x0 - 50, i, 0)
+            p1 = (x1 + 50, i + (x1 - x0), 0)
+
+            points.InsertNextPoint(p0)
+            points.InsertNextPoint(p1)
+
+            line = vtk.vtkLine()
+            line.GetPointIds().SetId(0, 0)
+            line.GetPointIds().SetId(1, 1)
+            lines.InsertNextCell(line)
+
+            line_poly = vtk.vtkPolyData()
+            line_poly.SetPoints(points)
+            line_poly.SetLines(lines)
+
+            hatch_lines.AddInputData(line_poly)
+
+        hatch_lines.Update()
+
+        # ------------------------------
+        # Step 4: Clip hatch lines to polygon
+        # ------------------------------
+        clipper = self.clipper
+        clipper.SetInputConnection(hatch_lines.GetOutputPort())
+        clipper.InsideOutOn()
+
+        # For clipping, convert contour to loop
+        loop_points = self.loop_points
+        for i in range(contour_filter.GetOutput().GetNumberOfPoints()):
+            loop_points.InsertNextPoint(contour_filter.GetOutput().GetPoint(i))
+
+        self.loop.SetLoop(loop_points)
+        clipper.SetClipFunction(self.loop)
+        clipper.Update()
+
+
+        # ------------------------------
+        # Step 5: Create actors
+        # ------------------------------
+        # Hatch actor
+        mapper = self.mapper
+        mapper.SetInputConnection(clipper.GetOutputPort())
+
+        hatch_actor = self.hatch_actor
+        hatch_actor.SetMapper(mapper)
+        hatch_actor.GetProperty().SetColor(1, 0.5, 0)  # orange
+        hatch_actor.GetProperty().SetLineWidth(1.5)
+
+       
 
 def main():
     input_filename = "C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha"

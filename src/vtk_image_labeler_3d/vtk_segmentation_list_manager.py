@@ -1110,8 +1110,8 @@ class SegmentationListManager(QObject):
         segmentation.SetDirectionMatrix(direction_matrix)
 
         #degug
-        #import itkvtk
-        #itkvtk.fill_square_at_center(segmentation, 100, 1)
+        import itkvtk
+        itkvtk.fill_square_at_center(segmentation, 100, 1)
         
 
 

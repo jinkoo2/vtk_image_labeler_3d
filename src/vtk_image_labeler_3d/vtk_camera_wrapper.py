@@ -59,7 +59,6 @@ class vtk_camera_wrapper:
             raise ValueError("np_arr must be a 1D numpy array of length 3.")
         self.vtk_camera.SetClippingRange(*np_arr)
 
- 
     def get_origin(self):
         return self.get_position()
     
@@ -117,5 +116,24 @@ class vtk_camera_wrapper:
     def get_o_H_w(self):
         return np.linalg.inv(self.get_w_H_o())
     
+    def project_point_to_camera_near_plane_w(self, pt_w):
+
+        camo_H_w = self.get_o_H_w()
+            
+        # pt in camo
+        pt_camo = camo_H_w @ np.array([pt_w[0], pt_w[1], pt_w[2], 1.0]).reshape(4,1)
+        
+        # projec to near plane
+        clip_range = self.get_clip_range()
+        z_near = clip_range[0]
+        pt_camo[2,0] = z_near+0.001
+        
+        # back to w
+        w_H_camo = self.get_w_H_o()
+            
+        pt_near_w = w_H_camo @ pt_camo
+        
+        return pt_near_w.flatten()[:3]
+        
     def __repr__(self):
         return f"<vtk_camera_wrapper position={self.get_poistion()} focal point={self.get_focal_point()} w_H_o={self.get_w_H_o()}>"

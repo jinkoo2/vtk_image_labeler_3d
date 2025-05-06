@@ -475,9 +475,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # create a reslicer with actor
         axis = self.reslicer.axis
         slice_index = self.reslicer.slice_index 
-        seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, vtk_color = vtk_color, alpha=alpha)
+        seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, vtk_color = vtk_color, alpha=alpha, viewer = self)
         seg_reslicer.set_slice_index_and_update_slice_actor(slice_index)
-        self.get_renderer().AddActor(seg_reslicer.slice_actor)
+        for actor in seg_reslicer.get_actors():
+            self.get_renderer().AddActor(actor)
         
         # add to segmentaion reslicer list        
         seg_item.reslicer = seg_reslicer
@@ -1376,8 +1377,6 @@ class MainWindow(QMainWindow):
         self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
         
         self.vtk_viewer.render()
-
-
 
     def update_window_level(self):
         if self.vtk_image is not None:

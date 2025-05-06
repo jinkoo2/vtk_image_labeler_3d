@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QListWidgetItem, QColorDialog
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
 
-from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtCore import pyqtSignal, QObject, QTimer
 
 from logger import logger
 
@@ -346,19 +346,12 @@ class VTKViewer2D(QWidget):
         # Create a QVTKRenderWindowInteractor
         self.vtk_widget = QVTKRenderWindowInteractor(self)
         self.render_window = self.vtk_widget.GetRenderWindow()  # Retrieve the render window
-        #self.render_window.SetNumberOfLayers(2)
         self.render_window.AddRenderer(self.renderer)
-        #self.render_window.AddRenderer(self.brush_renderer)
 
         # Set up interactor style
         self.interactor = self.render_window.GetInteractor()
         self.interactor_style = vtk.vtkInteractorStyleUser()
         self.interactor.SetInteractorStyle(self.interactor_style)
-
-        # Layout for embedding the VTK widget
-        layout = QVBoxLayout()
-        layout.addWidget(self.vtk_widget)
-        self.setLayout(layout)
 
         # Connect mouse events
         self.interactor.AddObserver("LeftButtonPressEvent", self.on_left_button_press)
@@ -376,7 +369,6 @@ class VTKViewer2D(QWidget):
         self.panning = Panning(viewer=self)  
         self.panning.pan_changed.connect(self.on_pan_changed_event)
 
-
         # text areas
         font_size = 14
         margins = [10, 10]
@@ -386,7 +378,23 @@ class VTKViewer2D(QWidget):
         self.text_top_right = TextArea(self.renderer, self.render_window, position="top_right", margins=margins, font_size=font_size, color=[1.0, 1.0, 1.0], text=" ")
        
         self.set_active(False)
-  
+
+        # Layout for embedding the VTK widget
+        layout = QVBoxLayout()
+        layout.addWidget(self.vtk_widget)
+        self.setLayout(layout)
+
+        # delayed rendering
+        self.render_timer = QTimer()
+        self.render_timer.setSingleShot(True)
+        self.render_timer.timeout.connect(self.render)
+        self.delayed_render_ms = 20
+
+    def render(self):
+        self.get_render_window().Render()
+   
+    def render_delayed(self):
+        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
 
     def get_interactor(self):
         return self.interactor
@@ -460,6 +468,8 @@ class VTKViewer2D(QWidget):
 
         self.image_actor = vtk.vtkImageActor()
         self.image_actor.GetMapper().SetInputConnection(self.window_level_filter.GetOutputPort())
+
+        
 
         self.get_renderer().AddActor(self.image_actor)
         
@@ -590,28 +600,11 @@ class VTKViewer2D(QWidget):
 
 
     def project_world_point_to_camera_near_plane(self, pt_w):
-
         camera = self.get_renderer().GetActiveCamera()
-
-        import vtk_camera_wrapper, numpy as np
+        import vtk_camera_wrapper
         cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
-        camo_H_w = cam.get_o_H_w()
-            
-        # pt in camo
-        pt_camo = camo_H_w @ np.array([pt_w[0], pt_w[1], pt_w[2], 1.0]).reshape(4,1)
-        
-        # projec to near plane
-        clip_range = cam.get_clip_range()
-        z_near = clip_range[0]
-        pt_camo[2,0] = z_near+0.001
-        
-        # back to w
-        w_H_camo = cam.get_w_H_o()
-            
-        pt_near_w = w_H_camo @ pt_camo
-        
-        return pt_near_w.flatten()[:3]
-       
+        pt_near_w  =  cam.project_point_to_camera_near_plane_w(pt_w)
+        return pt_near_w
 
     def add_ruler(self):
         """Add a ruler to the center of the current view and enable interaction."""
@@ -655,7 +648,7 @@ class VTKViewer2D(QWidget):
         self.left_button_is_pressed = True
 
     def on_mouse_move(self, obj, event):
-        self.print_mouse_coordiantes()
+        self.print_status_with_mouse_coordiantes()
         self.render_window.Render()
 
     def on_right_button_press(self, obj, event):
@@ -691,27 +684,30 @@ class VTKViewer2D(QWidget):
         """Show a pop-up menu when the right mouse button is released."""
         menu = QMenu(self)
 
-        # Option 1 with a submenu
-        option1_menu = QMenu("Camera", self)
+        # Camera with a submenu
+        camera_menu = QMenu("Camera", self)
+        
+        # camera properties
         action_camera_properties = QAction("Properties", self)
-        submenu_action2 = QAction("Sub-option 2", self)
+        action_camera_properties.triggered.connect(self.show_camera_properties)
+        camera_menu.addAction(action_camera_properties)
 
-        option1_menu.addAction(action_camera_properties)
-        option1_menu.addAction(submenu_action2)
+        # Image with a submenu
+        image_menu = QMenu("Image", self)
+        
+        # show image
+        action_image_show = QAction("Show", self)
+        action_image_show.triggered.connect(self.show_base_image)
+        image_menu.addAction(action_image_show)
+
+        # high image
+        action_image_hide = QAction("Hide", self)
+        action_image_hide.triggered.connect(self.hide_base_image)
+        image_menu.addAction(action_image_hide)
 
         # Main menu actions
-        menu.addMenu(option1_menu)  # Add submenu under Option 1
-        action2 = QAction("Option 2", self)
-        action3 = QAction("Exit", self)
-
-        menu.addAction(action2)
-        menu.addAction(action3)
-
-        # Connect actions to functions
-        action_camera_properties.triggered.connect(self.show_camera_properties)
-        submenu_action2.triggered.connect(lambda: print("Sub-option 2 selected"))
-        action2.triggered.connect(lambda: print("Option 2 selected"))
-        action3.triggered.connect(self.close)
+        menu.addMenu(camera_menu)  # Add submenu under Option 1
+        menu.addMenu(image_menu)  # Add submenu under Option 1
 
         # Show the menu at cursor position
         cursor_position = self.mapFromGlobal(self.cursor().pos())
@@ -775,7 +771,7 @@ class VTKViewer2D(QWidget):
 
         return event_data
     
-    def print_mouse_coordiantes(self):
+    def print_status_with_mouse_coordiantes(self):
 
         if not self.vtk_image:
             return 
@@ -904,11 +900,17 @@ class VTKViewer2D(QWidget):
         # Render the changes
         self.render_window.Render()
             
-    def toggle_base_image(self, visible):
+    def set_base_image_visibility(self, visible):
         """Toggle the visibility of the base image."""
         self.base_image_visible = visible
         self.image_actor.SetVisibility(self.base_image_visible)
-        self.render_window.Render()
+        self.render()
+
+    def show_base_image(self):
+        self.set_base_image_visibility(True)
+
+    def hide_base_image(self):
+        self.set_base_image_visibility(False)
 
     def toggle_panning_mode(self, checked):
         """Enable or disable panning mode."""
@@ -1248,7 +1250,7 @@ class MainWindow(QMainWindow):
         toggle_image_button = QAction("Toggle Base Image", self)
         toggle_image_button.setCheckable(True)
         toggle_image_button.setChecked(True)
-        toggle_image_button.triggered.connect(self.vtk_viewer.toggle_base_image)
+        toggle_image_button.triggered.connect(self.vtk_viewer.set_base_image_visibility)
         view_menu.addAction(toggle_image_button)
 
 

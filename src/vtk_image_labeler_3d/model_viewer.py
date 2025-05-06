@@ -50,6 +50,15 @@ class ModelViewer(QWidget):
 
         self.set_active(False)
 
+    def get_interactor(self):
+        return self.interactor
+
+    def get_renderer(self):
+        return self.renderer
+    
+    def get_render_window(self):
+        return self.render_window
+    
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
         self.renderer.ResetCamera()
