@@ -152,7 +152,7 @@ class Zooming(QObject):
 
         self.zoom_in()        
 
-        self.viewer.render_window.Render()
+        self.viewer.render()
 
     def on_mouse_wheel_backward(self, obj, event):
         if not self.enabled:
@@ -160,7 +160,7 @@ class Zooming(QObject):
 
         self.zoom_out()
 
-        self.viewer.render_window.Render()
+        self.viewer.render()
 
     def zoom(self, type, emit_event=True):
         camera = self.viewer.get_renderer().GetActiveCamera()
@@ -184,7 +184,7 @@ class Zooming(QObject):
         if emit_event:
             self.zoom_changed.emit(type, self)
 
-        self.viewer.get_render_window().Render()
+        self.viewer.render()
 
     def zoom_in(self, emit_event=True):
         self.zoom('in', emit_event)
@@ -334,6 +334,12 @@ class VTKViewer2D(QWidget):
     def __init__(self, name = None, parent=None):
         super().__init__(parent)
 
+        # delayed rendering
+        self.render_timer = QTimer()
+        self.render_timer.setSingleShot(True)
+        self.render_timer.timeout.connect(self.render)
+        self.delayed_render_ms = 100
+
         self.name = name
 
         # Create a VTK Renderer
@@ -384,12 +390,6 @@ class VTKViewer2D(QWidget):
         layout.addWidget(self.vtk_widget)
         self.setLayout(layout)
 
-        # delayed rendering
-        self.render_timer = QTimer()
-        self.render_timer.setSingleShot(True)
-        self.render_timer.timeout.connect(self.render)
-        self.delayed_render_ms = 20
-
     def render(self):
         self.get_render_window().Render()
    
@@ -423,7 +423,7 @@ class VTKViewer2D(QWidget):
         super().resizeEvent(event)
         if hasattr(self, 'render_window') and self.render_window is not None:
             self.render_window.SetSize(self.width(), self.height())
-            self.render_window.Render()
+            self.render()
 
     def cleanup_vtk(self, event):
         if hasattr(self, 'interactor') and self.interactor is not None:
@@ -469,14 +469,12 @@ class VTKViewer2D(QWidget):
         self.image_actor = vtk.vtkImageActor()
         self.image_actor.GetMapper().SetInputConnection(self.window_level_filter.GetOutputPort())
 
-        
-
         self.get_renderer().AddActor(self.image_actor)
         
         #self.get_renderer().ResetCamera()
         self.setup_top_left_origin_camera()
 
-        self.get_render_window().Render()
+        self.render()
 
     def get_window_level(self):
         if not self.vtk_image:
@@ -532,14 +530,16 @@ class VTKViewer2D(QWidget):
         camera.SetParallelScale(max(image_height_world, image_widtht_world) / 2)
 
         self.renderer.ResetCameraClippingRange()
-        self.render_window.Render()
+        
+        self.render()
         
     def set_window_level(self, window, level):
         if self.window_level_filter:
             self.window_level_filter.SetWindow(window)
             self.window_level_filter.SetLevel(level)
             self.window_level_filter.Update()
-            self.get_render_window().Render()
+            
+            self.render()
 
    
     def get_camera_info(self):
@@ -642,14 +642,15 @@ class VTKViewer2D(QWidget):
         # Add the ruler to the list for management
         self.rulers.append(line_widget)
 
-        self.get_render_window().Render()
+        self.render()
 
     def on_left_button_press(self, obj, event):
         self.left_button_is_pressed = True
 
     def on_mouse_move(self, obj, event):
         self.print_status_with_mouse_coordiantes()
-        self.render_window.Render()
+        
+        self.render()
 
     def on_right_button_press(self, obj, event):
         pass
@@ -898,7 +899,7 @@ class VTKViewer2D(QWidget):
         print(f"Camera View Up: {camera.GetViewUp()}")
 
         # Render the changes
-        self.render_window.Render()
+        self.render()
             
     def set_base_image_visibility(self, visible):
         """Toggle the visibility of the base image."""
@@ -924,7 +925,7 @@ class VTKViewer2D(QWidget):
         """Enable or disable the paintbrush tool."""
         self.painting_enabled = enabled
         self.brush_actor.SetVisibility(enabled)  # Show brush if enabled
-        self.render_window.Render()
+        self.render()
 
     def zoom(self, type, emit_event=True):
         if not self.vtk_image:

@@ -265,12 +265,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         self.segmentation_layer_reslicers = {}
 
-        # delayed rendering
-        self.render_timer = QTimer()
-        self.render_timer.setSingleShot(True)
-        self.render_timer.timeout.connect(self.render)
-        self.delayed_render_ms = 20
-
         self.slice_plane_object = SlicePlaneObject(slice_plane_color)
         self.slice_indicators_of_other_views = {}
 
@@ -320,12 +314,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
          
         self.render()
 
-    def render(self):
-        self.get_render_window().Render()
-
-    def render_delayed(self):
-        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
-
     def on_slice_changed(self, new_slice_index, old_slice_index, sender):
         print(f'slice_index={new_slice_index}')
 
@@ -364,7 +352,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         else:
             print(f'invalid axis (axis={self.reslicer.axis})')
 
-        self.render_delayed()
+        self.render()
 
     def update_slice_plane_object(self):
         import vtk_image_wrapper
@@ -475,7 +463,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # create a reslicer with actor
         axis = self.reslicer.axis
         slice_index = self.reslicer.slice_index 
-        seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, vtk_color = vtk_color, alpha=alpha, viewer = self)
+        seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, fill_color=vtk_color, fill_alpha=alpha, border_line_color = vtk_color, viewer = self)
         seg_reslicer.set_slice_index_and_update_slice_actor(slice_index)
         for actor in seg_reslicer.get_actors():
             self.get_renderer().AddActor(actor)
@@ -488,6 +476,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
         seg_item.name_changed.connect(self.on_layer_name_changed)
+        seg_item.color_changed.connect(self.on_layer_color_changed)
+
 
     def on_segmentation_layer_modified(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer_name})')
@@ -506,7 +496,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         
         if layer_name in self.segmentation_layer_reslicers:
             seg_reslicer = self.segmentation_layer_reslicers[layer_name]
-            self.get_renderer().RemoveActor(seg_reslicer.slice_actor)
+            for actor in seg_reslicer.get_actors():
+                self.get_renderer().RemoveActor(actor)
             self.render()
 
     def on_layer_visibility_changed(self, sender): 
@@ -528,6 +519,21 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             self.segmentation_layer_reslicers[new_layer_name] = self.segmentation_layer_reslicers.pop(old_layer_name)
         else:
             print(f'Warning: layer {old_layer_name} not found in segmentation_layer_reslicers')
+
+    def on_layer_color_changed(self, sender):
+        
+        seg_item = sender
+        name = seg_item.get_name()
+        vtk_color = seg_item.get_vtk_color()
+
+        print(f'layer [{name}] color changed to {vtk_color}')
+        
+        seg_reslicer = self.segmentation_layer_reslicers[name]
+
+        seg_reslicer.set_color(vtk_color)
+
+        self.render()
+
 
     def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({new_layer_name, old_layer_name}')
@@ -743,7 +749,7 @@ class VTKViewer3D(QWidget):
     def set_segmentation_layers(self, segmentation_layers):
         self.segmentation_layers = segmentation_layers
         
-        for v in self.viewers_2d:
+        for v in self.viewers:
             v.set_segmentation_layers(segmentation_layers)
 
     def on_segmentation_layer_added(self, layer_name, sender):
@@ -757,7 +763,6 @@ class VTKViewer3D(QWidget):
     def on_segmentation_layer_removed(self, layer_name, sender):
         for v in self.viewers:
             v.on_segmentation_layer_removed(layer_name, sender)
-
 
     def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
         for v in self.viewers_2d:

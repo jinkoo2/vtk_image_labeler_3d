@@ -22,6 +22,18 @@ class ModelViewer(QWidget):
     
         self.main_window = main_window
 
+        # delayed rendering
+        from PyQt5.QtCore import QTimer
+        self.render_timer = QTimer()
+        self.render_timer.setSingleShot(True)
+        self.render_timer.timeout.connect(self.render)
+        self.delayed_render_ms = 500
+
+        # contour surface update timer
+        self.surface_update_timer = QTimer()
+        self.surface_update_timer.setSingleShot(True)
+        self.surface_update_timer.timeout.connect(self._do_surface_update)
+
         # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
         self.renderer.SetLayer(0)
@@ -49,6 +61,8 @@ class ModelViewer(QWidget):
         self.vtk_image = None
 
         self.set_active(False)
+
+        self.segmentation_surfaces = {}
 
     def get_interactor(self):
         return self.interactor
@@ -78,6 +92,9 @@ class ModelViewer(QWidget):
     def render(self):
         self.render_window.Render()
 
+    def render_delayed(self):
+        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, 'render_window') and self.render_window is not None:
@@ -96,13 +113,59 @@ class ModelViewer(QWidget):
 
         super().closeEvent(event)
 
+    def set_segmentation_layers(self, segmentaiton_layers):
+        self.segmentaiton_layers = segmentaiton_layers
+
     def on_segmentation_layer_added(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_added(layername={layer_name}')
 
+        import segmentation_surface
+        seg_item = self.segmentaiton_layers[layer_name]
+        seg_surface = segmentation_surface.SegmentationSurface(seg_item=seg_item, renderer=self.get_renderer(), render_window=self.get_render_window())
+        self.segmentation_surfaces[layer_name] = seg_surface
+
+        seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
+        seg_item.name_changed.connect(self.on_layer_name_changed)
+        seg_item.color_changed.connect(self.on_layer_color_changed)
+
+    def on_layer_visibility_changed(self, sender): 
+        seg_item = sender
+        name = seg_item.get_name()
+        self.segmentation_surfaces[name].update()
+        self.render()
+
+    def on_layer_name_changed(self, old_layer_name, sender):
+        new_layer_name = sender.get_name()
+        print(f'name changed from {old_layer_name} to {new_layer_name}')
+
+        if old_layer_name in self.segmentation_surfaces:
+            self.segmentation_surfaces[new_layer_name] = self.segmentation_surfaces.pop(old_layer_name)
+        else:
+            print(f'Warning: layer {old_layer_name} not found in segmentation_surfaces')
+
+    def on_layer_color_changed(self, sender):
+        seg_item = sender
+        name = seg_item.get_name()
+        self.segmentation_surfaces[name].update()
+        self.render()
+        
     def on_segmentation_layer_modified(self, layer_name, sender):
-        print(f'SurfaceViewer: on_segmentation_layer_modified(layername={layer_name}')
+        self.pending_layer = layer_name
+        self.surface_update_timer.start(1000)  # wait 1000ms before updating
+
+    def _do_surface_update(self):
+        layer_name = self.pending_layer
+        print(f'SurfaceViewer: _do_surface_update(layername={layer_name})')
+        if layer_name in self.segmentation_surfaces:
+            self.segmentation_surfaces[layer_name].update_surface_async()
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')
         
+        seg_surface = self.segmentation_surfaces.pop(layer_name)
+        for actor in seg_surface.get_actors():
+            self.get_renderer().RemoveActor(actor)
+
+        self.render()     
+
 

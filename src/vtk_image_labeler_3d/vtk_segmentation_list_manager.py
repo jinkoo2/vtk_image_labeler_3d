@@ -17,13 +17,15 @@ from vtk_tools import from_vtk_color, to_vtk_color
 import reslicer 
 
 class PaintBrush:
-    def __init__(self, radius_in_pixel=(20,20), pixel_spacing=(1.0, 1.0), color= (0,255,0), line_thickness= 1, viewer=None):
+    def __init__(self, radius_in_pixel=20, pixel_spacing=(1.0, 1.0), color= (0,255,0), line_thickness= 1, brush_3d=False, viewer=None):
         self.radius_in_pixel = radius_in_pixel
         self.pixel_spacing = pixel_spacing
         self.viewer = viewer
 
         # Paintbrush setup
         self.enabled = False
+
+        self._brush_3d = brush_3d
 
         # Brush actor for visualization
         self.brush_actor = vtk.vtkFollower()
@@ -56,15 +58,21 @@ class PaintBrush:
         if hasattr(self, 'brush_actor') and self.brush_actor is not None:
             self.brush_actor.GetProperty().SetColor(color_vtk[0], color_vtk[1], color_vtk[2]) 
 
+    def set_brush_3d(self, flag):
+        self._brush_3d = flag
+    
+    def get_brush_3d(self):
+        return self._brush_3d
+
     def set_radius_in_pixel(self, radius_in_pixel, pixel_spacing=None):
         
         self.radius_in_pixel = radius_in_pixel
         
         if pixel_spacing:
             self.pixel_spacing = pixel_spacing
-            radius_in_real = (radius_in_pixel[0] * pixel_spacing[0], radius_in_pixel[1] * pixel_spacing[1])
+            radius_in_real = (radius_in_pixel * pixel_spacing[0], radius_in_pixel * pixel_spacing[1])
         else:
-            radius_in_real = (radius_in_pixel[0] * self.pixel_spacing[0], radius_in_pixel[1] * self.pixel_spacing[1])
+            radius_in_real = (radius_in_pixel * self.pixel_spacing[0], radius_in_pixel * self.pixel_spacing[1])
 
         self.update_circle_geometry(radius_in_real)
 
@@ -103,14 +111,17 @@ class PaintBrush:
         import reslicer
         axis = self.viewer.reslicer.axis
 
-        if axis == reslicer.AXIAL:
-            self.paint_ax(segmentation, x, y, z, value)
-        elif axis == reslicer.CORONAL:
-            self.paint_cr(segmentation, x, y, z, value)
-        elif axis == reslicer.SAGITTAL:
-            self.paint_sg(segmentation, x, y, z, value)
+        if self._brush_3d:
+            self.paint_3d(segmentation, x, y, z, value)
         else:
-            raise Exception(f"Invalid axis: {self.viewer.axis}")
+            if axis == reslicer.AXIAL:
+                self.paint_ax(segmentation, x, y, z, value)
+            elif axis == reslicer.CORONAL:
+                self.paint_cr(segmentation, x, y, z, value)
+            elif axis == reslicer.SAGITTAL:
+                self.paint_sg(segmentation, x, y, z, value)
+            else:
+                raise Exception(f"Invalid axis: {self.viewer.axis}")
 
     def paint_ax(self, segmentation, x, y, z, value=1):
         """Draw a circle on the segmentation at (x, y) with the given radius."""
@@ -119,15 +130,14 @@ class PaintBrush:
         extent = segmentation.GetExtent()
 
         # radius in pixel space
-        radius_in_pixelx = self.radius_in_pixel[0]
-        radius_in_pixely = self.radius_in_pixel[1]
+        radius_in_pixel = self.radius_in_pixel
 
-        for i in range(-radius_in_pixelx, radius_in_pixelx + 1):
-            for j in range(-radius_in_pixely, radius_in_pixely + 1):
+        for i in range(-radius_in_pixel, radius_in_pixel + 1):
+            for j in range(-radius_in_pixel, radius_in_pixel + 1):
                 for k in [0]:
                 
                     # Check if the pixel is within the circle
-                    if ((i/radius_in_pixelx)**2 + (j/radius_in_pixely)**2) <= 1.0:
+                    if ((i/radius_in_pixel)**2 + (j/radius_in_pixel)**2) <= 1.0:
                         xi = x + i
                         yj = y + j
                         zk = z + k
@@ -142,15 +152,14 @@ class PaintBrush:
         extent = segmentation.GetExtent()
 
         # radius in pixel space
-        radius_in_pixelx = self.radius_in_pixel[0]
-        radius_in_pixely = self.radius_in_pixel[1]
+        radius_in_pixel = self.radius_in_pixel
 
-        for i in range(-radius_in_pixelx, radius_in_pixelx + 1):
+        for i in range(-radius_in_pixel, radius_in_pixel + 1):
             for j in [0]:
-                for k in range(-radius_in_pixely, radius_in_pixely + 1):
+                for k in range(-radius_in_pixel, radius_in_pixel + 1):
                 
                     # Check if the pixel is within the circle
-                    if ((i/radius_in_pixelx)**2 + (k/radius_in_pixely)**2) <= 1.0:
+                    if ((i/radius_in_pixel)**2 + (k/radius_in_pixel)**2) <= 1.0:
                         xi = x + i
                         yj = y + j
                         zk = z + k
@@ -165,15 +174,14 @@ class PaintBrush:
         extent = segmentation.GetExtent()
 
         # radius in pixel space
-        radius_in_pixelx = self.radius_in_pixel[0]
-        radius_in_pixely = self.radius_in_pixel[1]
+        radius_in_pixel = self.radius_in_pixel
 
         for i in [0]:
-            for j in range(-radius_in_pixelx, radius_in_pixelx + 1):
-                for k in range(-radius_in_pixely, radius_in_pixely + 1):
+            for j in range(-radius_in_pixel, radius_in_pixel + 1):
+                for k in range(-radius_in_pixel, radius_in_pixel + 1):
                 
                     # Check if the pixel is within the circle
-                    if ((j/radius_in_pixelx)**2 + (k/radius_in_pixely)**2) <= 1.0:
+                    if ((j/radius_in_pixel)**2 + (k/radius_in_pixel)**2) <= 1.0:
                         xi = x + i
                         yj = y + j
                         zk = z + k
@@ -181,6 +189,30 @@ class PaintBrush:
                             idx = (zk - extent[4]) *  (dims[0] * dims[1])+(yj - extent[2]) * dims[0] + (xi - extent[0])
                             scalars.SetTuple1(idx, value)
 
+
+    def paint_3d(self, segmentation, x, y, z, value=1):
+        """Draw a circle on the segmentation at (x, y) with the given radius."""
+        dims = segmentation.GetDimensions()
+        scalars = segmentation.GetPointData().GetScalars()
+        extent = segmentation.GetExtent()
+
+        # radius in pixel space
+        radius_in_pixel = self.radius_in_pixel
+
+        for i in range(-radius_in_pixel, radius_in_pixel + 1):
+            for j in range(-radius_in_pixel, radius_in_pixel + 1):
+                for k in range(-radius_in_pixel, radius_in_pixel + 1):
+                
+                    # Check if the pixel is within the circle
+                    if ((i/radius_in_pixel)**2 + (j/radius_in_pixel)**2 + (k/radius_in_pixel)**2) <= 1.0:
+                        xi = x + i
+                        yj = y + j
+                        zk = z + k
+                        if extent[0] <= xi <= extent[1] and extent[2] <= yj <= extent[3] and extent[4] <= zk <= extent[5]:
+                            idx = (zk - extent[4]) *  (dims[0] * dims[1])+(yj - extent[2]) * dims[0] + (xi - extent[0])
+                            scalars.SetTuple1(idx, value)
+
+       
 from PyQt5.QtCore import pyqtSignal, QObject
 
 class SegmentationItem(QObject):
@@ -321,6 +353,7 @@ class SegmentationListItemWidget(QWidget):
         """Open a color chooser dialog and update the layer's color."""
         # Get the current color in QColor format
         c256 = self.layer_data.get_color()
+        from PyQt5.QtWidgets import QColorDialog
         color = QColorDialog.getColor(QColor(c256[0], c256[1], c256[2]), self, "Select Layer Color")
 
         if color.isValid():
@@ -328,31 +361,9 @@ class SegmentationListItemWidget(QWidget):
             c = [color.red(), color.green(), color.blue()]
             # Update layer color
             self.layer_data.set_color(c)
+
             # Update color patch
             self.color_patch.setStyleSheet(f"background-color: {self.get_layer_color_hex()}; border: 1px solid black;")
-            # Notify the viewer to update rendering
-            #self.parent_viewer.on_layer_chagned(self.layer_name)
-            
-            # lookup table of the image actor
-            # Create a lookup table for coloring the segmentation
-            lookup_table = vtk.vtkLookupTable()
-            lookup_table.SetNumberOfTableValues(2)  # For 0 (background) and 1 (segmentation)
-            lookup_table.SetTableRange(0, 1)       # Scalar range
-            lookup_table.SetTableValue(0, 0, 0, 0, 0)  # Background: Transparent
-            lookup_table.SetTableValue(1, c[0]/255, c[1]/255, c[2]/255, self.layer_data.get_alpha())  # Segmentation: Red with 50% opacity
-            lookup_table.Build()
-            
-            mapper = vtk.vtkImageMapToColors()
-            mapper.SetInputData(self.layer_data.segmentation)
-            mapper.SetLookupTable(lookup_table)
-            mapper.Update()
-
-            actor = self.layer_data.actor
-            actor.GetMapper().SetInputConnection(mapper.GetOutputPort())
-
-            self.manager.on_layer_changed(self.layer_name)
-
-            self.manager.print_status(f"Color changed to ({c[0]}, {c[1]}, {c[2]})")
 
 
     def focusOutEvent(self, event):
@@ -410,18 +421,14 @@ class SegmentationListItemWidget(QWidget):
     def update_layer_name(self, new_name):
         """Update the layer name in the viewer."""
         if new_name != self.layer_name:
-            
-            seg_item = self.manager.segmentation_layers.pop(self.layer_name)
-            seg_item.set_name(new_name)
-            self.manager.segmentation_layers[new_name] = seg_item
-            
-            # if the current layer is the active layer, update the active layer name as well
-            if self.manager.active_layer_name == self.layer_name:
-                self.manager.active_layer_name = new_name
-            
-            self.layer_name = new_name
 
-            self.manager.on_layer_changed(new_name)
+            seg_item = self.layer_data
+
+            # update seg item name
+            seg_item.set_name(new_name)
+            
+            # update list widget name
+            self.layer_name = new_name
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -454,6 +461,8 @@ class SegmentationListManager(QObject):
 
         self.erase_active = False
         self.erase_brush_color = [0, 0.5, 1.0]
+
+        self.paintbrush_3d = False
 
         self.color_rotator = ColorRotator()
 
@@ -565,6 +574,13 @@ class SegmentationListManager(QObject):
         brush_size_slider.slider.setMaximum(100)
         brush_size_slider.slider.valueChanged.connect(self.update_brush_size)
         main_layout.addWidget(brush_size_slider)
+
+        # 3d or 2d brush
+        # Add a checkbox for 3D Brush option
+        self.brush_3d_checkbox = QCheckBox("3D Brush")
+        self.brush_3d_checkbox.setChecked(False)  # Default: unchecked
+        self.brush_3d_checkbox.stateChanged.connect(self.on_brush_3d_toggled)
+        main_layout.addWidget(self.brush_3d_checkbox)
         
         # Set layout for the layer manager
         main_widget.setLayout(main_layout)
@@ -572,6 +588,15 @@ class SegmentationListManager(QObject):
         dock.setWidget(main_widget)
 
         return dock
+
+    def on_brush_3d_toggled(self, state):
+        self.paintbrush_3d = (state == Qt.Checked)
+        print(f"3D Brush enabled: {self.paintbrush_3d}")
+        
+        # if viewers have paintbrushs, update
+        for v in self.vtk_viewer.get_viewers_2d():
+            if hasattr(v, 'paintbrush') and v.paintbrush is not None:
+                v.paintbrush.set_brush_3d(self.paintbrush_3d)
 
     def get_exclusive_actions(self):
         return [self.paint_action, self.erase_action]
@@ -662,8 +687,10 @@ class SegmentationListManager(QObject):
         for v in self.vtk_viewer.get_viewers_2d():
             if not hasattr(v, 'paintbrush') or v.paintbrush is None:
                 v.paintbrush = PaintBrush(viewer=v)
-                v.paintbrush.set_radius_in_pixel(radius_in_pixel=(20, 20), pixel_spacing=v.vtk_image.GetSpacing())
+                v.paintbrush.set_radius_in_pixel(radius_in_pixel=20, pixel_spacing=v.vtk_image.GetSpacing())
                 v.get_renderer().AddActor(v.paintbrush.get_actor())
+
+            v.paintbrush.set_brush_3d(self.paintbrush_3d)
 
             v.paintbrush.set_enabled(enabled)
 
@@ -717,9 +744,10 @@ class SegmentationListManager(QObject):
 
         # paint
         v2d.paintbrush.paint(layer.segmentation, image_index[0], image_index[1], image_index[2], value)
-        
+
+        # Commented this line because the contour_filter update in SegmentationSurface takes too long and blocking the main thread.        
         # flag vtkImageData as Modified to update the pipeline.
-        layer.segmentation.Modified() 
+        # layer.segmentation.Modified() 
     
         # flag manager data has been modified (for saving)
         self._modified = True
@@ -861,7 +889,7 @@ class SegmentationListManager(QObject):
     def update_brush_size(self, value):
         for v in self.vtk_viewer.get_viewers_2d():
             if hasattr(v, 'paintbrush'):
-                v.paintbrush.set_radius_in_pixel(radius_in_pixel=(value, value))
+                v.paintbrush.set_radius_in_pixel(radius_in_pixel=value)
 
     def list_widget_on_current_item_changed(self, current, previous):
         if current:
@@ -962,21 +990,32 @@ class SegmentationListManager(QObject):
 
     def add_layer(self, segmentation, layer_name, color_vtk, alpha):
         #actor = self.create_segmentation_actor(segmentation, color=color_vtk, alpha=alpha)
-        layer_data = SegmentationItem(segmentation=segmentation, color=from_vtk_color(color_vtk), alpha=alpha, name=layer_name)
-        self.segmentation_layers[layer_name] = layer_data
-        #self.vtk_renderer.AddActor(actor)
-        #self.vtk_renderer.GetRenderWindow().Render()
+        seg_item = SegmentationItem(segmentation=segmentation, color=from_vtk_color(color_vtk), alpha=alpha, name=layer_name)
+        self.segmentation_layers[layer_name] = seg_item
 
-        self.add_layer_widget_item(layer_name, layer_data)
+        self.add_layer_widget_item(layer_name, seg_item)
 
-        self.layer_added.emit(layer_name, self)
-
+        seg_item.name_changed.connect(self.on_layer_name_changed)
         self._modified = True
 
         # Select the last item in the list widget (to activate it)
         if self.list_widget.count() > 0:
             self.list_widget.setCurrentRow(self.list_widget.count() - 1)
 
+        self.layer_added.emit(layer_name, self)
+
+    def on_layer_name_changed(self, old_name, sender):
+
+        # update the key of the layer dictionary
+        seg_item = self.segmentation_layers.pop(old_name)
+        new_name = seg_item.get_name()
+        self.segmentation_layers[new_name] = seg_item
+            
+        # if active layer, update the active layer name
+        if self.active_layer_name == old_name:
+            self.active_layer_name = new_name
+
+        self.on_layer_changed(new_name)
 
     def add_layer_clicked(self):
 
@@ -993,7 +1032,7 @@ class SegmentationListManager(QObject):
             segmentation=segmentation, 
             layer_name=layer_name, 
             color_vtk=[layer_color[0]/255, layer_color[1]/255, layer_color[2]/255],
-            alpha=0.8)
+            alpha=0.5)
         
         self.print_status(f'A layer added: {layer_name}, and active layer is now {self.active_layer_name}')
         
@@ -1110,17 +1149,12 @@ class SegmentationListManager(QObject):
         segmentation.SetDirectionMatrix(direction_matrix)
 
         #degug
-        import itkvtk
-        itkvtk.fill_square_at_center(segmentation, 100, 1)
-        
-
-
-
+        #import itkvtk
+        #itkvtk.fill_square_at_center(segmentation, 100, 1)
 
         return segmentation  
 
-
-    def create_segmentation_actor(self, segmentation, color=(1, 0, 0), alpha=0.8):
+    def create_segmentation_actor(self, segmentation, color=(1, 0, 0), alpha=0.5):
         """Create a VTK actor for a segmentation layer."""
         # Create a lookup table for coloring the segmentation
         lookup_table = vtk.vtkLookupTable()

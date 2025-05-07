@@ -256,19 +256,26 @@ class Reslicer():
 
  
 class ReslicerWithImageActor(Reslicer):
-    def __init__(self, axis, vtk_image=None, background_value=-1000, vtk_color=(1,0,0), alpha=0.8, border_color=(1, 0, 0), viewer=None):
+    def __init__(self, axis, vtk_image=None, background_value=-1000, fill_color=(1,0,0), fill_alpha=0.5, border_line_color=(1, 0, 0), viewer=None):
         super().__init__(axis, vtk_image, background_value, viewer=viewer)
       
-        self._create_slice_actor(vtk_color, alpha)
-        self._create_contour_border(border_color)
+        self.fill_color = fill_color
+        self.fill_alpha = fill_alpha
+        self.border_line_color = border_line_color
+        self.border_line_width = 2.0
+        self.border_line_opacity = 1.0
 
-    def _create_slice_actor(self, vtk_color, alpha):
+        self._create_slice_actor(fill_color, fill_alpha)
+        self._create_contour_border(border_line_color, self.border_line_width, self.border_line_opacity)
+
+
+    def _create_slice_actor(self, fill_color, fill_alpha):
         # Color lookup table
         self.lookup_table = vtk.vtkLookupTable()
         self.lookup_table.SetNumberOfTableValues(2)
         self.lookup_table.SetTableRange(0, 1)
         self.lookup_table.SetTableValue(0, 0, 0, 0, 0)  # transparent
-        self.lookup_table.SetTableValue(1, *vtk_color, alpha)
+        self.lookup_table.SetTableValue(1, *fill_color, fill_alpha)
         self.lookup_table.Build()
 
         self.slice_mapper = vtk.vtkImageMapToColors()
@@ -277,7 +284,7 @@ class ReslicerWithImageActor(Reslicer):
         self.slice_actor = vtk.vtkImageActor()
         self.slice_actor.GetMapper().SetInputConnection(self.slice_mapper.GetOutputPort())
 
-    def _create_contour_border(self, border_color):
+    def _create_contour_border(self, border_line_color, border_line_width, border_line_opacity):
         # Extract border from segmentation
         self.contour_filter = vtk.vtkContourFilter()
         self.contour_filter.SetValue(0, 0.5)
@@ -288,11 +295,20 @@ class ReslicerWithImageActor(Reslicer):
 
         self.border_actor = vtk.vtkActor()
         self.border_actor.SetMapper(self.border_mapper)
-        self.border_actor.GetProperty().SetColor(*border_color)
-        self.border_actor.GetProperty().SetLineWidth(1)
-        self.border_actor.GetProperty().SetOpacity(1.0)
+        self.border_actor.GetProperty().SetColor(*border_line_color)
+        self.border_actor.GetProperty().SetLineWidth(border_line_width)
+        self.border_actor.GetProperty().SetOpacity(border_line_opacity)
         #self.border_actor.GetProperty().LightingOff()
 
+    def set_color(self, vtk_color):
+        
+        self.border_line_color = vtk_color
+        self.fill_color = vtk_color
+        
+        self.border_actor.GetProperty().SetColor(*vtk_color)
+        self.lookup_table.SetTableValue(1, *vtk_color, self.fill_alpha)
+        self.lookup_table.Build()
+        
     def get_actors(self):
         return [self.slice_actor, self.border_actor]
         #return [self.border_actor]
@@ -308,14 +324,14 @@ class ReslicerWithImageActor(Reslicer):
             pt = points.GetPoint(i)  # Returns a tuple of (x, y, z)
             points_array[:, i] = pt
 
-        print(points_array.shape)  # (3, N)
+        #print(points_array.shape)  # (3, N)
 
-        N = points_array.shape[1]
+        #N = points_array.shape[1]
 
         # Create a new 4xN array
-        points_homogeneous = np.vstack((points_array, np.ones((1, N))))
+        points_homogeneous = np.vstack((points_array, np.ones((1, n_points))))
 
-        print(points_homogeneous.shape)  # (4, N)
+        #print(points_homogeneous.shape)  # (4, N)
 
         return points_homogeneous
 
@@ -386,20 +402,23 @@ class ReslicerWithImageActor(Reslicer):
         contour_output = self.contour_filter.GetOutput()
         if contour_output.GetNumberOfPoints() == 0 or contour_output.GetNumberOfCells() == 0:
             print("Contour output is empty — no valid polygons.")
+            self.border_actor.SetVisibility(0)
             return  # or skip further processing
 
-        print('---- before transform ---')
-        self._print_poly_data_points(contour_output, 30)
+        # turn on border line actor
+        self.border_actor.SetVisibility(1)
+
+        #print('---- before transform ---')
+        #self._print_poly_data_points(contour_output, 30)
 
         # transform contour output to w
         poly_data_w = self._transform_contour_filter_output_to_w(contour_output, slice)
 
-        print('---- after transform ---')
-        self._print_poly_data_points(poly_data_w, 30)
+        #print('---- after transform ---')
+        #self._print_poly_data_points(poly_data_w, 30)
 
         # set new data to mapper
         self.border_mapper.SetInputData(poly_data_w)
-        self.border_actor.GetProperty().SetColor(0,1,0)
         self.border_mapper.Update()
 
         self.border_actor.SetMapper(self.border_mapper)
