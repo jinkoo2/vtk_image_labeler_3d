@@ -27,7 +27,6 @@ class ModelViewer(QWidget):
         self.render_timer = QTimer()
         self.render_timer.setSingleShot(True)
         self.render_timer.timeout.connect(self.render)
-        self.delayed_render_ms = 500
 
         # contour surface update timer
         self.surface_update_timer = QTimer()
@@ -92,8 +91,8 @@ class ModelViewer(QWidget):
     def render(self):
         self.render_window.Render()
 
-    def render_delayed(self):
-        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
+    def render_delayed(self, delayed_render_ms=100):
+        self.render_timer.start(delayed_render_ms)  
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

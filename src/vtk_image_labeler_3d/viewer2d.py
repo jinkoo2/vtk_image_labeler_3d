@@ -338,7 +338,6 @@ class VTKViewer2D(QWidget):
         self.render_timer = QTimer()
         self.render_timer.setSingleShot(True)
         self.render_timer.timeout.connect(self.render)
-        self.delayed_render_ms = 100
 
         self.name = name
 
@@ -393,8 +392,8 @@ class VTKViewer2D(QWidget):
     def render(self):
         self.get_render_window().Render()
    
-    def render_delayed(self):
-        self.render_timer.start(self.delayed_render_ms)  # delay render by 20 ms
+    def render_delayed(self, delayed_render_ms=100):
+        self.render_timer.start(delayed_render_ms)  
 
     def get_interactor(self):
         return self.interactor

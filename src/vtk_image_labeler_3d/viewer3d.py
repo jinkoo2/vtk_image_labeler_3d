@@ -485,7 +485,12 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         if layer_name in self.segmentation_layer_reslicers:
             seg_reslicer = self.segmentation_layer_reslicers[layer_name]
             seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
-            self.render()
+            
+            # if active view, render right away, if not do delayed render.
+            if self.active:
+                self.render()
+            else: 
+                self.render_delayed(1000)
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
