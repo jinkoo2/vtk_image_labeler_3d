@@ -745,9 +745,8 @@ class SegmentationListManager(QObject):
         # paint
         v2d.paintbrush.paint(layer.segmentation, image_index[0], image_index[1], image_index[2], value)
 
-        # Commented this line because the contour_filter update in SegmentationSurface takes too long and blocking the main thread.        
         # flag vtkImageData as Modified to update the pipeline.
-        # layer.segmentation.Modified() 
+        layer.segmentation.Modified() 
     
         # flag manager data has been modified (for saving)
         self._modified = True

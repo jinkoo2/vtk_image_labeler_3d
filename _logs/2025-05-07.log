@@ -743,3 +743,19 @@
 2025-05-07 18:29:19,680 - INFO - Paint tool activated
 2025-05-07 18:30:01,960 - INFO - MainWindow is closing.
 2025-05-07 18:30:02,015 - INFO - Application is quitting.
+2025-05-07 18:31:53,088 - INFO - Application started
+2025-05-07 18:31:59,215 - INFO - SegmentationListManager initialized
+2025-05-07 18:32:00,169 - INFO - MainWindow initialized
+2025-05-07 18:32:06,971 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-07 18:32:06,971 - INFO - File extension: .mha
+2025-05-07 18:32:07,433 - INFO - dims=(512, 512, 160)
+2025-05-07 18:32:07,433 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-07 18:32:07,433 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-07 18:32:07,555 - INFO - the center slice index is 79
+2025-05-07 18:32:07,605 - INFO - the center slice index is 255
+2025-05-07 18:32:07,660 - INFO - the center slice index is 255
+2025-05-07 18:32:07,794 - INFO - Image loaded successfully
+2025-05-07 18:32:09,771 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-07 18:32:10,832 - INFO - Paint tool activated
+2025-05-07 18:32:38,695 - INFO - MainWindow is closing.
+2025-05-07 18:32:38,750 - INFO - Application is quitting.
