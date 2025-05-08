@@ -511,7 +511,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'Visibility changed to {new_visibility} for {layer_name}')
 
         if layer_name in self.segmentation_layer_reslicers:
-            self.segmentation_layer_reslicers[layer_name].slice_actor.SetVisibility(new_visibility)
+            for actor in self.segmentation_layer_reslicers[layer_name].get_actors():
+                actor.SetVisibility(new_visibility)
             self.render()
         else:
             print(f'Layer {layer_name} not found in segmentation_layer_reslicers')
@@ -602,9 +603,13 @@ class VTKViewer3D(QWidget):
         self.viewer_sg = VTKViewer2DWithReslicer(reslicer.SAGITTAL, name="Sagittal", slice_plane_color=[0, 0, 1], parent=self) 
 
         self.viewer_surf = ModelViewer()
-        self.viewer_surf.add_actor(self.viewer_ax.slice_plane_object.actor)
-        self.viewer_surf.add_actor(self.viewer_cr.slice_plane_object.actor)
-        self.viewer_surf.add_actor(self.viewer_sg.slice_plane_object.actor)
+        self.viewer_surf.add_actor_as_model("slice_plane_ax", self.viewer_ax.slice_plane_object.actor)
+        self.viewer_surf.add_actor_as_model("slice_plane_cr", self.viewer_cr.slice_plane_object.actor)
+        self.viewer_surf.add_actor_as_model("slice_plane_sg", self.viewer_sg.slice_plane_object.actor)
+
+        self.viewer_surf.set_model_visibility("slice_plane_ax", False)
+        self.viewer_surf.set_model_visibility("slice_plane_cr", False)
+        self.viewer_surf.set_model_visibility("slice_plane_sg", False)
 
         self.viewers_2d = [self.viewer_ax, self.viewer_cr, self.viewer_sg]
         self.viewers = [self.viewer_ax, self.viewer_cr, self.viewer_sg, self.viewer_surf]

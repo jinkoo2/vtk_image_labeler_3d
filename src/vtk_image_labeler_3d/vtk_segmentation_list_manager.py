@@ -339,9 +339,7 @@ class SegmentationListItemWidget(QWidget):
     def visible_checkbox_clicked(self, state):
         visibility = state == Qt.Checked
         self.layer_data.set_visible(visibility)
-        if self.layer_data.get_actor():
-            self.layer_data.get_actor().SetVisibility(visibility)
-        self.manager.on_layer_changed(self.layer_name)
+
 
     def get_layer_color_hex(self):
         """Convert the layer's color (numpy array) to a hex color string."""

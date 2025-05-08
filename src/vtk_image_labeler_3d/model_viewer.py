@@ -13,6 +13,33 @@ background_color_active = (0.6, 0.6, 0.6)
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
+class Model():
+    def __init__(self, name):
+        self.name = name
+
+class SingleActorModel(Model):
+    def __init__(self, name, actor):
+        super().__init__(name)
+        self.actor = actor
+
+    def set_visibility(self, flag):
+        self.actor.SetVisibility(flag)
+
+class ModelList():
+    def __init__(self):
+        self.list = {}
+
+    def add_model(self, name, model):
+        self.list[name] = model
+
+    def get_model(self, name):
+        return self.list[name]
+        
+    def get_model_names(self):
+        return list(self.list.keys())
+    
+
+        
 class ModelViewer(QWidget):
     
     status_message = pyqtSignal(str, QObject)
@@ -26,12 +53,12 @@ class ModelViewer(QWidget):
         from PyQt5.QtCore import QTimer
         self.render_timer = QTimer()
         self.render_timer.setSingleShot(True)
-        self.render_timer.timeout.connect(self.render)
+        self.render_timer.timeout.connect(self._on_render_timer_timedout)
 
         # contour surface update timer
         self.surface_update_timer = QTimer()
         self.surface_update_timer.setSingleShot(True)
-        self.surface_update_timer.timeout.connect(self._do_surface_update)
+        self.surface_update_timer.timeout.connect(self._on_surface_update_timer_timeout)
 
         # Create a VTK Renderer
         self.renderer = vtk.vtkRenderer()
@@ -62,6 +89,7 @@ class ModelViewer(QWidget):
         self.set_active(False)
 
         self.segmentation_surfaces = {}
+        self.models = ModelList()
 
     def get_interactor(self):
         return self.interactor
@@ -72,13 +100,38 @@ class ModelViewer(QWidget):
     def get_render_window(self):
         return self.render_window
     
+    def _add_image_boundary_surface_model(self):
+        # Create outline filter
+        outline_filter = vtk.vtkOutlineFilter()
+        outline_filter.SetInputData(self.vtk_image)
+
+        # Mapper and actor
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(outline_filter.GetOutputPort())
+
+        outline_actor = vtk.vtkActor()
+        outline_actor.SetMapper(mapper)
+        outline_actor.GetProperty().SetColor(0.8, 0.8, 0.8)  
+        outline_actor.GetProperty().SetLineWidth(2.0)
+
+        self.add_actor_as_model("image", outline_actor)
+
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
+        
+        self._add_image_boundary_surface_model()
+        
         self.renderer.ResetCamera()
+        
         self.render_window.Render()
 
-    def add_actor(self, actor):
+    def add_actor_as_model(self, name, actor):
+        model  = SingleActorModel(name, actor)
+        self.models.add_model(name, model)
         self.renderer.AddActor(actor)
+
+    def set_model_visibility(self, name, flag):
+        self.models.get_model(name).set_visibility(flag)
 
     def set_active(self, active=True):
         self.active = active
@@ -93,6 +146,15 @@ class ModelViewer(QWidget):
 
     def render_delayed(self, delayed_render_ms=100):
         self.render_timer.start(delayed_render_ms)  
+
+    def _on_render_timer_timedout(self):
+        self.render()
+
+    def _on_surface_update_timer_timeout(self):
+        layer_name = self.pending_layer
+        print(f'SurfaceViewer: _do_surface_update(layername={layer_name})')
+        if layer_name in self.segmentation_surfaces:
+            self.segmentation_surfaces[layer_name].update_surface_async()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -125,12 +187,12 @@ class ModelViewer(QWidget):
 
         seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
         seg_item.name_changed.connect(self.on_layer_name_changed)
-        seg_item.color_changed.connect(self.on_layer_color_changed)
+        seg_item.color_changed.connect(self.on_segmentation_layer_color_changed)
 
     def on_layer_visibility_changed(self, sender): 
         seg_item = sender
         name = seg_item.get_name()
-        self.segmentation_surfaces[name].update()
+        self.segmentation_surfaces[name].update_actors()
         self.render()
 
     def on_layer_name_changed(self, old_layer_name, sender):
@@ -142,7 +204,7 @@ class ModelViewer(QWidget):
         else:
             print(f'Warning: layer {old_layer_name} not found in segmentation_surfaces')
 
-    def on_layer_color_changed(self, sender):
+    def on_segmentation_layer_color_changed(self, sender):
         seg_item = sender
         name = seg_item.get_name()
         self.segmentation_surfaces[name].update()
@@ -151,12 +213,6 @@ class ModelViewer(QWidget):
     def on_segmentation_layer_modified(self, layer_name, sender):
         self.pending_layer = layer_name
         self.surface_update_timer.start(1000)  # wait 1000ms before updating
-
-    def _do_surface_update(self):
-        layer_name = self.pending_layer
-        print(f'SurfaceViewer: _do_surface_update(layername={layer_name})')
-        if layer_name in self.segmentation_surfaces:
-            self.segmentation_surfaces[layer_name].update_surface_async()
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')

@@ -169,15 +169,18 @@ class MainWindow3D(QMainWindow):
 
         #self.tabifyDockWidget(self.nnunet_client_manager, self.rect_list_dock_widget)
 
+        # Ensure segmentation manager dock is visible and active
+        self.segmentation_list_dock_widget.show()
+        self.segmentation_list_dock_widget.raise_()
+        self.segmentation_list_dock_widget.activateWindow()
+        self.segmentation_list_dock_widget.setFocus()
+
         # Add status bar
         self.status_bar = self.statusBar()
         self.status_bar.showMessage("Ready")  # Initial message
 
         _info("MainWindow initialized")
 
-        # Load a sample DICOM file
-        #dicom_file = "./data/jaw_cal.dcm"
-        #self.load_dicom(dicom_file)
 
     def on_segmentation_layer_added(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_added(layer_name, sender)
@@ -213,9 +216,6 @@ class MainWindow3D(QMainWindow):
         self.vtk_viewer.cleanup_vtk(event)  # explicitly clean VTK resources
 
         super().closeEvent(event)  # Call the base class method to ensure proper behavior
-
-       
-
         
 
     def handle_log_message(self, log_type, message):

@@ -47,7 +47,7 @@ class SegmentationSurface():
         self.surface_actor.SetMapper(self.surface_mapper)
         self.surface_actor.GetProperty().SetColor(*self.seg_item.get_vtk_color())
 
-        self.update_actor()
+        self.update_actors()
 
         if self.renderer:
             for actor in self.get_actors():
@@ -56,7 +56,7 @@ class SegmentationSurface():
     def get_actors(self):
         return [self.surface_actor]
 
-    def update_actor(self):
+    def update_actors(self):
         self.surface_actor.SetVisibility(self.seg_item.get_visible())
         self.surface_actor.GetProperty().SetColor(*self.seg_item.get_vtk_color())
         self.surface_actor.GetProperty().SetOpacity(self.seg_item.get_alpha())
