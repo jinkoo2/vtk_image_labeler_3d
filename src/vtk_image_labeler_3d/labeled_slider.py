@@ -31,7 +31,7 @@ class LabeledSlider(QWidget):
         main_layout.setContentsMargins(10, 5, 10, 5)  # Left, top, right, bottom
 
         self.setLayout(main_layout)
-
+        
     def update_value_label(self, value):
         """Update the dynamic value display when the slider changes."""
         self.current_value_label.setText(str(value))

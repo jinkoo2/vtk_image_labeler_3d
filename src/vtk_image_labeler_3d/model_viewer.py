@@ -188,6 +188,7 @@ class ModelViewer(QWidget):
         seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
         seg_item.name_changed.connect(self.on_layer_name_changed)
         seg_item.color_changed.connect(self.on_segmentation_layer_color_changed)
+        seg_item.alpha_changed.connect(self.on_segmentation_layer_alpha_changed)
 
     def on_layer_visibility_changed(self, sender): 
         seg_item = sender
@@ -207,9 +208,15 @@ class ModelViewer(QWidget):
     def on_segmentation_layer_color_changed(self, sender):
         seg_item = sender
         name = seg_item.get_name()
-        self.segmentation_surfaces[name].update()
+        self.segmentation_surfaces[name].update_actors()
         self.render()
-        
+    
+    def on_segmentation_layer_alpha_changed(self, sender):
+        seg_item = sender
+        name = seg_item.get_name()
+        self.segmentation_surfaces[name].update_actors()
+        self.render_delayed(100)
+
     def on_segmentation_layer_modified(self, layer_name, sender):
         self.pending_layer = layer_name
         self.surface_update_timer.start(1000)  # wait 1000ms before updating

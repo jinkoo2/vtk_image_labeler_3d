@@ -477,6 +477,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
         seg_item.name_changed.connect(self.on_layer_name_changed)
         seg_item.color_changed.connect(self.on_layer_color_changed)
+        seg_item.alpha_changed.connect(self.on_layer_alpha_changed)
 
 
     def on_segmentation_layer_modified(self, layer_name, sender):
@@ -537,6 +538,20 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         seg_reslicer = self.segmentation_layer_reslicers[name]
 
         seg_reslicer.set_color(vtk_color)
+
+        self.render()
+
+    def on_layer_alpha_changed(self, sender):
+        
+        seg_item = sender
+        name = seg_item.get_name()
+        alpha = seg_item.get_alpha()
+
+        print(f'layer [{name}] alpha changed to {alpha}')
+        
+        seg_reslicer = self.segmentation_layer_reslicers[name]
+
+        seg_reslicer.set_alpha(alpha)
 
         self.render()
 

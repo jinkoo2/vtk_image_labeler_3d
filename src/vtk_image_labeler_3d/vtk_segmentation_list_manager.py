@@ -278,6 +278,12 @@ class SegmentationItem(QObject):
     
 
 from line_edit2 import LineEdit2
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox,
+    QLabel, QLineEdit, QSlider, QFrame, QSizePolicy
+)
+from PyQt5.QtCore import Qt
+
 
 class SegmentationListItemWidget(QWidget):
     
@@ -290,14 +296,19 @@ class SegmentationListItemWidget(QWidget):
         self.layer_name = layer_name
         self.layer_data = layer_data
 
-        self.layout = QHBoxLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout = QVBoxLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # === Header Layout ===
+        self.header = QWidget()
+        self.header_layout = QHBoxLayout()
+        self.header_layout.setContentsMargins(0, 0, 0, 0)
 
         # Checkbox for visibility
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(True)
         self.checkbox.stateChanged.connect(self.visible_checkbox_clicked)
-        self.layout.addWidget(self.checkbox)
+        self.header_layout.addWidget(self.checkbox)
 
         # Color patch for layer
         self.color_patch = QLabel()
@@ -305,13 +316,13 @@ class SegmentationListItemWidget(QWidget):
         self.color_patch.setStyleSheet(f"background-color: {self.get_layer_color_hex()}; border: 1px solid black;")
         self.color_patch.setCursor(Qt.PointingHandCursor)
         self.color_patch.mousePressEvent = self.change_color_clicked  # Assign event for color change
-        self.layout.addWidget(self.color_patch)
+        self.header_layout.addWidget(self.color_patch)
 
         # Label for the layer name
         self.label = QLabel(layer_name)
         self.label.setCursor(Qt.PointingHandCursor)
         self.label.mouseDoubleClickEvent = self.activate_editor  # Assign double-click to activate editor
-        self.layout.addWidget(self.label)
+        self.header_layout.addWidget(self.label)
 
         # Editable name field
         self.edit_name = LineEdit2(layer_name)
@@ -321,16 +332,51 @@ class SegmentationListItemWidget(QWidget):
         self.edit_name.returnPressed.connect(self.deactivate_editor)  # Commit name on Enter
         self.edit_name.editingFinished.connect(self.deactivate_editor)  # Commit name on losing focus
         self.edit_name.textChanged.connect(self.validate_name)
-        self.layout.addWidget(self.edit_name)
+        self.header_layout.addWidget(self.edit_name)
 
         # Remove button (with 'x')
         self.remove_button = QPushButton("X")
         self.remove_button.setMinimumSize(25, 25)  # Adjust size for better appearance
         self.remove_button.setToolTip("Remove this layer")
         self.remove_button.clicked.connect(self.remove_layer_clicked)
-        self.layout.addWidget(self.remove_button, alignment=Qt.AlignCenter)
+        self.header_layout.addWidget(self.remove_button, alignment=Qt.AlignCenter)
+        self.header.setLayout(self.header_layout)
 
-        self.setLayout(self.layout)
+        self.toggle_button = QPushButton("▼")
+        self.toggle_button.setFixedSize(20, 20)
+        self.toggle_button.setCheckable(True)
+        self.toggle_button.setChecked(False)
+        self.toggle_button.clicked.connect(self.toggle_details)
+        self.header_layout.addWidget(self.toggle_button)
+
+        self.main_layout.addWidget(self.header)
+
+        # === Collapsible Details ===
+        self.details_widget = QFrame()
+        self.details_layout = QVBoxLayout()
+        self.details_layout.setContentsMargins(10, 0, 0, 0)
+
+        # Alpha slider as an example
+        from labeled_float_slider import LabeledFloatSlider
+        self.alpha_slider = LabeledFloatSlider(label_text="Alpha", f0=0.0, f1=1.0, initial_value=0.5, float_format_string='{:0.2f}', orientation=Qt.Horizontal)
+        self.alpha_slider.value_changed.connect(self.alpha_changed)
+        self.details_layout.addWidget(self.alpha_slider)
+
+        self.details_widget.setLayout(self.details_layout)
+        self.details_widget.setVisible(False)  # Initially collapsed
+        self.main_layout.addWidget(self.details_widget)
+
+        self.setLayout(self.main_layout)
+
+
+    def toggle_details(self):
+        is_expanded = self.toggle_button.isChecked()
+        self.toggle_button.setText("▲" if is_expanded else "▼")
+        self.details_widget.setVisible(is_expanded)      
+
+        # Resize list item properly
+        self.list_widget_item.setSizeHint(self.sizeHint())  # Use widget's own updated size
+        self.list_widget.doItemsLayout()
 
     def remove_layer_clicked(self):
         """Remove the layer when the 'x' button is clicked."""
@@ -363,6 +409,8 @@ class SegmentationListItemWidget(QWidget):
             # Update color patch
             self.color_patch.setStyleSheet(f"background-color: {self.get_layer_color_hex()}; border: 1px solid black;")
 
+    def alpha_changed(self, value, sender):
+        self.layer_data.set_alpha(value)
 
     def focusOutEvent(self, event):
         """Deactivate the editor when it loses focus."""
@@ -958,6 +1006,11 @@ class SegmentationListManager(QObject):
         # Create a custom widget for the layer
         layer_item_widget = SegmentationListItemWidget(layer_name, layer_data, self)
         layer_item = QListWidgetItem(self.list_widget)
+        
+        # add references for resizing
+        layer_item_widget.list_widget_item = layer_item
+        layer_item_widget.list_widget = self.list_widget
+        
         layer_item.setSizeHint(layer_item_widget.sizeHint())
         self.list_widget.addItem(layer_item)
         self.list_widget.setItemWidget(layer_item, layer_item_widget) # This replaces the default text-based display with the custom widget that includes the checkbox and label.

@@ -274,7 +274,7 @@ class ReslicerWithImageActor(Reslicer):
         self.lookup_table = vtk.vtkLookupTable()
         self.lookup_table.SetNumberOfTableValues(2)
         self.lookup_table.SetTableRange(0, 1)
-        self.lookup_table.SetTableValue(0, 0, 0, 0, 0)  # transparent
+        self.lookup_table.SetTableValue(0, 0, 0, 0, 0.0)  
         self.lookup_table.SetTableValue(1, *fill_color, fill_alpha)
         self.lookup_table.Build()
 
@@ -283,6 +283,7 @@ class ReslicerWithImageActor(Reslicer):
 
         self.slice_actor = vtk.vtkImageActor()
         self.slice_actor.GetMapper().SetInputConnection(self.slice_mapper.GetOutputPort())
+        self.slice_actor.GetProperty().SetOpacity(1.0)
 
     def _create_contour_border(self, border_line_color, border_line_width, border_line_opacity):
         # Extract border from segmentation
@@ -308,7 +309,12 @@ class ReslicerWithImageActor(Reslicer):
         self.border_actor.GetProperty().SetColor(*vtk_color)
         self.lookup_table.SetTableValue(1, *vtk_color, self.fill_alpha)
         self.lookup_table.Build()
-        
+
+    def set_alpha(self, alpha):
+        self.fill_alpha = alpha
+        self.lookup_table.SetTableValue(1, *self.fill_color, self.fill_alpha)
+        self.lookup_table.Build()
+
     def get_actors(self):
         return [self.slice_actor, self.border_actor]
         #return [self.border_actor]
