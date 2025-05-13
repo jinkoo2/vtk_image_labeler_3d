@@ -198,8 +198,9 @@ class nnUNetDatasetManager(QObject):
         return layout
     
     def _create_command_button_layout(self):
-         # Button layout
-        layout = QHBoxLayout()
+        # Button layout
+        import flowlayout
+        layout = flowlayout.FlowLayout()
 
         # New Dataset button
         self.new_dataset_button = QPushButton("New Dataset")
@@ -208,12 +209,12 @@ class nnUNetDatasetManager(QObject):
 
         # Pull training images/labels
         self.pull_seleted_train_data_set_button = QPushButton("Pull Selected Train Data Set")
-        self.pull_seleted_train_data_set_button.clicked.connect(self.pull_seleted_train_data_set_clicked)
+        self.pull_seleted_train_data_set_button.clicked.connect(self.pull_seleted_train_dataset_clicked)
         layout.addWidget(self.pull_seleted_train_data_set_button)
 
         # Pull test images/labels
         self.pull_seleted_test_data_set_button = QPushButton("Pull Selected Test Data Set")
-        self.pull_seleted_test_data_set_button.clicked.connect(self.pull_seleted_test_data_set_clicked)
+        self.pull_seleted_test_data_set_button.clicked.connect(self.pull_seleted_test_dataset_clicked)
         layout.addWidget(self.pull_seleted_test_data_set_button)
 
         # Post image and label (training)
@@ -291,7 +292,7 @@ class nnUNetDatasetManager(QObject):
             return None
         return selected_item.text()
 
-    def pull_seleted_train_data_set_clicked(self):
+    def pull_seleted_train_dataset(self, images_for='train'):
         selected_item = self.train_image_list_widget.currentItem()
         if not selected_item:
             print("No training image selected.")
@@ -308,7 +309,7 @@ class nnUNetDatasetManager(QObject):
             result = download_dataset_images_and_labels(
                 BASE_URL=base_url,
                 dataset_id=dataset_id,
-                images_for="train",
+                images_for=images_for,
                 num=number,
                 out_dir="./downloads"
             )
@@ -323,8 +324,11 @@ class nnUNetDatasetManager(QObject):
         except Exception as e:
             print("Error downloading dataset:", str(e))
 
-    def pull_seleted_test_data_set_clicked(self):
-        pass
+    def pull_seleted_train_dataset_clicked(self):
+        self.pull_seleted_train_dataset('train')
+
+    def pull_seleted_test_dataset_clicked(self):
+        self.pull_seleted_train_dataset('test')
 
     def post_image_and_labels_for_training_clicked(self):
         self.post_image_and_labels("train")
