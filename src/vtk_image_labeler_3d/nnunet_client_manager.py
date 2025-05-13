@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QWidget,
                              QDockWidget, QHBoxLayout, QLineEdit, QComboBox, 
                              QTextEdit, QSizePolicy, QDialog)
 
+from PyQt5.QtWidgets import QListWidget
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QTextEdit, QHBoxLayout, QDialog, QMessageBox
 
 from logger import logger
@@ -13,6 +14,13 @@ import requests
 
 from config import get_config
 conf = get_config()
+
+def extract_image_number(filename):
+    import re
+    match = re.match(r'^.*?_(\d+)_\d+\.(nii\.gz|mha|mhd)$', filename)
+    if match:
+        return int(match.group(1))
+    raise ValueError(f"Could not extract number from filename: {filename}")
 
 class NewDatasetDialog(QDialog):
     """Popup window for creating a new dataset."""
@@ -106,6 +114,7 @@ class nnUNetDatasetManager(QObject):
     """Main application class for dataset management."""
 
     log_message = pyqtSignal(str, str)  # For emitting log messages
+    image_dataset_downloaded = pyqtSignal(str, str, QObject) # 
 
     def __init__(self, segmentation_list_manager, name):
         super().__init__()
@@ -120,11 +129,43 @@ class nnUNetDatasetManager(QObject):
         widget = QWidget()
         layout = QVBoxLayout()
 
-        # Server URL input
+        # connection layout
+        layout.addLayout(self._create_connection_layout())
+
+        # dataset layout
+        layout.addLayout(self._create_dataset_layout())
+
+        # Button layout
+        layout.addLayout(self._create_command_button_layout())
+
+        widget.setLayout(layout)
+        dock.setWidget(widget)
+
+        self.dock_widget = dock
+        return None, dock
+
+    def _create_connection_layout(self):
+        layout = QHBoxLayout()
+
         self.server_url_input = QLineEdit()
         self.server_url_input.setText("http://127.0.0.1:8000")
         self.server_url_input.setPlaceholderText("Server URL here")
         layout.addWidget(self.server_url_input)
+        
+        # Connect button
+        self.connect_button = QPushButton("Connect")
+        self.connect_button.clicked.connect(self.connect_to_server_clicked)  # You need to define this method
+        layout.addWidget(self.connect_button)
+
+        # Ping button
+        self.ping_button = QPushButton("Ping")
+        self.ping_button.clicked.connect(self.ping_clicked)
+        layout.addWidget(self.ping_button)
+    
+        return layout 
+
+    def _create_dataset_layout(self):
+        layout = QVBoxLayout()
 
         # Label
         self.label = QLabel("Select a Dataset:")
@@ -142,42 +183,51 @@ class nnUNetDatasetManager(QObject):
         self.details_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Make it expand
         layout.addWidget(self.details_label)
 
-        # Button layout
-        button_layout = QHBoxLayout()
+        # Train  Image lists
+        self.train_image_list_widget = QListWidget()
+        self.train_image_list_widget.setMinimumWidth(200)
+        self.train_image_list_widget.setToolTip("Training Images")
+        layout.addWidget(self.train_image_list_widget)
 
-        # Load datasets button
-        self.load_button = QPushButton("Load Datasets")
-        self.load_button.clicked.connect(self.populate_dropdown)
-        button_layout.addWidget(self.load_button)
+        # Add Test Image List
+        self.test_image_list_widget = QListWidget()
+        self.test_image_list_widget.setMinimumWidth(200)
+        self.test_image_list_widget.setToolTip("Testing Images")
+        layout.addWidget(self.test_image_list_widget)
 
-        # Ping button
-        self.ping_button = QPushButton("Ping")
-        self.ping_button.clicked.connect(self.ping_clicked)
-        button_layout.addWidget(self.ping_button)
+        return layout
+    
+    def _create_command_button_layout(self):
+         # Button layout
+        layout = QHBoxLayout()
 
         # New Dataset button
         self.new_dataset_button = QPushButton("New Dataset")
         self.new_dataset_button.clicked.connect(self.open_new_dataset_dialog)
-        button_layout.addWidget(self.new_dataset_button)
+        layout.addWidget(self.new_dataset_button)
+
+        # Pull training images/labels
+        self.pull_seleted_train_data_set_button = QPushButton("Pull Selected Train Data Set")
+        self.pull_seleted_train_data_set_button.clicked.connect(self.pull_seleted_train_data_set_clicked)
+        layout.addWidget(self.pull_seleted_train_data_set_button)
+
+        # Pull test images/labels
+        self.pull_seleted_test_data_set_button = QPushButton("Pull Selected Test Data Set")
+        self.pull_seleted_test_data_set_button.clicked.connect(self.pull_seleted_test_data_set_clicked)
+        layout.addWidget(self.pull_seleted_test_data_set_button)
 
         # Post image and label (training)
         self.post_image_and_labels_for_training_button = QPushButton("Push Images for Training")
         self.post_image_and_labels_for_training_button.clicked.connect(self.post_image_and_labels_for_training_clicked)
-        button_layout.addWidget(self.post_image_and_labels_for_training_button)
+        layout.addWidget(self.post_image_and_labels_for_training_button)
 
         # Post image and label (test)
         self.post_image_and_labels_for_test_button = QPushButton("Push Images for Test")
         self.post_image_and_labels_for_test_button.clicked.connect(self.post_image_and_labels_for_test_clicked)
-        button_layout.addWidget(self.post_image_and_labels_for_test_button)
+        layout.addWidget(self.post_image_and_labels_for_test_button)
 
-
-        layout.addLayout(button_layout)
-        widget.setLayout(layout)
-        dock.setWidget(widget)
-
-        self.dock_widget = dock
-        return None, dock
-
+        return layout
+    ""
     def get_exclusive_actions(self):
         """Returns an empty list since there are no exclusive actions."""
         return []
@@ -224,7 +274,57 @@ class nnUNetDatasetManager(QObject):
                 except requests.exceptions.RequestException as e:
                     print(f"Request failed: {e}")
                     self.log_message.emit("ERROR", f"Request failed: {e}")
-        
+    
+    def get_selected_dataset_id(self):
+        selected_text = self.dropdown.currentText()
+        return selected_text
+
+    def get_seletect_train_image_name(self):
+        selected_item = self.train_image_list_widget.currentItem()
+        if not selected_item:
+            return None
+        return selected_item.text()
+
+    def get_seletect_test_image_name(self):
+        selected_item = self.test_image_list_widget.currentItem()
+        if not selected_item:
+            return None
+        return selected_item.text()
+
+    def pull_seleted_train_data_set_clicked(self):
+        selected_item = self.train_image_list_widget.currentItem()
+        if not selected_item:
+            print("No training image selected.")
+            return
+
+        try:
+            # Extract ID from the selected item's data or text
+            selected_text = selected_item.text()
+            number = extract_image_number(selected_text)  # crude way to extract number
+            dataset_id = self.get_selected_dataset_id()
+            base_url = self.get_server_url()
+
+            from nnunet_service import download_dataset_images_and_labels
+            result = download_dataset_images_and_labels(
+                BASE_URL=base_url,
+                dataset_id=dataset_id,
+                images_for="train",
+                num=number,
+                out_dir="./downloads"
+            )
+
+            print("Download complete:", result)
+
+            # notify image download
+            image_path = result['downloaded_base_image_path']
+            labels_path = result['downloaded_labels_image_path']
+            self.image_dataset_downloaded.emit(image_path, labels_path, self)
+
+        except Exception as e:
+            print("Error downloading dataset:", str(e))
+
+    def pull_seleted_test_data_set_clicked(self):
+        pass
 
     def post_image_and_labels_for_training_clicked(self):
         self.post_image_and_labels("train")
@@ -294,10 +394,10 @@ class nnUNetDatasetManager(QObject):
         """Retrieve the current server URL from the input field."""
         return self.server_url_input.text()
 
-    def get_dataset_list(self):
+    def get_dataset_json_list(self):
         """Fetch dataset list from nnUNet server."""
         try:
-            response_data = nnunet_service.get_dataset_list(self.get_server_url())
+            response_data = nnunet_service.get_dataset_json_list(self.get_server_url())
             print(f"response_data={response_data}")
             return response_data
         except nnunet_service.ServerError as e:
@@ -306,10 +406,10 @@ class nnUNetDatasetManager(QObject):
             print(f"Request failed: {e}")
         return []  # Return an empty list in case of failure
 
-    def populate_dropdown(self):
+    def connect_to_server_clicked(self):
         """Fetch datasets and populate dropdown list."""
         self.dropdown.clear()  # Clear existing items
-        self.datasets = self.get_dataset_list()
+        self.datasets = self.get_dataset_json_list()
 
         if not self.datasets:
             self.dropdown.addItem("No datasets available")
@@ -324,6 +424,22 @@ class nnUNetDatasetManager(QObject):
             self.dropdown.setCurrentIndex(0)
             self.dataset_selected(0)
 
+
+    def get_dataset_image_list(self, dataset_id):
+        """Fetch dataset list from nnUNet server."""
+        try:
+            response_data = nnunet_service.get_dataset_json_list(self.get_server_url(), dataset_id)
+            print(f"response_data={response_data}")
+            return response_data
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+        return []  # Return an empty list in case of failure
+    
+    def get_selected_dataset(self):
+        return self._current_datast
+    
     def dataset_selected(self, index):
         """Triggered when the user selects a dataset."""
         if not self.datasets or index < 0 or index >= len(self.datasets):
@@ -333,6 +449,8 @@ class nnUNetDatasetManager(QObject):
         # Make a copy of the dataset and remove 'id'
         dataset = self.datasets[index].copy()
         #dataset.pop("id", None)  # Remove 'id' if it exists
+        self._current_datast = dataset
+
 
         # Convert dataset dictionary to formatted JSON string
         details_json = json.dumps(dataset, indent=4)
@@ -341,6 +459,33 @@ class nnUNetDatasetManager(QObject):
         details_text = f"<pre>{details_json}</pre>"
 
         self.details_label.setHtml(details_text)  # Use HTML to render formatted JSON
+       
+        try:
+            dataset_id = dataset.get('id')
+            if not dataset_id:
+                print("Missing dataset ID")
+                return
+
+            response_data = nnunet_service.get_dataset_image_name_list(self.get_server_url(), dataset_id)
+            print(f"response_data={response_data}")
+
+            # --- Populate training image list ---
+            self.train_image_list_widget.clear()
+            for item in response_data.get("train_images", []):
+                self.train_image_list_widget.addItem(item["filename"])
+
+            # --- Populate testing image list ---
+            self.test_image_list_widget.clear()
+            for item in response_data.get("test_images", []):
+                self.test_image_list_widget.addItem(item["filename"])
+
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+        return []  # Return an empty list in case of failure
+
+
 
     def load_state(self, data_dict, data_dir, aux_data):
         pass

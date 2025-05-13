@@ -1,0 +1,113 @@
+2025-05-13 12:53:10,040 - INFO - Application started
+2025-05-13 12:53:26,337 - INFO - SegmentationListManager initialized
+2025-05-13 12:53:28,550 - INFO - MainWindow initialized
+2025-05-13 12:54:33,404 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 12:54:35,916 - INFO - File extension: .mha
+2025-05-13 12:54:59,484 - INFO - dims=(512, 512, 64)
+2025-05-13 12:54:59,484 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 12:54:59,485 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 12:54:59,536 - INFO - the center slice index is 31
+2025-05-13 12:54:59,613 - INFO - the center slice index is 255
+2025-05-13 12:54:59,671 - INFO - the center slice index is 255
+2025-05-13 12:54:59,776 - INFO - Image loaded successfully
+2025-05-13 12:55:48,371 - INFO - Application started
+2025-05-13 12:55:54,697 - INFO - SegmentationListManager initialized
+2025-05-13 12:55:55,727 - INFO - MainWindow initialized
+2025-05-13 12:56:16,500 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 12:56:16,500 - INFO - File extension: .mha
+2025-05-13 12:56:16,697 - INFO - dims=(512, 512, 64)
+2025-05-13 12:56:16,697 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 12:56:16,698 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 12:56:16,749 - INFO - the center slice index is 31
+2025-05-13 12:56:16,821 - INFO - the center slice index is 255
+2025-05-13 12:56:16,878 - INFO - the center slice index is 255
+2025-05-13 12:56:16,975 - INFO - Image loaded successfully
+2025-05-13 13:12:51,393 - INFO - Application started
+2025-05-13 13:12:58,014 - INFO - SegmentationListManager initialized
+2025-05-13 13:13:33,920 - INFO - Application started
+2025-05-13 13:13:40,425 - INFO - SegmentationListManager initialized
+2025-05-13 13:13:41,447 - INFO - MainWindow initialized
+2025-05-13 13:13:56,235 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 13:13:56,235 - INFO - File extension: .mha
+2025-05-13 13:13:56,437 - INFO - dims=(512, 512, 64)
+2025-05-13 13:13:56,437 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 13:13:56,438 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 13:13:56,492 - INFO - the center slice index is 31
+2025-05-13 13:13:56,567 - INFO - the center slice index is 255
+2025-05-13 13:13:56,623 - INFO - the center slice index is 255
+2025-05-13 13:13:56,729 - INFO - Image loaded successfully
+2025-05-13 13:17:12,146 - INFO - Application started
+2025-05-13 13:17:18,777 - INFO - SegmentationListManager initialized
+2025-05-13 13:17:19,813 - INFO - MainWindow initialized
+2025-05-13 13:19:40,080 - INFO - Application started
+2025-05-13 13:19:46,475 - INFO - SegmentationListManager initialized
+2025-05-13 13:19:47,500 - INFO - MainWindow initialized
+2025-05-13 13:20:05,728 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 13:20:05,729 - INFO - File extension: .mha
+2025-05-13 13:20:05,943 - INFO - dims=(512, 512, 64)
+2025-05-13 13:20:05,943 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 13:20:05,944 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 13:20:05,997 - INFO - the center slice index is 31
+2025-05-13 13:20:06,065 - INFO - the center slice index is 255
+2025-05-13 13:20:06,120 - INFO - the center slice index is 255
+2025-05-13 13:20:06,217 - INFO - Image loaded successfully
+2025-05-13 15:19:41,009 - INFO - Application started
+2025-05-13 15:19:47,416 - INFO - SegmentationListManager initialized
+2025-05-13 15:19:48,463 - INFO - MainWindow initialized
+2025-05-13 15:20:11,393 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:20:11,395 - INFO - File extension: .mha
+2025-05-13 15:20:11,579 - INFO - dims=(512, 512, 64)
+2025-05-13 15:20:11,580 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:20:11,580 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:20:11,633 - INFO - the center slice index is 31
+2025-05-13 15:20:11,711 - INFO - the center slice index is 255
+2025-05-13 15:20:11,773 - INFO - the center slice index is 255
+2025-05-13 15:20:11,905 - INFO - Image loaded successfully
+2025-05-13 15:22:29,547 - INFO - Application started
+2025-05-13 15:22:35,960 - INFO - SegmentationListManager initialized
+2025-05-13 15:22:36,986 - INFO - MainWindow initialized
+2025-05-13 15:22:51,321 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:22:51,321 - INFO - File extension: .mha
+2025-05-13 15:22:51,505 - INFO - dims=(512, 512, 64)
+2025-05-13 15:22:51,505 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:22:51,505 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:22:51,557 - INFO - the center slice index is 31
+2025-05-13 15:22:51,632 - INFO - the center slice index is 255
+2025-05-13 15:22:51,688 - INFO - the center slice index is 255
+2025-05-13 15:22:51,800 - INFO - Image loaded successfully
+2025-05-13 15:23:51,177 - INFO - Application started
+2025-05-13 15:23:57,783 - INFO - SegmentationListManager initialized
+2025-05-13 15:23:58,796 - INFO - MainWindow initialized
+2025-05-13 15:24:18,529 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:24:18,531 - INFO - File extension: .mha
+2025-05-13 15:24:18,718 - INFO - dims=(512, 512, 64)
+2025-05-13 15:24:18,718 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:24:18,718 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:24:18,773 - INFO - the center slice index is 31
+2025-05-13 15:24:18,850 - INFO - the center slice index is 255
+2025-05-13 15:24:18,911 - INFO - the center slice index is 255
+2025-05-13 15:24:19,024 - INFO - Image loaded successfully
+2025-05-13 15:27:04,502 - INFO - Application started
+2025-05-13 15:27:10,877 - INFO - SegmentationListManager initialized
+2025-05-13 15:27:11,904 - INFO - MainWindow initialized
+2025-05-13 15:27:24,065 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:27:24,065 - INFO - File extension: .mha
+2025-05-13 15:27:24,265 - INFO - dims=(512, 512, 64)
+2025-05-13 15:27:24,265 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:27:24,266 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:27:24,317 - INFO - the center slice index is 31
+2025-05-13 15:27:24,392 - INFO - the center slice index is 255
+2025-05-13 15:27:24,448 - INFO - the center slice index is 255
+2025-05-13 15:27:24,548 - INFO - Image loaded successfully
+2025-05-13 15:28:04,103 - INFO - Application started
+2025-05-13 15:28:10,682 - INFO - SegmentationListManager initialized
+2025-05-13 15:28:11,698 - INFO - MainWindow initialized
+2025-05-13 15:28:21,399 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:28:21,399 - INFO - File extension: .mha
+2025-05-13 15:28:21,598 - INFO - dims=(512, 512, 64)
+2025-05-13 15:28:21,599 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:28:21,599 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:28:21,651 - INFO - the center slice index is 31
+2025-05-13 15:28:21,722 - INFO - the center slice index is 255
+2025-05-13 15:28:21,779 - INFO - the center slice index is 255
+2025-05-13 15:28:21,882 - INFO - Image loaded successfully

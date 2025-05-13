@@ -1038,8 +1038,11 @@ class SegmentationListManager(QObject):
 
         return len(dims) ==3 and dims[2] > 1
 
-    def add_layer(self, segmentation, layer_name, color_vtk, alpha):
-        #actor = self.create_segmentation_actor(segmentation, color=color_vtk, alpha=alpha)
+    def add_layer(self, segmentation, layer_name, color_vtk=None, alpha=0.5):
+
+        if color_vtk is None:
+            color_vtk = to_vtk_color(self.color_rotator.next())
+
         seg_item = SegmentationItem(segmentation=segmentation, color=from_vtk_color(color_vtk), alpha=alpha, name=layer_name)
         self.segmentation_layers[layer_name] = seg_item
 

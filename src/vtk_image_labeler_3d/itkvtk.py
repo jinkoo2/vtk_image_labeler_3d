@@ -112,6 +112,14 @@ def load_vtk_image_using_sitk(file_path):
     print(f"Loaded {file_path}")
     return vtk_image
 
+def extract_binary_label_image_from_composit_labels_image(composit_labels_image, label_value):
+    threshold = vtk.vtkImageThreshold()
+    threshold.SetInputData(composit_labels_image)
+    threshold.ThresholdBetween(label_value, label_value)       # Only value 5 will be extracted
+    threshold.SetInValue(1)                # Set pixels with value 5 to 1
+    threshold.SetOutValue(0)               # All others to 0
+    threshold.Update()
+    return threshold.GetOutput()
 
 def vtk_get_w_H_imageo(vtk_image):
     """

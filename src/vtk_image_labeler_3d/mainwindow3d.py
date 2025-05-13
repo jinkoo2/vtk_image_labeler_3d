@@ -163,10 +163,12 @@ class MainWindow3D(QMainWindow):
 
         self.add_exclusive_actions(self.nnunet_client_manager.get_exclusive_actions())
         self.nnunet_client_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
+        self.nnunet_client_manager.image_dataset_downloaded.connect(self.nnunet_client_manager_image_dataset_downloaded)
         self.managers.append(self.nnunet_client_manager)
         self.nnunet_client_manager_widget = dock
-        self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, False)
+        self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, True)
 
+        
         #self.tabifyDockWidget(self.nnunet_client_manager, self.rect_list_dock_widget)
 
         # Ensure segmentation manager dock is visible and active
@@ -580,17 +582,36 @@ class MainWindow3D(QMainWindow):
         else:
             return '.'
 
-    def import_image_clicked(self):
-        #file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
-        
-        file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
-        if file_path == '':
-            return 
-        
+    def nnunet_client_manager_image_dataset_downloaded(self, image_path, labels_path, sender):
+
+        # close workspace before loading a new image
+        if self.vtk_image is not None:
+            self.close_workspace()
+
+        # load image
+        self.load_image(image_path)
+
+        # load label
+        import itkvtk
+        composit_labels_image = itkvtk.load_vtk_image_using_sitk(labels_path)
+        ds = self.nnunet_client_manager.get_selected_dataset()
+        labels = ds['labels']
+        for label_name in labels.keys():
+            label_value = labels.get(label_name)
+            print(f'{label_name}={label_value}')
+
+            if label_value > 0:
+
+                label_image = itkvtk.extract_binary_label_image_from_composit_labels_image(composit_labels_image, label_value)
+
+                # add layer
+                self.segmentation_list_manager.add_layer(label_image, label_name)
+
+    def load_image(self, file_path):
+
         # save to last_directory
         settings.setValue("last_directory", os.path.dirname(file_path))
 
-    
         _info(f"Loading image from {file_path}")
         self.image_path = file_path 
 
@@ -616,8 +637,8 @@ class MainWindow3D(QMainWindow):
         original_origin = self.vtk_image.GetOrigin()
 
         ##for debug
-        self.vtk_image.SetOrigin(0.0, 0.0, 0.0)
-        self.vtk_image.SetSpacing(1.0, 1.0, 1.0)
+        #self.vtk_image.SetOrigin(0.0, 0.0, 0.0)
+        #self.vtk_image.SetSpacing(1.0, 1.0, 1.0)
 
         _info(f'dims={dims}')
         _info(f'spacing={spacing}')
@@ -641,6 +662,22 @@ class MainWindow3D(QMainWindow):
         #    _err(f"Failed to load image:{e}") 
         #    self.show_popup("Load Image", f"Error: Load Image Failed, {str(e)}", QMessageBox.Critical)
 
+
+
+    def import_image_clicked(self):
+        
+        #file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
+        
+        file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
+        if file_path == '':
+            return 
+        
+
+        # close workspace before loading a new image
+        if self.vtk_image is not None:
+            self.close_workspace()
+
+        self.load_image(file_path)
 
     def modified(self):
         for manager in self.managers:
