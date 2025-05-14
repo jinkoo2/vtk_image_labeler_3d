@@ -21,10 +21,10 @@ class ContourWorker(QObject):
 
 import vtk
 
-class SegmentationSurface():
-    def __init__(self, seg_item, renderer=None, render_window=None):
+class SegmentationLayerSurface():
+    def __init__(self, layer, renderer=None, render_window=None):
 
-        self.seg_item = seg_item
+        self.layer = layer
         self.renderer = renderer
         self.render_window = render_window
 
@@ -45,7 +45,7 @@ class SegmentationSurface():
 
         self.surface_actor = vtk.vtkActor()
         self.surface_actor.SetMapper(self.surface_mapper)
-        self.surface_actor.GetProperty().SetColor(*self.seg_item.get_vtk_color())
+        self.surface_actor.GetProperty().SetColor(*self.layer.get_vtk_color())
 
         self.update_actors()
 
@@ -57,14 +57,14 @@ class SegmentationSurface():
         return [self.surface_actor]
 
     def update_actors(self):
-        self.surface_actor.SetVisibility(self.seg_item.get_visible())
-        self.surface_actor.GetProperty().SetColor(*self.seg_item.get_vtk_color())
-        self.surface_actor.GetProperty().SetOpacity(self.seg_item.get_alpha())
+        self.surface_actor.SetVisibility(self.layer.get_visible())
+        self.surface_actor.GetProperty().SetColor(*self.layer.get_vtk_color())
+        self.surface_actor.GetProperty().SetOpacity(self.layer.get_alpha())
         self.surface_actor.GetProperty().SetLineWidth(1.0)
 
     def update_surface_async(self):
         self.thread = QThread()
-        self.worker = ContourWorker(self.seg_item.get_image())
+        self.worker = ContourWorker(self.layer.get_image())
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
@@ -82,6 +82,51 @@ class SegmentationSurface():
             self.render_window.Render()
 
         
+from typing import List
+class SegmentationLayerSurfaceList():
+
+    def __init__(self):
+        self._surfaces: List[SegmentationLayerSurface] = []
+    
+    def clear(self):
+        self._surfaces.clear()
+
+    def get_surface_by_layer_name(self, name):
+        for surface in self._surfaces:
+            if surface.layer.get_name() == name:
+                return surface
+        return None
+
+    def add_surface(self, surface):
+        
+        # add list as parent
+        surface.parent_list = self
+
+        # add to the list
+        self._surfaces.append(surface)
+
+    
+    def remove_surface_by_layer_name(self,name):
+        surface = self.get_surface_by_layer_name(name)
+        if surface:
+
+            surface.parent_list = None
+
+            self._surfaces.remove(surface)
+
+            return surface
+        
+        return None
+        
+    def pop(self, name):
+        return self.remove_surface_by_layer_name(name)
+    
+    def get_surfaces(self):
+        return self._surfaces
+    
+    def get_layer_names(self):
+        return [surface.layer.get_name() for surface in self.get_surfaces()]
+
 
 
       

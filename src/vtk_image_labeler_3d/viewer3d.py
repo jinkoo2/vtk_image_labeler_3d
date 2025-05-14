@@ -584,10 +584,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         new_layer_name = sender.get_name()
         print(f'name changed from {old_layer_name} to {new_layer_name}')
 
-        if old_layer_name in self.segmentation_layer_reslicers:
-            self.segmentation_layer_reslicers[new_layer_name] = self.segmentation_layer_reslicers.pop(old_layer_name)
-        else:
-            print(f'Warning: layer {old_layer_name} not found in segmentation_layer_reslicers')
+        # if old_layer_name in self.segmentation_layer_reslicers:
+        #     self.segmentation_layer_reslicers[new_layer_name] = self.segmentation_layer_reslicers.pop(old_layer_name)
+        # else:
+        #     print(f'Warning: layer {old_layer_name} not found in segmentation_layer_reslicers')
 
     def on_layer_color_changed(self, sender):
         
@@ -597,7 +597,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         print(f'layer [{name}] color changed to {vtk_color}')
         
-        seg_reslicer = self.segmentation_layer_reslicers[name]
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(name)
 
         seg_reslicer.set_color(vtk_color)
 
@@ -611,7 +611,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         print(f'layer [{name}] alpha changed to {alpha}')
         
-        seg_reslicer = self.segmentation_layer_reslicers[name]
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(name)
 
         seg_reslicer.set_alpha(alpha)
 

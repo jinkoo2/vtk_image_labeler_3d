@@ -38,8 +38,9 @@ class ModelList():
     def get_model_names(self):
         return list(self.list.keys())
     
+from segmentation_layer_surface import SegmentationLayerSurfaceList, SegmentationLayerSurface
+from typing import List
 
-        
 class ModelViewer(QWidget):
     
     status_message = pyqtSignal(str, QObject)
@@ -88,7 +89,7 @@ class ModelViewer(QWidget):
 
         self.set_active(False)
 
-        self.segmentation_surfaces = {}
+        self.segmentation_surfaces = SegmentationLayerSurfaceList()
         self.models = ModelList()
 
     def get_interactor(self):
@@ -153,8 +154,9 @@ class ModelViewer(QWidget):
     def _on_surface_update_timer_timeout(self):
         layer_name = self.pending_layer
         print(f'SurfaceViewer: _do_surface_update(layername={layer_name})')
-        if layer_name in self.segmentation_surfaces:
-            self.segmentation_surfaces[layer_name].update_surface_async()
+        seg_surface = self.segmentation_surfaces.get_surface_by_layer_name(layer_name)
+        if seg_surface:
+            seg_surface.update_surface_async()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -180,42 +182,48 @@ class ModelViewer(QWidget):
     def on_segmentation_layer_added(self, layer_name, sender):
         print(f'SurfaceViewer: on_segmentation_layer_added(layername={layer_name}')
 
-        import segmentation_surface
-        seg_item = self.segmentaiton_layers[layer_name]
-        seg_surface = segmentation_surface.SegmentationSurface(seg_item=seg_item, renderer=self.get_renderer(), render_window=self.get_render_window())
-        self.segmentation_surfaces[layer_name] = seg_surface
+        import segmentation_layer_surface
+        layer = self.segmentaiton_layers[layer_name]
+        seg_surface = segmentation_layer_surface.SegmentationLayerSurface(layer=layer, renderer=self.get_renderer(), render_window=self.get_render_window())
+        self.segmentation_surfaces.add_surface(seg_surface)
 
-        seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
-        seg_item.name_changed.connect(self.on_layer_name_changed)
-        seg_item.color_changed.connect(self.on_segmentation_layer_color_changed)
-        seg_item.alpha_changed.connect(self.on_segmentation_layer_alpha_changed)
+        layer.visibility_changed.connect(self.on_layer_visibility_changed)
+        layer.name_changed.connect(self.on_layer_name_changed)
+        layer.color_changed.connect(self.on_segmentation_layer_color_changed)
+        layer.alpha_changed.connect(self.on_segmentation_layer_alpha_changed)
 
     def on_layer_visibility_changed(self, sender): 
-        seg_item = sender
-        name = seg_item.get_name()
-        self.segmentation_surfaces[name].update_actors()
-        self.render()
+        layer = sender
+        name = layer.get_name()
+        seg_surface = self.segmentation_surfaces.get_surface_by_layer_name(name)
+        if seg_surface:
+            seg_surface.update_actors()
+            self.render()
 
     def on_layer_name_changed(self, old_layer_name, sender):
         new_layer_name = sender.get_name()
         print(f'name changed from {old_layer_name} to {new_layer_name}')
 
-        if old_layer_name in self.segmentation_surfaces:
-            self.segmentation_surfaces[new_layer_name] = self.segmentation_surfaces.pop(old_layer_name)
-        else:
-            print(f'Warning: layer {old_layer_name} not found in segmentation_surfaces')
+        # if old_layer_name in self.segmentation_surfaces:
+        #     self.segmentation_surfaces[new_layer_name] = self.segmentation_surfaces.pop(old_layer_name)
+        # else:
+        #     print(f'Warning: layer {old_layer_name} not found in segmentation_surfaces')
 
     def on_segmentation_layer_color_changed(self, sender):
-        seg_item = sender
-        name = seg_item.get_name()
-        self.segmentation_surfaces[name].update_actors()
-        self.render()
+        layer = sender
+        name = layer.get_name()
+        seg_surface = self.segmentation_surfaces.get_surface_by_layer_name(name)
+        if seg_surface:
+            seg_surface.update_actors()
+            self.render()
     
     def on_segmentation_layer_alpha_changed(self, sender):
-        seg_item = sender
-        name = seg_item.get_name()
-        self.segmentation_surfaces[name].update_actors()
-        self.render_delayed(100)
+        layer = sender
+        name = layer.get_name()
+        seg_surface = self.segmentation_surfaces.get_surface_by_layer_name(name)
+        if seg_surface:
+            seg_surface.update_actors()
+            self.render_delayed(100)
 
     def on_segmentation_layer_modified(self, layer_name, sender):
         self.pending_layer = layer_name
