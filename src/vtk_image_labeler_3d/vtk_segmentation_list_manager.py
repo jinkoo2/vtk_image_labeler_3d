@@ -338,7 +338,7 @@ class SegmentationLayerList(QObject):
         return None
         
     def pop(self, name):
-        return self.remove_layer_by_name()
+        return self.remove_layer_by_name(name)
     
     def get_layers(self):
         return [layer for _,layer in self.items()]

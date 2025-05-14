@@ -247,6 +247,69 @@ class SliceIndicator():
     def set_color(self, color):
         self.actor.GetProperty().SetColor(*color) 
 
+from reslicer import ReslicerWithImageActor
+from typing import List
+
+class SegmentationLayerReslicerList():
+
+    def __init__(self):
+        self._reslicers: List[ReslicerWithImageActor] = []
+    
+    def clear(self):
+        self._reslicers.clear()
+
+    def get_reslicer_by_layer_name(self, name):
+        for reslicer in self._reslicers:
+            if reslicer.layer.get_name() == name:
+                return reslicer
+        return None
+
+    def add_reslicer(self, reslicer):
+        
+        # add list as parent
+        reslicer.parent_list = self
+
+        # add to the list
+        self._reslicers.append(reslicer)
+
+    
+    def remove_reslicer_by_layer_name(self,name):
+        reslicer = self.get_reslicer_by_layer_name(name)
+        if reslicer:
+
+            reslicer.parent_list = None
+
+            self._reslicers.remove(reslicer)
+
+            return reslicer
+        
+        return None
+        
+    def pop(self, name):
+        return self.remove_reslicer_by_layer_name(name)
+    
+    def get_reslicers(self):
+        return self._reslicers
+    
+    def get_layer_names(self):
+        return [reslicer.layer.get_name() for reslicer in self.get_reslicers()]
+
+
+    # def __getitem__(self, key):
+    #     return self.get_reslicer_by_layer_name(key)
+
+    # def __delitem__(self, key):
+    #     self.remove_reslicer_by_layer_name(key)
+
+    # def __setitem__(self, key, value):
+    #     # if exists, remove first
+    #     self.remove_reslicer_by_layer_name(key)
+
+    #     # add layer
+    #     self.add_reslicer(value)
+
+
+    
 import viewer2d
 import reslicer
 class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
@@ -263,7 +326,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.slicing.slice_changed.connect(self.on_slice_changed)
         self.slicing.enable(True)
 
-        self.segmentation_layer_reslicers = {}
+        self.segmentation_layer_reslicers = SegmentationLayerReslicerList()
 
         self.slice_plane_object = SlicePlaneObject(slice_plane_color)
         self.slice_indicators_of_other_views = {}
@@ -334,8 +397,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.window_level_filter.Update()
     
         # update the segmentation reslicers
-        for layer_name in self.segmentation_layer_reslicers.keys():
-            self.segmentation_layer_reslicers[layer_name].set_slice_index_and_update_slice_actor(new_slice_index)
+        for reslicer in self.segmentation_layer_reslicers.get_reslicers():
+            reslicer.set_slice_index_and_update_slice_actor(new_slice_index)
 
         # update slice plane object
         self.update_slice_plane_object()
@@ -464,15 +527,16 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         axis = self.reslicer.axis
         slice_index = self.reslicer.slice_index 
         seg_reslicer = reslicer.ReslicerWithImageActor(axis = axis, vtk_image=seg3d, background_value=0, fill_color=vtk_color, fill_alpha=alpha, border_line_color = vtk_color, viewer = self)
+        seg_reslicer.layer = layer # reference to the layer
         seg_reslicer.set_slice_index_and_update_slice_actor(slice_index)
         for actor in seg_reslicer.get_actors():
             self.get_renderer().AddActor(actor)
         
         # add to segmentaion reslicer list        
-        layer.reslicer = seg_reslicer
-        self.segmentation_layer_reslicers[layer_name] =  seg_reslicer
+        #layer.reslicer = seg_reslicer # this would not work because layer can have multiple reslicers
+        self.segmentation_layer_reslicers.add_reslicer(seg_reslicer)
                 
-        self.render()
+        self.render_delayed(100)
 
         layer.visibility_changed.connect(self.on_layer_visibility_changed)
         layer.name_changed.connect(self.on_layer_name_changed)
@@ -483,8 +547,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def on_segmentation_layer_modified(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer_name})')
 
-        if layer_name in self.segmentation_layer_reslicers:
-            seg_reslicer = self.segmentation_layer_reslicers[layer_name]
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer_name)
+
+        if seg_reslicer:
             seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
             
             # if active view, render right away, if not do delayed render.
@@ -497,8 +562,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
 
         # remove 
-        if layer_name in self.segmentation_layer_reslicers:
-            seg_reslicer = self.segmentation_layer_reslicers.pop(layer_name)
+        seg_reslicer = self.segmentation_layer_reslicers.pop(layer_name)
+        if seg_reslicer:
             for actor in seg_reslicer.get_actors():
                 self.get_renderer().RemoveActor(actor)
             self.render()
