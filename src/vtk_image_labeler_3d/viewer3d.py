@@ -455,10 +455,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_added({layer_name})')
 
         # seg item
-        seg_item = self.segmentaiton_layers[layer_name]
-        seg3d = seg_item.segmentation
-        vtk_color = seg_item.get_vtk_color()
-        alpha = seg_item.get_alpha()
+        layer = self.segmentaiton_layers[layer_name]
+        seg3d = layer.get_image()
+        vtk_color = layer.get_vtk_color()
+        alpha = layer.get_alpha()
         
         # create a reslicer with actor
         axis = self.reslicer.axis
@@ -469,15 +469,15 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             self.get_renderer().AddActor(actor)
         
         # add to segmentaion reslicer list        
-        seg_item.reslicer = seg_reslicer
+        layer.reslicer = seg_reslicer
         self.segmentation_layer_reslicers[layer_name] =  seg_reslicer
                 
         self.render()
 
-        seg_item.visibility_changed.connect(self.on_layer_visibility_changed)
-        seg_item.name_changed.connect(self.on_layer_name_changed)
-        seg_item.color_changed.connect(self.on_layer_color_changed)
-        seg_item.alpha_changed.connect(self.on_layer_alpha_changed)
+        layer.visibility_changed.connect(self.on_layer_visibility_changed)
+        layer.name_changed.connect(self.on_layer_name_changed)
+        layer.color_changed.connect(self.on_layer_color_changed)
+        layer.alpha_changed.connect(self.on_layer_alpha_changed)
 
 
     def on_segmentation_layer_modified(self, layer_name, sender):
@@ -496,12 +496,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def on_segmentation_layer_removed(self, layer_name, sender):
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
 
-        # check if removed rom self.segmentation_layers. it should not be there.
-        if layer_name in self.segmentaiton_layers:
-            logger.error(f'I am in on_segmentation_layer_removed(layer_name={layer_name})  handler, but segmenatino item still exists on segmenation_layers list')
-        
+        # remove 
         if layer_name in self.segmentation_layer_reslicers:
-            seg_reslicer = self.segmentation_layer_reslicers[layer_name]
+            seg_reslicer = self.segmentation_layer_reslicers.pop(layer_name)
             for actor in seg_reslicer.get_actors():
                 self.get_renderer().RemoveActor(actor)
             self.render()
@@ -882,7 +879,8 @@ class VTKViewer3D(QWidget):
         pass
 
     def render(self):
-        pass
+        for v in self.viewers:
+            v.render()
 
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout

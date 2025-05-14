@@ -1,0 +1,555 @@
+2025-05-14 10:25:06,808 - INFO - Application started
+2025-05-14 10:25:12,996 - INFO - SegmentationListManager initialized
+2025-05-14 10:26:01,084 - INFO - Application started
+2025-05-14 10:26:07,482 - INFO - SegmentationListManager initialized
+2025-05-14 10:26:08,512 - INFO - MainWindow initialized
+2025-05-14 10:26:13,618 - INFO - MainWindow is closing.
+2025-05-14 10:26:13,698 - INFO - Application is quitting.
+2025-05-14 10:26:19,359 - INFO - Application started
+2025-05-14 10:26:25,897 - INFO - SegmentationListManager initialized
+2025-05-14 10:26:26,933 - INFO - MainWindow initialized
+2025-05-14 10:26:34,034 - INFO - MainWindow is closing.
+2025-05-14 10:26:34,095 - INFO - Application is quitting.
+2025-05-14 10:27:01,787 - INFO - Application started
+2025-05-14 10:27:08,238 - INFO - SegmentationListManager initialized
+2025-05-14 10:27:09,287 - INFO - MainWindow initialized
+2025-05-14 10:27:22,873 - INFO - MainWindow is closing.
+2025-05-14 10:27:22,928 - INFO - Application is quitting.
+2025-05-14 10:27:42,892 - INFO - Application started
+2025-05-14 10:27:49,130 - INFO - SegmentationListManager initialized
+2025-05-14 10:27:50,155 - INFO - MainWindow initialized
+2025-05-14 10:27:57,370 - INFO - MainWindow is closing.
+2025-05-14 10:27:57,424 - INFO - Application is quitting.
+2025-05-14 10:28:57,542 - INFO - Application started
+2025-05-14 10:29:04,121 - INFO - SegmentationListManager initialized
+2025-05-14 10:29:05,124 - INFO - MainWindow initialized
+2025-05-14 10:29:12,937 - INFO - MainWindow is closing.
+2025-05-14 10:29:13,045 - INFO - Application is quitting.
+2025-05-14 10:29:36,154 - INFO - Application started
+2025-05-14 10:29:42,681 - INFO - SegmentationListManager initialized
+2025-05-14 10:29:43,713 - INFO - MainWindow initialized
+2025-05-14 10:29:49,480 - INFO - MainWindow is closing.
+2025-05-14 10:29:49,573 - INFO - Application is quitting.
+2025-05-14 10:30:05,310 - INFO - Application started
+2025-05-14 10:30:11,610 - INFO - SegmentationListManager initialized
+2025-05-14 10:30:12,650 - INFO - MainWindow initialized
+2025-05-14 10:31:37,658 - INFO - MainWindow is closing.
+2025-05-14 10:31:37,769 - INFO - Application is quitting.
+2025-05-14 10:34:57,198 - INFO - Application started
+2025-05-14 10:35:03,560 - INFO - SegmentationListManager initialized
+2025-05-14 10:35:04,599 - INFO - MainWindow initialized
+2025-05-14 10:35:14,821 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 10:35:14,822 - INFO - File extension: .mha
+2025-05-14 10:35:15,003 - INFO - dims=(512, 512, 64)
+2025-05-14 10:35:15,004 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 10:35:15,004 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 10:35:15,059 - INFO - the center slice index is 31
+2025-05-14 10:35:15,120 - INFO - the center slice index is 255
+2025-05-14 10:35:15,176 - INFO - the center slice index is 255
+2025-05-14 10:35:15,273 - INFO - Image loaded successfully
+2025-05-14 12:21:19,495 - INFO - Application started
+2025-05-14 12:21:35,321 - INFO - SegmentationListManager initialized
+2025-05-14 12:21:37,484 - INFO - MainWindow initialized
+2025-05-14 12:21:57,719 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:21:57,719 - INFO - File extension: .mha
+2025-05-14 12:21:57,900 - INFO - dims=(512, 512, 64)
+2025-05-14 12:21:57,901 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:21:57,901 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:21:57,970 - INFO - the center slice index is 31
+2025-05-14 12:21:58,044 - INFO - the center slice index is 255
+2025-05-14 12:21:58,100 - INFO - the center slice index is 255
+2025-05-14 12:21:58,200 - INFO - Image loaded successfully
+2025-05-14 12:22:49,136 - INFO - Application started
+2025-05-14 12:22:55,508 - INFO - SegmentationListManager initialized
+2025-05-14 12:22:56,546 - INFO - MainWindow initialized
+2025-05-14 12:23:06,898 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:23:06,899 - INFO - File extension: .mha
+2025-05-14 12:23:07,085 - INFO - dims=(512, 512, 64)
+2025-05-14 12:23:07,085 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:23:07,086 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:23:07,138 - INFO - the center slice index is 31
+2025-05-14 12:23:07,211 - INFO - the center slice index is 255
+2025-05-14 12:23:07,267 - INFO - the center slice index is 255
+2025-05-14 12:23:07,365 - INFO - Image loaded successfully
+2025-05-14 12:23:43,429 - INFO - Application started
+2025-05-14 12:23:49,979 - INFO - SegmentationListManager initialized
+2025-05-14 12:23:51,007 - INFO - MainWindow initialized
+2025-05-14 12:23:59,731 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:23:59,731 - INFO - File extension: .mha
+2025-05-14 12:23:59,939 - INFO - dims=(512, 512, 64)
+2025-05-14 12:23:59,940 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:23:59,940 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:23:59,991 - INFO - the center slice index is 31
+2025-05-14 12:24:00,062 - INFO - the center slice index is 255
+2025-05-14 12:24:00,118 - INFO - the center slice index is 255
+2025-05-14 12:24:00,218 - INFO - Image loaded successfully
+2025-05-14 12:24:35,448 - INFO - MainWindow is closing.
+2025-05-14 12:24:35,510 - INFO - Application is quitting.
+2025-05-14 12:31:28,689 - INFO - Application started
+2025-05-14 12:31:35,190 - INFO - SegmentationListManager initialized
+2025-05-14 12:31:36,210 - INFO - MainWindow initialized
+2025-05-14 12:31:43,334 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:31:43,334 - INFO - File extension: .mha
+2025-05-14 12:31:43,518 - INFO - dims=(512, 512, 64)
+2025-05-14 12:31:43,518 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:31:43,518 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:31:43,569 - INFO - the center slice index is 31
+2025-05-14 12:31:43,626 - INFO - the center slice index is 255
+2025-05-14 12:31:43,683 - INFO - the center slice index is 255
+2025-05-14 12:31:43,784 - INFO - Image loaded successfully
+2025-05-14 12:32:05,673 - INFO - Application started
+2025-05-14 12:32:12,242 - INFO - SegmentationListManager initialized
+2025-05-14 12:32:13,260 - INFO - MainWindow initialized
+2025-05-14 12:32:25,020 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:32:25,021 - INFO - File extension: .mha
+2025-05-14 12:32:25,215 - INFO - dims=(512, 512, 64)
+2025-05-14 12:32:25,216 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:32:25,216 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:32:25,268 - INFO - the center slice index is 31
+2025-05-14 12:32:25,347 - INFO - the center slice index is 255
+2025-05-14 12:32:25,403 - INFO - the center slice index is 255
+2025-05-14 12:32:25,500 - INFO - Image loaded successfully
+2025-05-14 12:36:58,980 - INFO - MainWindow is closing.
+2025-05-14 12:36:59,068 - INFO - Application is quitting.
+2025-05-14 12:37:16,204 - INFO - Application started
+2025-05-14 12:37:22,465 - INFO - SegmentationListManager initialized
+2025-05-14 12:37:23,473 - INFO - MainWindow initialized
+2025-05-14 12:37:49,958 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:37:49,958 - INFO - File extension: .mha
+2025-05-14 12:37:50,139 - INFO - dims=(512, 512, 64)
+2025-05-14 12:37:50,139 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:37:50,140 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:37:50,192 - INFO - the center slice index is 31
+2025-05-14 12:37:50,262 - INFO - the center slice index is 255
+2025-05-14 12:37:50,329 - INFO - the center slice index is 255
+2025-05-14 12:37:50,428 - INFO - Image loaded successfully
+2025-05-14 12:38:00,995 - INFO - MainWindow is closing.
+2025-05-14 12:38:01,097 - INFO - Application is quitting.
+2025-05-14 12:44:21,225 - INFO - Application started
+2025-05-14 12:44:27,512 - INFO - SegmentationListManager initialized
+2025-05-14 12:44:28,532 - INFO - MainWindow initialized
+2025-05-14 12:44:38,367 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:44:38,367 - INFO - File extension: .mha
+2025-05-14 12:44:38,563 - INFO - dims=(512, 512, 64)
+2025-05-14 12:44:38,564 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:44:38,564 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:44:38,616 - INFO - the center slice index is 31
+2025-05-14 12:44:38,692 - INFO - the center slice index is 255
+2025-05-14 12:44:38,748 - INFO - the center slice index is 255
+2025-05-14 12:44:38,845 - INFO - Image loaded successfully
+2025-05-14 12:45:20,416 - INFO - MainWindow is closing.
+2025-05-14 12:45:20,481 - INFO - Application is quitting.
+2025-05-14 12:46:05,179 - INFO - Application started
+2025-05-14 12:46:11,725 - INFO - SegmentationListManager initialized
+2025-05-14 12:46:12,736 - INFO - MainWindow initialized
+2025-05-14 12:46:22,180 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:46:22,181 - INFO - File extension: .mha
+2025-05-14 12:46:22,386 - INFO - dims=(512, 512, 64)
+2025-05-14 12:46:22,387 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:46:22,388 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:46:22,439 - INFO - the center slice index is 31
+2025-05-14 12:46:22,519 - INFO - the center slice index is 255
+2025-05-14 12:46:22,574 - INFO - the center slice index is 255
+2025-05-14 12:46:22,673 - INFO - Image loaded successfully
+2025-05-14 12:46:45,672 - INFO - MainWindow is closing.
+2025-05-14 12:46:45,744 - INFO - Application is quitting.
+2025-05-14 12:47:05,445 - INFO - Application started
+2025-05-14 12:47:11,802 - INFO - SegmentationListManager initialized
+2025-05-14 12:47:12,823 - INFO - MainWindow initialized
+2025-05-14 12:47:21,036 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:47:21,036 - INFO - File extension: .mha
+2025-05-14 12:47:21,228 - INFO - dims=(512, 512, 64)
+2025-05-14 12:47:21,228 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:47:21,246 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:47:21,296 - INFO - the center slice index is 31
+2025-05-14 12:47:21,353 - INFO - the center slice index is 255
+2025-05-14 12:47:21,410 - INFO - the center slice index is 255
+2025-05-14 12:47:21,510 - INFO - Image loaded successfully
+2025-05-14 12:47:29,103 - INFO - MainWindow is closing.
+2025-05-14 12:47:29,210 - INFO - Application is quitting.
+2025-05-14 12:48:52,248 - INFO - Application started
+2025-05-14 12:48:58,579 - INFO - SegmentationListManager initialized
+2025-05-14 12:48:59,622 - INFO - MainWindow initialized
+2025-05-14 12:49:10,552 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:49:10,552 - INFO - File extension: .mha
+2025-05-14 12:49:10,736 - INFO - dims=(512, 512, 64)
+2025-05-14 12:49:10,736 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:49:10,736 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:49:10,789 - INFO - the center slice index is 31
+2025-05-14 12:49:10,867 - INFO - the center slice index is 255
+2025-05-14 12:49:10,924 - INFO - the center slice index is 255
+2025-05-14 12:49:11,023 - INFO - Image loaded successfully
+2025-05-14 12:49:24,930 - INFO - Application started
+2025-05-14 12:49:31,450 - INFO - SegmentationListManager initialized
+2025-05-14 12:49:32,472 - INFO - MainWindow initialized
+2025-05-14 12:49:43,279 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:49:43,280 - INFO - File extension: .mha
+2025-05-14 12:49:43,486 - INFO - dims=(512, 512, 64)
+2025-05-14 12:49:43,487 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:49:43,487 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:49:43,538 - INFO - the center slice index is 31
+2025-05-14 12:49:43,614 - INFO - the center slice index is 255
+2025-05-14 12:49:43,671 - INFO - the center slice index is 255
+2025-05-14 12:49:43,772 - INFO - Image loaded successfully
+2025-05-14 12:50:03,964 - INFO - Application started
+2025-05-14 12:50:10,481 - INFO - SegmentationListManager initialized
+2025-05-14 12:50:11,510 - INFO - MainWindow initialized
+2025-05-14 12:50:22,041 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 12:50:22,058 - INFO - File extension: .mha
+2025-05-14 12:50:22,246 - INFO - dims=(512, 512, 64)
+2025-05-14 12:50:22,246 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 12:50:22,247 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 12:50:22,316 - INFO - the center slice index is 31
+2025-05-14 12:50:22,398 - INFO - the center slice index is 255
+2025-05-14 12:50:22,454 - INFO - the center slice index is 255
+2025-05-14 12:50:22,553 - INFO - Image loaded successfully
+2025-05-14 12:51:02,901 - INFO - MainWindow is closing.
+2025-05-14 12:51:02,976 - INFO - Application is quitting.
+2025-05-14 13:04:19,666 - INFO - Application started
+2025-05-14 13:04:26,339 - INFO - SegmentationListManager initialized
+2025-05-14 13:16:07,276 - INFO - Application started
+2025-05-14 13:16:13,686 - INFO - SegmentationListManager initialized
+2025-05-14 13:16:57,592 - INFO - Application started
+2025-05-14 13:17:03,910 - INFO - SegmentationListManager initialized
+2025-05-14 13:17:04,934 - INFO - MainWindow initialized
+2025-05-14 13:30:35,988 - INFO - Application started
+2025-05-14 13:30:42,261 - INFO - SegmentationListManager initialized
+2025-05-14 13:30:43,288 - INFO - MainWindow initialized
+2025-05-14 13:30:52,921 - INFO - MainWindow is closing.
+2025-05-14 13:30:53,034 - INFO - Application is quitting.
+2025-05-14 13:31:09,060 - INFO - Application started
+2025-05-14 13:31:15,338 - INFO - SegmentationListManager initialized
+2025-05-14 13:31:16,371 - INFO - MainWindow initialized
+2025-05-14 13:31:33,156 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 13:31:33,157 - INFO - File extension: .mha
+2025-05-14 13:31:33,353 - INFO - dims=(512, 512, 64)
+2025-05-14 13:31:33,353 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 13:31:33,354 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 13:31:33,406 - INFO - the center slice index is 31
+2025-05-14 13:31:33,479 - INFO - the center slice index is 255
+2025-05-14 13:31:33,536 - INFO - the center slice index is 255
+2025-05-14 13:31:33,636 - INFO - Image loaded successfully
+2025-05-14 13:31:38,041 - INFO - MainWindow is closing.
+2025-05-14 13:31:38,101 - INFO - Application is quitting.
+2025-05-14 13:32:44,199 - INFO - Application started
+2025-05-14 13:32:50,564 - INFO - SegmentationListManager initialized
+2025-05-14 13:32:51,595 - INFO - MainWindow initialized
+2025-05-14 13:33:03,372 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 13:33:03,373 - INFO - File extension: .mha
+2025-05-14 13:33:03,568 - INFO - dims=(512, 512, 64)
+2025-05-14 13:33:03,569 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 13:33:03,569 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 13:33:03,621 - INFO - the center slice index is 31
+2025-05-14 13:33:03,699 - INFO - the center slice index is 255
+2025-05-14 13:33:03,755 - INFO - the center slice index is 255
+2025-05-14 13:33:03,853 - INFO - Image loaded successfully
+2025-05-14 13:33:07,304 - INFO - MainWindow is closing.
+2025-05-14 13:33:07,364 - INFO - Application is quitting.
+2025-05-14 14:25:02,834 - INFO - Application started
+2025-05-14 14:25:18,581 - INFO - SegmentationListManager initialized
+2025-05-14 14:25:20,706 - INFO - MainWindow initialized
+2025-05-14 14:25:33,572 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 14:25:33,572 - INFO - File extension: .mha
+2025-05-14 14:25:33,759 - INFO - dims=(512, 512, 64)
+2025-05-14 14:25:33,759 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 14:25:33,760 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 14:25:33,813 - INFO - the center slice index is 31
+2025-05-14 14:25:33,889 - INFO - the center slice index is 255
+2025-05-14 14:25:33,946 - INFO - the center slice index is 255
+2025-05-14 14:25:34,044 - INFO - Image loaded successfully
+2025-05-14 14:26:54,820 - INFO - Application started
+2025-05-14 14:27:01,350 - INFO - SegmentationListManager initialized
+2025-05-14 14:27:02,377 - INFO - MainWindow initialized
+2025-05-14 14:27:06,750 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 14:27:06,751 - INFO - File extension: .mha
+2025-05-14 14:27:07,263 - INFO - dims=(512, 512, 160)
+2025-05-14 14:27:07,263 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 14:27:07,264 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 14:27:07,386 - INFO - the center slice index is 79
+2025-05-14 14:27:07,456 - INFO - the center slice index is 255
+2025-05-14 14:27:07,512 - INFO - the center slice index is 255
+2025-05-14 14:27:07,612 - INFO - Image loaded successfully
+2025-05-14 14:28:04,816 - INFO - Application started
+2025-05-14 14:28:11,111 - INFO - SegmentationListManager initialized
+2025-05-14 14:28:12,141 - INFO - MainWindow initialized
+2025-05-14 14:28:18,317 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 14:28:18,317 - INFO - File extension: .mha
+2025-05-14 14:28:18,504 - INFO - dims=(512, 512, 64)
+2025-05-14 14:28:18,505 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 14:28:18,505 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 14:28:18,558 - INFO - the center slice index is 31
+2025-05-14 14:28:18,629 - INFO - the center slice index is 255
+2025-05-14 14:28:18,686 - INFO - the center slice index is 255
+2025-05-14 14:28:18,783 - INFO - Image loaded successfully
+2025-05-14 14:29:05,102 - INFO - Application started
+2025-05-14 14:29:11,409 - INFO - SegmentationListManager initialized
+2025-05-14 14:29:12,409 - INFO - MainWindow initialized
+2025-05-14 14:29:20,680 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 14:29:20,680 - INFO - File extension: .mha
+2025-05-14 14:29:20,866 - INFO - dims=(512, 512, 64)
+2025-05-14 14:29:20,867 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 14:29:20,867 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 14:29:20,918 - INFO - the center slice index is 31
+2025-05-14 14:29:20,990 - INFO - the center slice index is 255
+2025-05-14 14:29:21,046 - INFO - the center slice index is 255
+2025-05-14 14:29:21,145 - INFO - Image loaded successfully
+2025-05-14 14:29:37,977 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 14:29:43,357 - INFO - Paint tool activated
+2025-05-14 14:30:07,989 - INFO - Paint tool deactivated
+2025-05-14 14:30:07,990 - INFO - Erase tool activated
+2025-05-14 14:30:14,948 - INFO - Erase tool deactivated
+2025-05-14 14:30:26,643 - INFO - Erase tool activated
+2025-05-14 14:33:41,703 - INFO - Application started
+2025-05-14 14:33:48,266 - INFO - SegmentationListManager initialized
+2025-05-14 14:33:49,296 - INFO - MainWindow initialized
+2025-05-14 14:34:00,858 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 14:34:00,859 - INFO - File extension: .mha
+2025-05-14 14:34:01,057 - INFO - dims=(512, 512, 64)
+2025-05-14 14:34:01,058 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 14:34:01,058 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 14:34:01,112 - INFO - the center slice index is 31
+2025-05-14 14:34:01,188 - INFO - the center slice index is 255
+2025-05-14 14:34:01,244 - INFO - the center slice index is 255
+2025-05-14 14:34:01,343 - INFO - Image loaded successfully
+2025-05-14 14:34:06,935 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 14:34:07,336 - INFO - A layer added: Layer 2, and active layer is now Layer 2
+2025-05-14 14:34:07,983 - INFO - A layer added: Layer 3, and active layer is now Layer 3
+2025-05-14 14:34:11,995 - INFO - Paint tool activated
+2025-05-14 14:34:26,898 - INFO - Paint tool deactivated
+2025-05-14 14:34:26,899 - INFO - Erase tool activated
+2025-05-14 14:34:35,074 - INFO - MainWindow is closing.
+2025-05-14 14:34:35,138 - INFO - Application is quitting.
+2025-05-14 14:58:51,112 - INFO - Application started
+2025-05-14 14:58:57,429 - INFO - SegmentationListManager initialized
+2025-05-14 14:58:58,452 - INFO - MainWindow initialized
+2025-05-14 14:59:07,783 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 14:59:07,800 - INFO - File extension: .mha
+2025-05-14 14:59:07,999 - INFO - dims=(512, 512, 64)
+2025-05-14 14:59:08,000 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 14:59:08,000 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 14:59:08,054 - INFO - the center slice index is 31
+2025-05-14 14:59:08,130 - INFO - the center slice index is 255
+2025-05-14 14:59:08,187 - INFO - the center slice index is 255
+2025-05-14 14:59:08,286 - INFO - Image loaded successfully
+2025-05-14 15:00:49,927 - INFO - Application started
+2025-05-14 15:00:56,256 - INFO - SegmentationListManager initialized
+2025-05-14 15:00:57,300 - INFO - MainWindow initialized
+2025-05-14 15:01:04,548 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:01:04,549 - INFO - File extension: .mha
+2025-05-14 15:01:05,073 - INFO - dims=(512, 512, 160)
+2025-05-14 15:01:05,074 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:01:05,074 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:01:05,196 - INFO - the center slice index is 79
+2025-05-14 15:01:05,267 - INFO - the center slice index is 255
+2025-05-14 15:01:05,325 - INFO - the center slice index is 255
+2025-05-14 15:01:05,425 - INFO - Image loaded successfully
+2025-05-14 15:01:37,702 - INFO - Application started
+2025-05-14 15:01:43,980 - INFO - SegmentationListManager initialized
+2025-05-14 15:01:45,033 - INFO - MainWindow initialized
+2025-05-14 15:01:47,308 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:01:47,308 - INFO - File extension: .mha
+2025-05-14 15:01:47,846 - INFO - dims=(512, 512, 160)
+2025-05-14 15:01:47,846 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:01:47,846 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:01:47,966 - INFO - the center slice index is 79
+2025-05-14 15:01:48,036 - INFO - the center slice index is 255
+2025-05-14 15:01:48,091 - INFO - the center slice index is 255
+2025-05-14 15:01:48,190 - INFO - Image loaded successfully
+2025-05-14 15:02:14,729 - INFO - Application started
+2025-05-14 15:02:21,257 - INFO - SegmentationListManager initialized
+2025-05-14 15:02:22,274 - INFO - MainWindow initialized
+2025-05-14 15:02:29,532 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:02:29,532 - INFO - File extension: .mha
+2025-05-14 15:02:30,040 - INFO - dims=(512, 512, 160)
+2025-05-14 15:02:30,041 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:02:30,041 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:02:30,163 - INFO - the center slice index is 79
+2025-05-14 15:02:30,234 - INFO - the center slice index is 255
+2025-05-14 15:02:30,290 - INFO - the center slice index is 255
+2025-05-14 15:02:30,389 - INFO - Image loaded successfully
+2025-05-14 15:03:33,685 - INFO - Application started
+2025-05-14 15:03:39,948 - INFO - SegmentationListManager initialized
+2025-05-14 15:03:40,963 - INFO - MainWindow initialized
+2025-05-14 15:03:43,678 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:03:43,678 - INFO - File extension: .mha
+2025-05-14 15:03:44,180 - INFO - dims=(512, 512, 160)
+2025-05-14 15:03:44,180 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:03:44,180 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:03:44,302 - INFO - the center slice index is 79
+2025-05-14 15:03:44,373 - INFO - the center slice index is 255
+2025-05-14 15:03:44,429 - INFO - the center slice index is 255
+2025-05-14 15:03:44,527 - INFO - Image loaded successfully
+2025-05-14 15:04:02,097 - INFO - Application started
+2025-05-14 15:04:08,331 - INFO - SegmentationListManager initialized
+2025-05-14 15:04:09,365 - INFO - MainWindow initialized
+2025-05-14 15:04:12,475 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:04:12,475 - INFO - File extension: .mha
+2025-05-14 15:04:12,977 - INFO - dims=(512, 512, 160)
+2025-05-14 15:04:12,978 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:04:12,978 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:04:13,099 - INFO - the center slice index is 79
+2025-05-14 15:04:13,170 - INFO - the center slice index is 255
+2025-05-14 15:04:13,227 - INFO - the center slice index is 255
+2025-05-14 15:04:13,328 - INFO - Image loaded successfully
+2025-05-14 15:05:54,263 - INFO - Application started
+2025-05-14 15:06:00,964 - INFO - SegmentationListManager initialized
+2025-05-14 15:06:01,979 - INFO - MainWindow initialized
+2025-05-14 15:06:04,906 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:06:04,906 - INFO - File extension: .mha
+2025-05-14 15:06:05,403 - INFO - dims=(512, 512, 160)
+2025-05-14 15:06:05,404 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:06:05,404 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:06:05,521 - INFO - the center slice index is 79
+2025-05-14 15:06:05,593 - INFO - the center slice index is 255
+2025-05-14 15:06:05,649 - INFO - the center slice index is 255
+2025-05-14 15:06:05,746 - INFO - Image loaded successfully
+2025-05-14 15:07:08,022 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 15:07:14,849 - INFO - Paint tool activated
+2025-05-14 15:07:29,130 - INFO - MainWindow is closing.
+2025-05-14 15:07:29,240 - INFO - Application is quitting.
+2025-05-14 15:24:24,623 - INFO - Application started
+2025-05-14 15:24:31,097 - INFO - SegmentationListManager initialized
+2025-05-14 15:24:32,128 - INFO - MainWindow initialized
+2025-05-14 15:24:34,673 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:24:34,673 - INFO - File extension: .mha
+2025-05-14 15:24:35,187 - INFO - dims=(512, 512, 160)
+2025-05-14 15:24:35,188 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:24:35,188 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:24:35,309 - INFO - the center slice index is 79
+2025-05-14 15:24:35,366 - INFO - the center slice index is 255
+2025-05-14 15:24:35,421 - INFO - the center slice index is 255
+2025-05-14 15:24:35,521 - INFO - Image loaded successfully
+2025-05-14 15:24:45,872 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 15:24:49,577 - INFO - Paint tool activated
+2025-05-14 15:26:19,733 - INFO - Application started
+2025-05-14 15:26:25,975 - INFO - SegmentationListManager initialized
+2025-05-14 15:26:26,983 - INFO - MainWindow initialized
+2025-05-14 15:26:29,839 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:26:29,840 - INFO - File extension: .mha
+2025-05-14 15:26:30,361 - INFO - dims=(512, 512, 160)
+2025-05-14 15:26:30,361 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:26:30,362 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:26:30,484 - INFO - the center slice index is 79
+2025-05-14 15:26:30,556 - INFO - the center slice index is 255
+2025-05-14 15:26:30,613 - INFO - the center slice index is 255
+2025-05-14 15:26:30,713 - INFO - Image loaded successfully
+2025-05-14 15:26:31,905 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 15:26:33,459 - INFO - A layer added: Layer 2, and active layer is now Layer 2
+2025-05-14 15:26:34,745 - INFO - A layer added: Layer 3, and active layer is now Layer 3
+2025-05-14 15:30:26,448 - INFO - Application started
+2025-05-14 15:30:33,030 - INFO - SegmentationListManager initialized
+2025-05-14 15:30:34,068 - INFO - MainWindow initialized
+2025-05-14 15:30:40,118 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:30:40,119 - INFO - File extension: .mha
+2025-05-14 15:30:40,634 - INFO - dims=(512, 512, 160)
+2025-05-14 15:30:40,635 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:30:40,635 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:30:53,792 - INFO - the center slice index is 79
+2025-05-14 15:30:53,870 - INFO - the center slice index is 255
+2025-05-14 15:30:53,926 - INFO - the center slice index is 255
+2025-05-14 15:30:54,025 - INFO - Image loaded successfully
+2025-05-14 15:31:07,093 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 15:31:16,510 - INFO - A layer added: Layer 2, and active layer is now Layer 2
+2025-05-14 15:31:19,930 - INFO - A layer added: Layer 3, and active layer is now Layer 3
+2025-05-14 15:31:24,510 - INFO - Paint tool activated
+2025-05-14 15:46:35,430 - INFO - Application started
+2025-05-14 15:46:41,943 - INFO - SegmentationListManager initialized
+2025-05-14 15:46:42,961 - INFO - MainWindow initialized
+2025-05-14 15:46:58,294 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:46:58,294 - INFO - File extension: .mha
+2025-05-14 15:46:58,837 - INFO - dims=(512, 512, 160)
+2025-05-14 15:46:58,838 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:46:58,838 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:46:58,965 - INFO - the center slice index is 79
+2025-05-14 15:46:59,043 - INFO - the center slice index is 255
+2025-05-14 15:46:59,099 - INFO - the center slice index is 255
+2025-05-14 15:46:59,196 - INFO - Image loaded successfully
+2025-05-14 15:49:06,575 - INFO - Application started
+2025-05-14 15:49:13,019 - INFO - SegmentationListManager initialized
+2025-05-14 15:49:14,049 - INFO - MainWindow initialized
+2025-05-14 15:49:16,245 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:49:16,245 - INFO - File extension: .mha
+2025-05-14 15:49:16,749 - INFO - dims=(512, 512, 160)
+2025-05-14 15:49:16,749 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:49:16,750 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:49:16,881 - INFO - the center slice index is 79
+2025-05-14 15:49:16,954 - INFO - the center slice index is 255
+2025-05-14 15:49:17,010 - INFO - the center slice index is 255
+2025-05-14 15:49:17,109 - INFO - Image loaded successfully
+2025-05-14 15:50:04,168 - INFO - Application started
+2025-05-14 15:50:10,500 - INFO - SegmentationListManager initialized
+2025-05-14 15:50:11,514 - INFO - MainWindow initialized
+2025-05-14 15:50:13,741 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:50:13,742 - INFO - File extension: .mha
+2025-05-14 15:50:14,218 - INFO - dims=(512, 512, 160)
+2025-05-14 15:50:14,219 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:50:14,219 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:50:14,351 - INFO - the center slice index is 79
+2025-05-14 15:50:14,425 - INFO - the center slice index is 255
+2025-05-14 15:50:14,482 - INFO - the center slice index is 255
+2025-05-14 15:50:14,581 - INFO - Image loaded successfully
+2025-05-14 15:51:41,587 - INFO - Application started
+2025-05-14 15:51:47,945 - INFO - SegmentationListManager initialized
+2025-05-14 15:51:48,980 - INFO - MainWindow initialized
+2025-05-14 15:51:51,084 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 15:51:51,085 - INFO - File extension: .mha
+2025-05-14 15:51:51,568 - INFO - dims=(512, 512, 160)
+2025-05-14 15:51:51,569 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 15:51:51,569 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 15:51:51,694 - INFO - the center slice index is 79
+2025-05-14 15:51:51,769 - INFO - the center slice index is 255
+2025-05-14 15:51:51,825 - INFO - the center slice index is 255
+2025-05-14 15:51:51,923 - INFO - Image loaded successfully
+2025-05-14 15:52:02,293 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 16:02:51,002 - INFO - Application started
+2025-05-14 16:03:08,134 - INFO - Application started
+2025-05-14 16:04:09,034 - INFO - Application started
+2025-05-14 16:04:15,426 - INFO - SegmentationListManager initialized
+2025-05-14 16:04:16,448 - INFO - MainWindow initialized
+2025-05-14 16:04:18,726 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 16:04:18,727 - INFO - File extension: .mha
+2025-05-14 16:04:19,214 - INFO - dims=(512, 512, 160)
+2025-05-14 16:04:19,215 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 16:04:19,215 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 16:04:19,344 - INFO - the center slice index is 79
+2025-05-14 16:04:19,407 - INFO - the center slice index is 255
+2025-05-14 16:04:19,466 - INFO - the center slice index is 255
+2025-05-14 16:04:19,567 - INFO - Image loaded successfully
+2025-05-14 16:04:20,575 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 16:04:30,350 - INFO - Paint tool activated
+2025-05-14 16:05:56,191 - INFO - Application started
+2025-05-14 16:06:02,509 - INFO - SegmentationListManager initialized
+2025-05-14 16:06:03,535 - INFO - MainWindow initialized
+2025-05-14 16:06:05,790 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 16:06:05,790 - INFO - File extension: .mha
+2025-05-14 16:06:06,283 - INFO - dims=(512, 512, 160)
+2025-05-14 16:06:06,284 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 16:06:06,284 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 16:06:06,414 - INFO - the center slice index is 79
+2025-05-14 16:06:06,488 - INFO - the center slice index is 255
+2025-05-14 16:06:06,544 - INFO - the center slice index is 255
+2025-05-14 16:06:06,642 - INFO - Image loaded successfully
+2025-05-14 16:06:07,742 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 16:06:14,576 - INFO - Paint tool activated
+2025-05-14 16:08:49,175 - INFO - Application started
+2025-05-14 16:08:55,523 - INFO - SegmentationListManager initialized
+2025-05-14 16:08:56,551 - INFO - MainWindow initialized
+2025-05-14 16:08:58,908 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-14 16:08:58,909 - INFO - File extension: .mha
+2025-05-14 16:08:59,417 - INFO - dims=(512, 512, 160)
+2025-05-14 16:08:59,417 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-14 16:08:59,418 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-14 16:08:59,547 - INFO - the center slice index is 79
+2025-05-14 16:08:59,621 - INFO - the center slice index is 255
+2025-05-14 16:08:59,678 - INFO - the center slice index is 255
+2025-05-14 16:08:59,779 - INFO - Image loaded successfully
+2025-05-14 16:09:00,573 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 16:09:04,989 - INFO - Paint tool activated
+2025-05-14 16:10:08,844 - INFO - A layer added: Layer 1, and active layer is now Layer 1
+2025-05-14 16:10:11,155 - INFO - Paint tool deactivated
+2025-05-14 16:10:15,379 - INFO - Paint tool activated
+2025-05-14 16:10:19,515 - INFO - A layer added: Layer 2, and active layer is now Layer 2
+2025-05-14 16:10:21,121 - INFO - A layer added: Layer 3, and active layer is now Layer 3
+2025-05-14 16:10:21,920 - INFO - A layer added: Layer 4, and active layer is now Layer 4
+2025-05-14 16:11:13,036 - INFO - MainWindow is closing.
+2025-05-14 16:11:13,101 - INFO - Application is quitting.

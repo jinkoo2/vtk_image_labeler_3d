@@ -64,7 +64,7 @@ class SegmentationSurface():
 
     def update_surface_async(self):
         self.thread = QThread()
-        self.worker = ContourWorker(self.seg_item.segmentation)
+        self.worker = ContourWorker(self.seg_item.get_image())
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)

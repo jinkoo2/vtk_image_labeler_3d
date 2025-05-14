@@ -33,3 +33,33 @@ def remove_widget(widget, renderer):
 
         # Trigger re-rendering of the scene
         renderer.GetRenderWindow().Render()
+
+
+def create_uchar_image_based_on_image(base_image, fill_pixel_value=0):
+    
+    if base_image is None:
+        raise ValueError("Base image data is not loaded. Cannot create segmentation.")
+
+    # Get properties from the base image
+    dims = base_image.GetDimensions()
+    spacing = base_image.GetSpacing()
+    origin = base_image.GetOrigin()
+    direction_matrix = base_image.GetDirectionMatrix()
+
+    # Create a new vtkImageData object for the segmentation
+    uchar_image = vtk.vtkImageData()
+    uchar_image.SetDimensions(dims)
+    uchar_image.SetSpacing(spacing)
+    uchar_image.SetOrigin(origin)
+    uchar_image.AllocateScalars(vtk.VTK_UNSIGNED_CHAR, 1)  # Single component for segmentation
+    uchar_image.GetPointData().GetScalars().Fill(fill_pixel_value)  
+
+    # Set the direction matrix 
+    # SetDirectionMatrix() function is required (old versions of vtk may not have this function)
+    uchar_image.SetDirectionMatrix(direction_matrix)
+
+    #degug
+    #import itkvtk
+    #itkvtk.fill_square_at_center(segmentation, 100, 1)
+
+    return uchar_image  

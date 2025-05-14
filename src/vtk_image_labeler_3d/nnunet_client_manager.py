@@ -184,17 +184,22 @@ class nnUNetDatasetManager(QObject):
         layout.addWidget(self.details_label)
 
         # Train  Image lists
-        self.train_image_list_widget = QListWidget()
-        self.train_image_list_widget.setMinimumWidth(200)
-        self.train_image_list_widget.setToolTip("Training Images")
-        layout.addWidget(self.train_image_list_widget)
+        import listwidget_with_title
+        listwidget = listwidget_with_title.ListWidgetWithTitle('Training Images')
+        listwidget.setMinimumWidth(200)
+        listwidget.setToolTip("Training Images")
+        layout.addWidget(listwidget)
 
-        # Add Test Image List
-        self.test_image_list_widget = QListWidget()
-        self.test_image_list_widget.setMinimumWidth(200)
-        self.test_image_list_widget.setToolTip("Testing Images")
-        layout.addWidget(self.test_image_list_widget)
-
+        self.train_image_list_widget = listwidget.list_widget
+        self.train_image_list_widget.itemDoubleClicked.connect(self.on_train_listwidget_item_double_clicked)
+       
+        # Train  Image lists
+        listwidget = listwidget_with_title.ListWidgetWithTitle('Test Images')
+        listwidget.setMinimumWidth(200)
+        listwidget.setToolTip("Test Images")
+        layout.addWidget(listwidget)
+        self.test_image_list_widget = listwidget.list_widget
+        self.test_image_list_widget.itemDoubleClicked.connect(self.on_test_listwidget_item_double_clicked)
         return layout
     
     def _create_command_button_layout(self):
@@ -323,6 +328,12 @@ class nnUNetDatasetManager(QObject):
 
         except Exception as e:
             print("Error downloading dataset:", str(e))
+
+    def on_train_listwidget_item_double_clicked(self,item):
+        self.pull_seleted_train_dataset('train')
+              
+    def on_test_listwidget_item_double_clicked(self,item):
+        self.pull_seleted_train_dataset('test')
 
     def pull_seleted_train_dataset_clicked(self):
         self.pull_seleted_train_dataset('train')

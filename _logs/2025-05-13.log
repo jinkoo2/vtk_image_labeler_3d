@@ -113,3 +113,15 @@
 2025-05-13 15:28:21,882 - INFO - Image loaded successfully
 2025-05-13 15:38:45,962 - INFO - Application started
 2025-05-13 15:38:52,295 - INFO - SegmentationListManager initialized
+2025-05-13 15:40:04,308 - INFO - Application started
+2025-05-13 15:40:10,807 - INFO - SegmentationListManager initialized
+2025-05-13 15:40:18,695 - INFO - MainWindow initialized
+2025-05-13 15:40:51,430 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-13 15:40:51,431 - INFO - File extension: .mha
+2025-05-13 15:40:51,618 - INFO - dims=(512, 512, 64)
+2025-05-13 15:40:51,618 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-13 15:40:51,618 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-13 15:40:51,669 - INFO - the center slice index is 31
+2025-05-13 15:40:51,746 - INFO - the center slice index is 255
+2025-05-13 15:40:51,801 - INFO - the center slice index is 255
+2025-05-13 15:40:51,898 - INFO - Image loaded successfully
