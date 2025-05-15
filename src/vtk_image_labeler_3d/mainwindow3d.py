@@ -90,7 +90,7 @@ class MainWindow3D(QMainWindow):
         self.add_exclusive_actions(self.segmentation_list_manager.get_exclusive_actions()) 
         self.segmentation_list_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
         self.segmentation_list_manager.layer_added.connect(self.on_segmentation_layer_added) 
-        self.segmentation_list_manager.layer_modified.connect(self.on_segmentation_layer_modified) 
+        self.segmentation_list_manager.layer_image_modified.connect(self.on_segmentation_image_modified) 
         self.segmentation_list_manager.layer_removed.connect(self.on_segmentation_layer_removed) 
         self.segmentation_list_manager.active_layer_changed.connect(self.on_active_segmentation_layer_changed) 
 
@@ -187,14 +187,14 @@ class MainWindow3D(QMainWindow):
     def on_segmentation_layer_added(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_added(layer_name, sender)
 
-    def on_segmentation_layer_modified(self, layer_name, sender):
-        self.vtk_viewer.on_segmentation_layer_modified(layer_name, sender)
+    def on_segmentation_image_modified(self, layer, sender):
+        self.vtk_viewer.on_segmentation_image_modified(layer, sender)
 
     def on_segmentation_layer_removed(self, layer_name, sender):
         self.vtk_viewer.on_segmentation_layer_removed(layer_name, sender)
 
-    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
-        self.vtk_viewer.on_active_segmentation_layer_changed(new_layer_name, old_layer_name, sender)
+    def on_active_segmentation_layer_changed(self, sender):
+        self.vtk_viewer.on_active_segmentation_layer_changed(sender)
 
     def add_manager_visibility_toggle_menu(self, manager, visible):
         toggle_action = QAction(manager.name, self)

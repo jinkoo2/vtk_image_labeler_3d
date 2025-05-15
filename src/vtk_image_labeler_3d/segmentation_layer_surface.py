@@ -46,6 +46,8 @@ class SegmentationLayerSurface():
         self.surface_actor = vtk.vtkActor()
         self.surface_actor.SetMapper(self.surface_mapper)
         self.surface_actor.GetProperty().SetColor(*self.layer.get_vtk_color())
+        self.surface_actor.GetProperty().SetLighting(True)
+        self.surface_actor.GetProperty().SetLineWidth(1.0)
 
         self.update_actors()
 
@@ -60,7 +62,7 @@ class SegmentationLayerSurface():
         self.surface_actor.SetVisibility(self.layer.get_visible())
         self.surface_actor.GetProperty().SetColor(*self.layer.get_vtk_color())
         self.surface_actor.GetProperty().SetOpacity(self.layer.get_alpha())
-        self.surface_actor.GetProperty().SetLineWidth(1.0)
+        
 
     def update_surface_async(self):
         self.thread = QThread()

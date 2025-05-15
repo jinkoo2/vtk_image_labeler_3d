@@ -63,3 +63,9 @@ def create_uchar_image_based_on_image(base_image, fill_pixel_value=0):
     #itkvtk.fill_square_at_center(segmentation, 100, 1)
 
     return uchar_image  
+
+def deep_copy_image(image):
+    # Create a new vtkImageData object and deep copy the original
+    copied_image = vtk.vtkImageData()
+    copied_image.DeepCopy(image)
+    return copied_image

@@ -544,10 +544,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         layer.alpha_changed.connect(self.on_layer_alpha_changed)
 
 
-    def on_segmentation_layer_modified(self, layer_name, sender):
-        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer_name})')
+    def on_segmentation_image_modified(self, layer, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer})')
 
-        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer_name)
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer.get_name())
 
         if seg_reslicer:
             seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
@@ -558,11 +558,11 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             else: 
                 self.render_delayed(1000)
 
-    def on_segmentation_layer_removed(self, layer_name, sender):
-        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer_name})')
+    def on_segmentation_layer_removed(self, layer, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer.get_name()})')
 
         # remove 
-        seg_reslicer = self.segmentation_layer_reslicers.pop(layer_name)
+        seg_reslicer = self.segmentation_layer_reslicers.pop(layer.get_name())
         if seg_reslicer:
             for actor in seg_reslicer.get_actors():
                 self.get_renderer().RemoveActor(actor)
@@ -573,8 +573,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         new_visibility = sender.get_visible()
         print(f'Visibility changed to {new_visibility} for {layer_name}')
 
-        if layer_name in self.segmentation_layer_reslicers:
-            for actor in self.segmentation_layer_reslicers[layer_name].get_actors():
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer_name)
+        if seg_reslicer:
+            for actor in seg_reslicer.get_actors():
                 actor.SetVisibility(new_visibility)
             self.render()
         else:
@@ -618,9 +619,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.render()
 
 
-    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
-        print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({new_layer_name, old_layer_name}')
-        
+    def on_active_segmentation_layer_changed(self, sender):
+        print(f'VTKViewer2DWithReslicer.on_active_segmentation_layer_changed({sender.get_active_layer().get_name()}')
 
     def get_mouse_event_coordiantes(self):
 
@@ -836,24 +836,28 @@ class VTKViewer3D(QWidget):
     def set_segmentation_layers(self, segmentation_layers):
         self.segmentation_layers = segmentation_layers
         
+        # subscribe to the list events
+        self.segmentation_layers.layer_added.connect(self.on_segmentation_layer_added)
+        self.segmentation_layers.layer_removed.connect(self.on_segmentation_layer_removed)
+
         for v in self.viewers:
             v.set_segmentation_layers(segmentation_layers)
 
-    def on_segmentation_layer_added(self, layer_name, sender):
+    def on_segmentation_layer_added(self, layer, sender):
         for v in self.viewers:
-            v.on_segmentation_layer_added(layer_name, sender)
+            v.on_segmentation_layer_added(layer.get_name(), sender)
 
-    def on_segmentation_layer_modified(self, layer_name, sender):
+    def on_segmentation_image_modified(self, layer, sender):
         for v in self.viewers:
-            v.on_segmentation_layer_modified(layer_name, sender)            
+            v.on_segmentation_image_modified(layer, sender)            
 
-    def on_segmentation_layer_removed(self, layer_name, sender):
+    def on_segmentation_layer_removed(self, layer, sender):
         for v in self.viewers:
-            v.on_segmentation_layer_removed(layer_name, sender)
+            v.on_segmentation_layer_removed(layer, sender)
 
-    def on_active_segmentation_layer_changed(self, new_layer_name, old_layer_name, sender):
+    def on_active_segmentation_layer_changed(self, sender):
         for v in self.viewers_2d:
-            v.on_active_segmentation_layer_changed(new_layer_name, old_layer_name, sender)
+            v.on_active_segmentation_layer_changed(sender)
 
     def set_window_level(self, window, level):
         for v in self.viewers_2d:

@@ -152,7 +152,7 @@ class ModelViewer(QWidget):
         self.render()
 
     def _on_surface_update_timer_timeout(self):
-        layer_name = self.pending_layer
+        layer_name = self.pending_layer.get_name()
         print(f'SurfaceViewer: _do_surface_update(layername={layer_name})')
         seg_surface = self.segmentation_surfaces.get_surface_by_layer_name(layer_name)
         if seg_surface:
@@ -225,14 +225,14 @@ class ModelViewer(QWidget):
             seg_surface.update_actors()
             self.render_delayed(100)
 
-    def on_segmentation_layer_modified(self, layer_name, sender):
-        self.pending_layer = layer_name
+    def on_segmentation_image_modified(self, layer, sender):
+        self.pending_layer = layer
         self.surface_update_timer.start(1000)  # wait 1000ms before updating
 
-    def on_segmentation_layer_removed(self, layer_name, sender):
-        print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer_name}')
+    def on_segmentation_layer_removed(self, layer, sender):
+        print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer.get_name()}')
         
-        seg_surface = self.segmentation_surfaces.pop(layer_name)
+        seg_surface = self.segmentation_surfaces.pop(layer.get_name())
         for actor in seg_surface.get_actors():
             self.get_renderer().RemoveActor(actor)
 

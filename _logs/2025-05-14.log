@@ -685,3 +685,15 @@
 2025-05-14 17:23:49,153 - INFO - Paint tool activated
 2025-05-14 17:25:14,488 - INFO - MainWindow is closing.
 2025-05-14 17:25:14,583 - INFO - Application is quitting.
+2025-05-14 17:25:43,443 - INFO - Application started
+2025-05-14 17:25:49,694 - INFO - SegmentationListManager initialized
+2025-05-14 17:25:50,724 - INFO - MainWindow initialized
+2025-05-14 17:26:04,424 - INFO - Loading image from ./downloads\bladderrectumbowel_000_0000.mha
+2025-05-14 17:26:04,425 - INFO - File extension: .mha
+2025-05-14 17:26:04,619 - INFO - dims=(512, 512, 64)
+2025-05-14 17:26:04,620 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-14 17:26:04,620 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-14 17:26:04,677 - INFO - the center slice index is 31
+2025-05-14 17:26:04,757 - INFO - the center slice index is 255
+2025-05-14 17:26:04,815 - INFO - the center slice index is 255
+2025-05-14 17:26:04,913 - INFO - Image loaded successfully
