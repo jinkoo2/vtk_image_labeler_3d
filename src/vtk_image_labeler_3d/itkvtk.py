@@ -26,6 +26,8 @@ def numpy_dtype_to_vtk_type(dtype):
     else:
         raise ValueError(f"Unsupported dtype: {dtype}")
 
+
+
 def sitk_to_vtk(sitk_image):
     """Convert a SimpleITK image to a VTK image."""
     import numpy as np

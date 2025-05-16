@@ -223,6 +223,7 @@ class SegmentationLayer(QObject):
     color_changed = pyqtSignal(QObject)
     name_changed = pyqtSignal(str, QObject)
     alpha_changed = pyqtSignal(QObject)
+    image_changed = pyqtSignal(QObject)
 
     def __init__(self, segmentation, visible=True, color=np.array([255, 255, 128]), alpha=0.5, actor=None, name="") -> None:
         super().__init__()
@@ -254,8 +255,10 @@ class SegmentationLayer(QObject):
         return self._segmentation_image
     
     def set_image(self, image):
-        self._modified = True
-        self._segmentation_image = image
+        if image is not self._segmentation_image:
+            self._modified = True
+            self._segmentation_image = image
+            self.image_changed.emit(self)
 
     def set_name(self, name):
         
@@ -325,6 +328,10 @@ class SegmentationLayerList(QObject):
         self._layers = []
     
     def clear(self):
+        if len(self._layers) == 0:
+            return 
+        
+        self.remove_all_layers()
         self._layers.clear()
 
     def get_layer_by_name(self, name):
@@ -358,7 +365,11 @@ class SegmentationLayerList(QObject):
             return layer
         
         return None
-    
+
+    def remove_all_layers(self):
+        for layer in self._layers:
+            self.remove_layer_by_name(layer.get_name())
+        
     def pop(self, name):
         return self.remove_layer_by_name(name)
     
@@ -370,7 +381,7 @@ class SegmentationLayerList(QObject):
 
     def modified(self):
         for layer in self.get_layers():
-            if layer.modified:
+            if layer.get_modified():
                 return True
         return False
 
@@ -489,13 +500,28 @@ class SegmentationListItemWidget(QWidget):
         
         widget = QWidget()
 
-        layout = QHBoxLayout()
+        import flowlayout
+        layout = flowlayout.FlowLayout()
 
-        # Remove button (with 'x')
+        # Duplicate layer
         self.duplicate_button = QPushButton("Duplicate")
         self.duplicate_button.setToolTip("Duplicate")
         self.duplicate_button.clicked.connect(self.duplicate_layer_clicked)
-        layout.addWidget(self.duplicate_button, alignment=Qt.AlignCenter)
+        layout.addWidget(self.duplicate_button)
+
+        # Extract the largest 
+        self.extract_the_largest_component_button = QPushButton("Extract Largest Compoments")
+        self.extract_the_largest_component_button.setToolTip("Split into connected components and extract the largest one")
+        self.extract_the_largest_component_button.clicked.connect(self.extract_the_largest_component_clicked)
+        layout.addWidget(self.extract_the_largest_component_button)
+
+
+        # Interpolate sparse labels
+        self.make_convex_hull_label_button = QPushButton("Make Enclusure Segmentation")
+        self.make_convex_hull_label_button.setToolTip("Make a convex hull semgmentation")
+        self.make_convex_hull_label_button.clicked.connect(self.make_convex_hull_label_button_clicked)
+        layout.addWidget(self.make_convex_hull_label_button)
+
 
         widget.setLayout(layout)
 
@@ -535,6 +561,30 @@ class SegmentationListItemWidget(QWidget):
         layer_copy.set_name(self.layer.get_name()+"_copy")
         layer_copy.set_color(color_rotator1.next())
         self.layer.get_parent_list().add_layer(layer_copy)
+
+    def extract_the_largest_component_clicked(self):
+        import vtk_tools
+        blob_images = vtk_tools.extract_largest_components(self.layer.get_image(), 1)
+        largest_image = blob_images[0]
+        layer_largest = SegmentationLayer(segmentation=largest_image, name=f'{self.layer.get_name()}-largest', color = color_rotator1.next())
+        self.layer.get_parent_list().add_layer(layer_largest)
+
+    def make_convex_hull_label_button_clicked(self):
+        import itk_tools
+        import itkvtk
+
+        # convert to itk image
+        itk_seg = itkvtk.vtk_to_sitk(self.layer.get_image())
+
+        # interpolate
+        itk_interpolated = itk_tools.make_convex_label(itk_seg)
+
+        # convert back to vtk image
+        vtk_interpolated = itkvtk.sitk_to_vtk(itk_interpolated)
+        
+        # add layer
+        layer_largest = SegmentationLayer(segmentation=vtk_interpolated, name=f'{self.layer.get_name()}-interpolated', color = color_rotator1.next())
+        self.layer.get_parent_list().add_layer(layer_largest)
 
     def remove_layer_clicked(self):
         """Remove the layer when the 'x' button is clicked."""
@@ -763,6 +813,11 @@ class SegmentationListManager(QObject):
         self.erase_action, self.erase_button = self.create_checkable_button("Erase", self.erase_active, None, self.toggle_erase_tool)
         button_layout.addWidget(self.erase_button)
 
+        
+        boolean_tool_button = QPushButton("Boolean Tool")
+        boolean_tool_button.clicked.connect(self.show_boolean_tool_clicked)
+        button_layout.addWidget(boolean_tool_button)
+
         # Add the button layout 
         main_layout.addLayout(button_layout)
         
@@ -786,6 +841,78 @@ class SegmentationListManager(QObject):
         dock.setWidget(main_widget)
 
         return dock
+
+
+    def show_boolean_tool_clicked(self):
+        from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QFormLayout
+        from PyQt5.QtCore import Qt
+        
+        dialog = QDialog()
+        dialog.setWindowTitle("Boolean Operation Tool")
+        dialog.setModal(False)  # Modeless dialog
+
+        layout = QVBoxLayout()
+        form_layout = QFormLayout()
+
+        layer_names = self.segmentation_layers.get_layer_names()
+
+        # Dropdowns for A and B
+        comboA = QComboBox()
+        comboA.addItems(layer_names)
+
+        comboB = QComboBox()
+        comboB.addItems(layer_names)
+
+        # Operation combo box
+        operation_combo = QComboBox()
+        operation_combo.addItems(["AND", "OR", "SUB"])
+
+        form_layout.addRow("Image A:", comboA)
+        form_layout.addRow("Operation:", QLabel("Operation:"))
+        form_layout.addRow("Operation:", operation_combo)
+        form_layout.addRow("Image B:", comboB)
+
+        layout.addLayout(form_layout)
+
+        # Run button
+        run_button = QPushButton("Run")
+        layout.addWidget(run_button, alignment=Qt.AlignRight)
+        dialog.setLayout(layout)
+
+        def run_operation():
+            nameA = comboA.currentText()
+            nameB = comboB.currentText()
+            op = operation_combo.currentText()
+
+            if nameA == nameB:
+                self.print_status("Image A and B must be different.")
+                return
+
+            imageA = self.segmentation_layers.get_layer_by_name(nameA).get_image()
+            imageB = self.segmentation_layers.get_layer_by_name(nameB).get_image()
+
+            import vtk_tools
+            result = vtk_tools.perform_boolean_operation(imageA, imageB, op)
+            if result is None:
+                self.print_status("Operation failed.")
+                return
+
+            new_name = f"{nameA}_{op}_{nameB}"
+            color = color_rotator1.next()
+
+            self.add_layer(
+                segmentation=result,
+                layer_name=new_name,
+                color_vtk=[c / 255 for c in color],
+                alpha=0.8
+            )
+
+            self.print_status(f"Boolean operation {op} applied. New layer: {new_name}")
+            dialog.close()
+
+        run_button.clicked.connect(run_operation)
+        dialog.show()
+
 
     def on_brush_3d_toggled(self, state):
         self.paintbrush_3d = (state == Qt.Checked)

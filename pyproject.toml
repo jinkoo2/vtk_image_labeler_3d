@@ -35,7 +35,8 @@ dependencies = [
     "typing_extensions == 4.12.2",
     "urllib3 == 2.3.0",
     "vtk == 9.3.1",
-    "python-dotenv"  # No version specified, Poetry will resolve
+    "python-dotenv",  # No version specified, Poetry will resolve
+    "scikit-image (>=0.25.2,<0.26.0)"
 ]
 
 [tool.poetry.scripts]

@@ -256,6 +256,8 @@ class SegmentationLayerReslicerList():
         self._reslicers: List[ReslicerWithImageActor] = []
     
     def clear(self):
+        for reslicer in self._reslicers:
+            reslicer.clear()
         self._reslicers.clear()
 
     def get_reslicer_by_layer_name(self, name):
@@ -331,6 +333,27 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.slice_plane_object = SlicePlaneObject(slice_plane_color)
         self.slice_indicators_of_other_views = {}
 
+    def clear(self):
+        if self.vtk_image_3d == None:
+            return 
+
+        self.reslicer.clear()
+        self.vtk_image_3d = None
+        self.slice_index = None
+        
+        for seg_reslicer in self.segmentation_layer_reslicers.get_reslicers():
+            for actor in seg_reslicer.get_actors():
+                self.get_renderer().RemoveActor(actor)
+
+        self.segmentation_layer_reslicers.clear()
+
+        # remove slice indicators
+        for name, slice_indicator in self.slice_indicators_of_other_views.items():
+            if slice_indicator.actor:
+                self.get_renderer().RemoveActor(slice_indicator.actor)
+
+        super().clear()
+
     def _set_slice(self, slice):
         self.slice = slice
         self.vtk_image = slice
@@ -385,7 +408,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         if self.slice_index == new_slice_index:
             return 
-
+       
         # get the center slice
         new_slice = self.reslicer.get_slice_image(new_slice_index)
     
@@ -398,7 +421,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     
         # update the segmentation reslicers
         for reslicer in self.segmentation_layer_reslicers.get_reslicers():
-            reslicer.set_slice_index_and_update_slice_actor(new_slice_index)
+            if reslicer.layer.get_visible():
+                reslicer.set_slice_index_and_update_slice_actor(new_slice_index)
 
         # update slice plane object
         self.update_slice_plane_object()
@@ -542,11 +566,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         layer.name_changed.connect(self.on_layer_name_changed)
         layer.color_changed.connect(self.on_layer_color_changed)
         layer.alpha_changed.connect(self.on_layer_alpha_changed)
+        layer.image_changed.connect(self.on_layer_image_changed)
 
-
-    def on_segmentation_image_modified(self, layer, sender):
-        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer})')
-
+    def update_slice_and_render(self, layer):
         seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer.get_name())
 
         if seg_reslicer:
@@ -557,8 +579,18 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
                 self.render()
             else: 
                 self.render_delayed(1000)
+        
+    def on_segmentation_image_modified(self, layer, sender):
+        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer})')
+        self.update_slice_and_render(layer)
+
+    def on_layer_image_changed(self, sender):
+        layer = sender
+        print(f'VTKViewer2DWithReslicer.on_layer_image_changed({layer.get_name()})')
+        self.update_slice_and_render(layer)
 
     def on_segmentation_layer_removed(self, layer, sender):
+        segmentation_list_manager = sender
         print(f'VTKViewer2DWithReslicer.on_segmentation_layer_removed({layer.get_name()})')
 
         # remove 
@@ -714,6 +746,8 @@ class VTKViewer3D(QWidget):
 
         # Grid Layout for viewers
         layout = QGridLayout()
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.viewer_ax, 0, 0)
         layout.addWidget(self.viewer_cr, 1, 0)
         layout.addWidget(self.viewer_sg, 1, 1)
@@ -794,7 +828,11 @@ class VTKViewer3D(QWidget):
         self.viewer_surf.cleanup_vtk(event)
         
     def clear(self):
+        for v in self.viewers:
+            v.clear()
+
         self.vtk_image = None
+
         self.render()
 
     def print_status(self, msg):

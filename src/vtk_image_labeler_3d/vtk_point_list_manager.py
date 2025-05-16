@@ -448,6 +448,9 @@ class PointListManager(QObject):
             )
         
     def clear(self):
+        if len(self.points) == 0:
+            return 
+        
         """Clear all points."""
         for name in self.points:
             point = self.points[name]

@@ -162,6 +162,10 @@ class Reslicer():
 
         self.slice_index = 0
 
+    def clear(self):
+        self.vtk_image = None
+        self.slice_index = 0
+        
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
         self.vtk_image_reslice.SetInputData(vtk_image)
@@ -267,7 +271,6 @@ class ReslicerWithImageActor(Reslicer):
 
         self._create_slice_actor(fill_color, fill_alpha)
         self._create_contour_border(border_line_color, self.border_line_width, self.border_line_opacity)
-
 
     def _create_slice_actor(self, fill_color, fill_alpha):
         # Color lookup table
@@ -408,11 +411,6 @@ class ReslicerWithImageActor(Reslicer):
         contour_output = self.contour_filter.GetOutput()
         if contour_output.GetNumberOfPoints() == 0 or contour_output.GetNumberOfCells() == 0:
             print("Contour output is empty — no valid polygons.")
-            self.border_actor.SetVisibility(0)
-            return  # or skip further processing
-
-        # turn on border line actor
-        self.border_actor.SetVisibility(1)
 
         #print('---- before transform ---')
         #self._print_poly_data_points(contour_output, 30)

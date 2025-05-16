@@ -69,3 +69,159 @@ def deep_copy_image(image):
     copied_image = vtk.vtkImageData()
     copied_image.DeepCopy(image)
     return copied_image
+
+
+import vtk
+import numpy as np
+from skimage import measure
+from vtk.util import numpy_support
+
+def extract_largest_components(binary_image: vtk.vtkImageData, top_n: int = 3):
+    # Step 1: Convert vtkImageData to numpy array
+    dims = binary_image.GetDimensions()
+    scalars = binary_image.GetPointData().GetScalars()
+    np_image = numpy_support.vtk_to_numpy(scalars).reshape(dims[::-1])  # shape: (z, y, x)
+
+    # Step 2: Label connected components
+    labeled = measure.label(np_image, connectivity=1)  # 6-connectivity for 3D
+    props = measure.regionprops(labeled)
+
+    # Step 3: Sort components by size (descending)
+    sorted_regions = sorted(props, key=lambda r: r.area, reverse=True)
+
+    # Step 4: Extract top-N blobs
+    result_images = []
+    for i in range(min(top_n, len(sorted_regions))):
+        mask = np.zeros_like(np_image, dtype=np.uint8)
+        mask[labeled == sorted_regions[i].label] = 1
+
+        # Convert mask back to vtkImageData
+        flat_mask = mask.flatten(order="C")  # VTK expects flat C-style array
+        vtk_array = numpy_support.numpy_to_vtk(num_array=flat_mask, deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+
+        blob = vtk.vtkImageData()
+        blob.SetDimensions(dims)
+        blob.SetSpacing(binary_image.GetSpacing())
+        blob.SetOrigin(binary_image.GetOrigin())
+        if hasattr(blob, "SetDirectionMatrix"):
+            blob.SetDirectionMatrix(binary_image.GetDirectionMatrix())
+        blob.GetPointData().SetScalars(vtk_array)
+
+        result_images.append(blob)
+
+    return result_images
+
+
+import vtk
+
+def _copy_geometry_and_return(source_image, result_image):
+    output = vtk.vtkImageData()
+    output.DeepCopy(result_image)
+    output.SetSpacing(source_image.GetSpacing())
+    output.SetOrigin(source_image.GetOrigin())
+    if hasattr(output, "SetDirectionMatrix"):
+        output.SetDirectionMatrix(source_image.GetDirectionMatrix())
+    return output
+
+def binary_sub(imageA, imageB):
+    # Invert imageB
+    invert = vtk.vtkImageLogic()
+    invert.SetInput1Data(imageB)
+    invert.SetOperationToNot()
+    invert.SetOutputTrueValue(1)
+    if hasattr(invert, "SetOutputFalseValue"):
+        invert.SetOutputFalseValue(0)
+    invert.Update()
+
+    # A AND (NOT B)
+    logic = vtk.vtkImageLogic()
+    logic.SetOperationToAnd()
+    logic.SetInput1Data(imageA)
+    logic.SetInput2Data(invert.GetOutput())
+    logic.SetOutputTrueValue(1)
+
+    if hasattr(logic, "SetOutputFalseValue"):
+        logic.SetOutputFalseValue(0) 
+        logic.Update()
+        return _copy_geometry_and_return(imageA, logic.GetOutput())
+    else:
+        logic.Update()
+
+        # Threshold to clamp everything else to 0
+        thresh = vtk.vtkImageThreshold()
+        thresh.SetInputConnection(logic.GetOutputPort())
+        thresh.ThresholdByLower(0)  # Everything ≤ 0 becomes 0
+        thresh.ReplaceInOn()
+        thresh.SetInValue(0)
+        thresh.ReplaceOutOn()
+        thresh.SetOutValue(1)
+        thresh.SetOutputScalarTypeToUnsignedChar()
+        thresh.Update()
+
+        return _copy_geometry_and_return(imageA, thresh.GetOutput())
+
+def binary_and(imageA, imageB):
+    logic = vtk.vtkImageLogic()
+    logic.SetInput1Data(imageA)
+    logic.SetInput2Data(imageB)
+    logic.SetOperationToAnd()
+    logic.SetOutputTrueValue(1)
+    
+    if hasattr(logic, "SetOutputFalseValue"):
+        logic.SetOutputFalseValue(0) 
+        logic.Update()
+        return _copy_geometry_and_return(imageA, logic.GetOutput())
+    else:
+        logic.Update()
+
+        # Threshold to clamp everything else to 0
+        thresh = vtk.vtkImageThreshold()
+        thresh.SetInputConnection(logic.GetOutputPort())
+        thresh.ThresholdByLower(0)  # Everything ≤ 0 becomes 0
+        thresh.ReplaceInOn()
+        thresh.SetInValue(0)
+        thresh.ReplaceOutOn()
+        thresh.SetOutValue(1)
+        thresh.SetOutputScalarTypeToUnsignedChar()
+        thresh.Update()
+
+        return _copy_geometry_and_return(imageA, thresh.GetOutput())
+
+def binary_or(imageA, imageB):
+    logic = vtk.vtkImageLogic()
+    logic.SetInput1Data(imageA)
+    logic.SetInput2Data(imageB)
+    logic.SetOperationToOr()
+    logic.SetOutputTrueValue(1)
+    
+    if hasattr(logic, "SetOutputFalseValue"):
+        logic.SetOutputFalseValue(0) 
+        logic.Update()
+        return _copy_geometry_and_return(imageA, logic.GetOutput())
+    else:
+        logic.Update()
+    
+        # Threshold to clamp everything else to 0
+        thresh = vtk.vtkImageThreshold()
+        thresh.SetInputConnection(logic.GetOutputPort())
+        thresh.ThresholdByLower(0)  # Everything ≤ 0 becomes 0
+        thresh.ReplaceInOn()
+        thresh.SetInValue(0)
+        thresh.ReplaceOutOn()
+        thresh.SetOutValue(1)
+        thresh.SetOutputScalarTypeToUnsignedChar()
+        thresh.Update()
+
+        return _copy_geometry_and_return(imageA, thresh.GetOutput())
+
+def perform_boolean_operation(imageA, imageB, operation):
+    if operation == "AND":
+        return binary_and(imageA, imageB)
+    elif operation == "OR":
+        return binary_or(imageA, imageB)
+    elif operation == "SUB":
+        return binary_sub(imageA, imageB)
+    else:
+        return None
+    
+

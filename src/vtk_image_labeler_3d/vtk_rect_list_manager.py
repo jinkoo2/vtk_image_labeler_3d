@@ -381,7 +381,12 @@ class RectListManager(QObject):
         self.active_rect_name = None
         self.name = name
 
+        self._modified = False
+
     def clear(self):
+        if len(self.rects) == 0:
+            return 
+
         """Clear all rectangles and their widgets."""
         for name, rect in list(self.rects.items()):
             self.remove_rect_by_name(name)

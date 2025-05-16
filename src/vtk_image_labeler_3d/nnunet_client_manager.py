@@ -148,7 +148,7 @@ class nnUNetDatasetManager(QObject):
         layout = QHBoxLayout()
 
         self.server_url_input = QLineEdit()
-        self.server_url_input.setText("http://127.0.0.1:8000")
+        self.server_url_input.setText(conf['nnunet_server_url'])
         self.server_url_input.setPlaceholderText("Server URL here")
         layout.addWidget(self.server_url_input)
         
@@ -262,7 +262,7 @@ class nnUNetDatasetManager(QObject):
                 new_dataset["file_ending"] =".mha"
 
                 try:
-                    response_data = nnunet_service.post_dataset(self.get_server_url(), new_dataset)
+                    response_data = nnunet_service.post_dataset_json(self.get_server_url(), new_dataset)
 
                     # dataset from the server
                     new_dataset = response_data["dataset"]
@@ -507,3 +507,12 @@ class nnUNetDatasetManager(QObject):
 
     def save_state(self,data_dict, data_dir):
         pass
+
+    def reset_modified(self):
+        pass
+
+    def clear(self):
+        pass 
+    
+    def modified(self):
+        return False

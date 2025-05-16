@@ -435,12 +435,20 @@ class VTKViewer2D(QWidget):
             del self.render_window
 
     def clear(self):
+        if self.vtk_image == None:
+            return
+
         # Remove the previous image actor if it exists
         if hasattr(self, 'image_actor') and self.image_actor is not None:
             self.get_renderer().RemoveActor(self.image_actor)
             self.image_actor = None
 
         self.vtk_image = None
+
+        self.text_bottom_left.set_text('')
+        self.text_bottom_right.set_text('')
+        self.text_top_left.set_text('')
+        self.text_top_right.set_text('')
 
         self.render()
 
@@ -451,9 +459,6 @@ class VTKViewer2D(QWidget):
         return self.vtk_image
     
     def set_vtk_image(self, vtk_image, window, level):
-
-        # reset first
-        self.clear()
 
         self.vtk_image = vtk_image
                 

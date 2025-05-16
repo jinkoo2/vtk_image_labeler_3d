@@ -1,0 +1,695 @@
+2025-05-16 14:26:58,574 - INFO - Application started
+2025-05-16 14:28:12,395 - INFO - Application started
+2025-05-16 14:28:20,134 - INFO - SegmentationListManager initialized
+2025-05-16 14:28:21,284 - INFO - MainWindow initialized
+2025-05-16 14:28:23,686 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 14:28:23,687 - INFO - File extension: .mha
+2025-05-16 14:28:24,211 - INFO - dims=(512, 512, 160)
+2025-05-16 14:28:24,212 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 14:28:24,212 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 14:28:24,344 - INFO - the center slice index is 79
+2025-05-16 14:28:24,421 - INFO - the center slice index is 255
+2025-05-16 14:28:24,477 - INFO - the center slice index is 255
+2025-05-16 14:28:24,578 - INFO - Image loaded successfully
+2025-05-16 14:28:25,573 - INFO - A layer added: Layer 1
+2025-05-16 14:28:28,088 - INFO - Paint tool activated
+2025-05-16 14:29:43,416 - INFO - MainWindow is closing.
+2025-05-16 14:29:43,482 - INFO - Application is quitting.
+2025-05-16 14:37:49,343 - INFO - Application started
+2025-05-16 14:37:56,461 - INFO - SegmentationListManager initialized
+2025-05-16 14:37:56,653 - INFO - MainWindow initialized
+2025-05-16 14:38:00,515 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 14:38:00,515 - INFO - File extension: .mha
+2025-05-16 14:38:01,008 - INFO - dims=(512, 512, 160)
+2025-05-16 14:38:01,008 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 14:38:01,009 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 14:38:01,136 - INFO - the center slice index is 79
+2025-05-16 14:38:01,217 - INFO - the center slice index is 255
+2025-05-16 14:38:01,272 - INFO - the center slice index is 255
+2025-05-16 14:38:01,370 - INFO - Image loaded successfully
+2025-05-16 14:38:02,700 - INFO - A layer added: Layer 1
+2025-05-16 14:38:05,459 - INFO - Paint tool activated
+2025-05-16 14:56:58,608 - INFO - Application started
+2025-05-16 14:57:05,701 - INFO - SegmentationListManager initialized
+2025-05-16 14:57:05,898 - INFO - MainWindow initialized
+2025-05-16 14:57:10,523 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 14:57:10,524 - INFO - File extension: .mha
+2025-05-16 14:57:11,056 - INFO - dims=(512, 512, 160)
+2025-05-16 14:57:11,056 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 14:57:11,057 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 14:57:11,181 - INFO - the center slice index is 79
+2025-05-16 14:57:11,248 - INFO - the center slice index is 255
+2025-05-16 14:57:11,305 - INFO - the center slice index is 255
+2025-05-16 14:57:11,404 - INFO - Image loaded successfully
+2025-05-16 14:57:12,695 - INFO - A layer added: Layer 1
+2025-05-16 14:57:20,091 - INFO - Paint tool activated
+2025-05-16 15:18:07,052 - INFO - Application started
+2025-05-16 15:18:14,432 - INFO - SegmentationListManager initialized
+2025-05-16 15:18:14,616 - INFO - MainWindow initialized
+2025-05-16 15:18:51,391 - INFO - MainWindow is closing.
+2025-05-16 15:18:51,489 - INFO - Application is quitting.
+2025-05-16 15:22:34,799 - INFO - Application started
+2025-05-16 15:22:42,014 - INFO - SegmentationListManager initialized
+2025-05-16 15:22:42,199 - INFO - MainWindow initialized
+2025-05-16 15:22:45,502 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:22:45,502 - INFO - File extension: .mha
+2025-05-16 15:22:45,977 - INFO - dims=(512, 512, 160)
+2025-05-16 15:22:45,977 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:22:45,978 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:22:46,107 - INFO - the center slice index is 79
+2025-05-16 15:22:46,189 - INFO - the center slice index is 255
+2025-05-16 15:22:46,245 - INFO - the center slice index is 255
+2025-05-16 15:22:46,344 - INFO - Image loaded successfully
+2025-05-16 15:24:08,771 - INFO - Application started
+2025-05-16 15:24:15,819 - INFO - SegmentationListManager initialized
+2025-05-16 15:24:16,021 - INFO - MainWindow initialized
+2025-05-16 15:24:19,822 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:24:19,822 - INFO - File extension: .mha
+2025-05-16 15:24:20,293 - INFO - dims=(512, 512, 160)
+2025-05-16 15:24:20,294 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:24:20,294 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:24:20,421 - INFO - the center slice index is 79
+2025-05-16 15:24:20,498 - INFO - the center slice index is 255
+2025-05-16 15:24:20,553 - INFO - the center slice index is 255
+2025-05-16 15:24:20,652 - INFO - Image loaded successfully
+2025-05-16 15:25:01,232 - INFO - Application started
+2025-05-16 15:25:08,448 - INFO - SegmentationListManager initialized
+2025-05-16 15:25:08,637 - INFO - MainWindow initialized
+2025-05-16 15:25:15,621 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:25:15,621 - INFO - File extension: .mha
+2025-05-16 15:25:16,095 - INFO - dims=(512, 512, 160)
+2025-05-16 15:25:16,096 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:25:16,096 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:25:16,223 - INFO - the center slice index is 79
+2025-05-16 15:25:16,301 - INFO - the center slice index is 255
+2025-05-16 15:25:16,356 - INFO - the center slice index is 255
+2025-05-16 15:25:16,454 - INFO - Image loaded successfully
+2025-05-16 15:26:14,679 - INFO - Application started
+2025-05-16 15:26:21,750 - INFO - SegmentationListManager initialized
+2025-05-16 15:26:21,934 - INFO - MainWindow initialized
+2025-05-16 15:26:24,180 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:26:24,181 - INFO - File extension: .mha
+2025-05-16 15:26:24,659 - INFO - dims=(512, 512, 160)
+2025-05-16 15:26:24,659 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:26:24,660 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:26:24,788 - INFO - the center slice index is 79
+2025-05-16 15:26:24,863 - INFO - the center slice index is 255
+2025-05-16 15:26:24,920 - INFO - the center slice index is 255
+2025-05-16 15:26:25,019 - INFO - Image loaded successfully
+2025-05-16 15:26:54,270 - INFO - Application started
+2025-05-16 15:27:01,399 - INFO - SegmentationListManager initialized
+2025-05-16 15:27:01,585 - INFO - MainWindow initialized
+2025-05-16 15:27:03,272 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:27:03,272 - INFO - File extension: .mha
+2025-05-16 15:27:03,752 - INFO - dims=(512, 512, 160)
+2025-05-16 15:27:03,752 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:27:03,752 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:27:03,882 - INFO - the center slice index is 79
+2025-05-16 15:27:03,958 - INFO - the center slice index is 255
+2025-05-16 15:27:04,013 - INFO - the center slice index is 255
+2025-05-16 15:27:04,111 - INFO - Image loaded successfully
+2025-05-16 15:29:03,448 - INFO - Application started
+2025-05-16 15:29:10,633 - INFO - SegmentationListManager initialized
+2025-05-16 15:29:10,824 - INFO - MainWindow initialized
+2025-05-16 15:29:12,827 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:29:12,828 - INFO - File extension: .mha
+2025-05-16 15:29:13,368 - INFO - dims=(512, 512, 160)
+2025-05-16 15:29:13,369 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:29:13,369 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:29:13,498 - INFO - the center slice index is 79
+2025-05-16 15:29:13,575 - INFO - the center slice index is 255
+2025-05-16 15:29:13,632 - INFO - the center slice index is 255
+2025-05-16 15:29:13,732 - INFO - Image loaded successfully
+2025-05-16 15:29:33,390 - INFO - A layer added: Layer 1
+2025-05-16 15:29:37,307 - INFO - Paint tool activated
+2025-05-16 15:30:36,618 - INFO - Paint tool deactivated
+2025-05-16 15:30:36,620 - INFO - Erase tool activated
+2025-05-16 15:30:58,107 - INFO - MainWindow is closing.
+2025-05-16 15:30:58,171 - INFO - Application is quitting.
+2025-05-16 15:31:03,997 - INFO - Application started
+2025-05-16 15:31:11,075 - INFO - SegmentationListManager initialized
+2025-05-16 15:31:11,251 - INFO - MainWindow initialized
+2025-05-16 15:31:29,685 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 15:31:29,685 - INFO - File extension: .mha
+2025-05-16 15:31:29,884 - INFO - dims=(512, 512, 64)
+2025-05-16 15:31:29,885 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 15:31:29,885 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 15:31:29,945 - INFO - the center slice index is 31
+2025-05-16 15:31:30,028 - INFO - the center slice index is 255
+2025-05-16 15:31:30,084 - INFO - the center slice index is 255
+2025-05-16 15:31:30,184 - INFO - Image loaded successfully
+2025-05-16 15:32:27,528 - INFO - A layer added: Layer 1
+2025-05-16 15:32:30,844 - INFO - Paint tool activated
+2025-05-16 15:34:25,881 - INFO - Paint tool deactivated
+2025-05-16 15:34:25,882 - INFO - Erase tool activated
+2025-05-16 15:36:07,911 - INFO - Boolean operation AND applied. New layer: bowel_AND_Layer 1-interpolated
+2025-05-16 15:37:10,203 - INFO - Boolean operation SUB applied. New layer: bowel_SUB_rectum
+2025-05-16 15:39:27,774 - INFO - Application started
+2025-05-16 15:39:34,826 - INFO - SegmentationListManager initialized
+2025-05-16 15:39:35,007 - INFO - MainWindow initialized
+2025-05-16 15:39:38,126 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:39:38,127 - INFO - File extension: .mha
+2025-05-16 15:39:38,599 - INFO - dims=(512, 512, 160)
+2025-05-16 15:39:38,600 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:39:38,600 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:39:38,728 - INFO - the center slice index is 79
+2025-05-16 15:39:38,794 - INFO - the center slice index is 255
+2025-05-16 15:39:38,851 - INFO - the center slice index is 255
+2025-05-16 15:39:38,951 - INFO - Image loaded successfully
+2025-05-16 15:39:40,442 - INFO - A layer added: Layer 1
+2025-05-16 15:39:42,062 - INFO - Paint tool activated
+2025-05-16 15:40:42,137 - DEBUG - Created data directory: C:/Users/jkim20/Downloads/test.json.data
+2025-05-16 15:41:08,592 - INFO - Saved input image to C:/Users/jkim20/Downloads/test.json.data\input_image.mhd
+2025-05-16 15:41:11,466 - INFO - Saving manager states
+2025-05-16 15:41:14,210 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001CA8A3C3B50> - Saving state
+2025-05-16 15:42:05,841 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001CA8A3E8EE0> - Saving state
+2025-05-16 15:42:15,588 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001CA8A3E9480> - Saving state
+2025-05-16 15:42:25,536 - INFO - Lines state saved successfully.
+2025-05-16 15:42:28,568 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001CA8A3E9990> - Saving state
+2025-05-16 15:42:36,984 - INFO - Rectangles state saved successfully.
+2025-05-16 15:42:39,713 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001CA8A3E9EA0> - Saving state
+2025-05-16 15:43:00,808 - ERROR - Failed to save workspace: 'nnUNetDatasetManager' object has no attribute 'reset_modified'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 784, in save_workspace
+    manager.reset_modified()
+AttributeError: 'nnUNetDatasetManager' object has no attribute 'reset_modified'
+2025-05-16 15:44:19,999 - INFO - Application started
+2025-05-16 15:44:27,165 - INFO - SegmentationListManager initialized
+2025-05-16 15:44:27,350 - INFO - MainWindow initialized
+2025-05-16 15:44:31,654 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:44:31,654 - INFO - File extension: .mha
+2025-05-16 15:44:32,129 - INFO - dims=(512, 512, 160)
+2025-05-16 15:44:32,130 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:44:32,130 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:44:32,257 - INFO - the center slice index is 79
+2025-05-16 15:44:32,336 - INFO - the center slice index is 255
+2025-05-16 15:44:32,394 - INFO - the center slice index is 255
+2025-05-16 15:44:32,492 - INFO - Image loaded successfully
+2025-05-16 15:44:33,550 - INFO - A layer added: Layer 1
+2025-05-16 15:44:41,717 - INFO - Paint tool activated
+2025-05-16 15:45:08,625 - INFO - Saved input image to C:/Users/jkim20/Downloads/test.json.data\input_image.mhd
+2025-05-16 15:45:08,626 - INFO - Saving manager states
+2025-05-16 15:45:08,626 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000015042014700> - Saving state
+2025-05-16 15:45:08,700 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000015042015A20> - Saving state
+2025-05-16 15:45:08,700 - INFO - <vtk_line_list_manager.LineListManager object at 0x0000015042015FC0> - Saving state
+2025-05-16 15:45:08,701 - INFO - Lines state saved successfully.
+2025-05-16 15:45:08,701 - INFO - <vtk_rect_list_manager.RectListManager object at 0x00000150420164D0> - Saving state
+2025-05-16 15:45:08,702 - INFO - Rectangles state saved successfully.
+2025-05-16 15:45:08,702 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x00000150420169E0> - Saving state
+2025-05-16 15:45:08,705 - INFO - Workspace metadata saved to C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:45:35,766 - INFO - MainWindow is closing.
+2025-05-16 15:45:35,849 - INFO - Application is quitting.
+2025-05-16 15:45:52,168 - INFO - Application started
+2025-05-16 15:45:59,192 - INFO - SegmentationListManager initialized
+2025-05-16 15:45:59,375 - INFO - MainWindow initialized
+2025-05-16 15:46:32,000 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:46:52,575 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 15:47:08,367 - INFO - the center slice index is 79
+2025-05-16 15:47:08,431 - INFO - the center slice index is 255
+2025-05-16 15:47:08,488 - INFO - the center slice index is 255
+2025-05-16 15:47:10,301 - INFO - loading manager states
+2025-05-16 15:47:11,214 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000025DA10C7BE0> - Loading state
+2025-05-16 15:48:11,901 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000025DA10ECF70> - Loading state
+2025-05-16 15:48:19,012 - ERROR - Failed to load workspace: 'NoneType' object has no attribute 'Render'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 853, in open_workspace
+    manager.load_state(workspace_data, data_path, {'base_image': self.vtk_image})
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\vtk_point_list_manager.py", line 441, in load_state
+    self.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\vtk_point_list_manager.py", line 460, in clear
+    self.vtk_viewer.get_render_window().Render()
+AttributeError: 'NoneType' object has no attribute 'Render'
+2025-05-16 15:49:05,363 - INFO - Application started
+2025-05-16 15:49:12,749 - INFO - SegmentationListManager initialized
+2025-05-16 15:49:12,934 - INFO - MainWindow initialized
+2025-05-16 15:49:32,560 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:49:33,058 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 15:49:33,184 - INFO - the center slice index is 79
+2025-05-16 15:49:33,261 - INFO - the center slice index is 255
+2025-05-16 15:49:33,317 - INFO - the center slice index is 255
+2025-05-16 15:49:33,413 - INFO - loading manager states
+2025-05-16 15:49:33,414 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000025CFD29BBE0> - Loading state
+2025-05-16 15:49:33,560 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000025CFD2BCF70> - Loading state
+2025-05-16 15:50:13,340 - ERROR - Failed to load workspace: 'NoneType' object has no attribute 'Render'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 853, in open_workspace
+    manager.load_state(workspace_data, data_path, {'base_image': self.vtk_image})
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\vtk_point_list_manager.py", line 441, in load_state
+    self.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\vtk_point_list_manager.py", line 460, in clear
+    self.vtk_viewer.get_render_window().Render()
+AttributeError: 'NoneType' object has no attribute 'Render'
+2025-05-16 15:53:24,419 - INFO - Application started
+2025-05-16 15:53:31,625 - INFO - SegmentationListManager initialized
+2025-05-16 15:53:31,816 - INFO - MainWindow initialized
+2025-05-16 15:53:34,399 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 15:53:34,399 - INFO - File extension: .mha
+2025-05-16 15:53:34,868 - INFO - dims=(512, 512, 160)
+2025-05-16 15:53:34,869 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 15:53:34,869 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 15:53:34,999 - INFO - the center slice index is 79
+2025-05-16 15:53:35,063 - INFO - the center slice index is 255
+2025-05-16 15:53:35,120 - INFO - the center slice index is 255
+2025-05-16 15:53:35,221 - INFO - Image loaded successfully
+2025-05-16 15:54:14,600 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:55:00,881 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 15:55:04,894 - INFO - the center slice index is 79
+2025-05-16 15:55:04,957 - INFO - the center slice index is 255
+2025-05-16 15:55:05,015 - INFO - the center slice index is 255
+2025-05-16 15:55:07,519 - INFO - loading manager states
+2025-05-16 15:55:07,520 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000002127FE67B50> - Loading state
+2025-05-16 15:55:07,679 - INFO - <vtk_point_list_manager.PointListManager object at 0x000002127FE8CEE0> - Loading state
+2025-05-16 15:55:12,199 - INFO - <vtk_line_list_manager.LineListManager object at 0x000002127FE8D480> - Loading state
+2025-05-16 15:55:12,200 - INFO - Lines state loaded successfully.
+2025-05-16 15:55:12,201 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000002127FE8D990> - Loading state
+2025-05-16 15:55:12,201 - INFO - Rectangles state loaded successfully.
+2025-05-16 15:55:12,202 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000002127FE8DEA0> - Loading state
+2025-05-16 15:55:12,202 - INFO - Loaded workspace successfully.
+2025-05-16 15:55:21,851 - INFO - A layer added: Layer 2
+2025-05-16 15:55:28,685 - INFO - Paint tool activated
+2025-05-16 15:56:08,384 - INFO - Saved input image to C:/Users/jkim20/Downloads/test.json.data\input_image.mhd
+2025-05-16 15:56:08,385 - INFO - Saving manager states
+2025-05-16 15:56:08,386 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000002127FE67B50> - Saving state
+2025-05-16 15:56:08,537 - INFO - <vtk_point_list_manager.PointListManager object at 0x000002127FE8CEE0> - Saving state
+2025-05-16 15:56:08,537 - INFO - <vtk_line_list_manager.LineListManager object at 0x000002127FE8D480> - Saving state
+2025-05-16 15:56:08,538 - INFO - Lines state saved successfully.
+2025-05-16 15:56:08,538 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000002127FE8D990> - Saving state
+2025-05-16 15:56:08,539 - INFO - Rectangles state saved successfully.
+2025-05-16 15:56:08,540 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000002127FE8DEA0> - Saving state
+2025-05-16 15:56:08,542 - INFO - Workspace metadata saved to C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:56:11,534 - INFO - MainWindow is closing.
+2025-05-16 15:56:11,589 - INFO - Application is quitting.
+2025-05-16 15:56:16,096 - INFO - Application started
+2025-05-16 15:56:23,236 - INFO - SegmentationListManager initialized
+2025-05-16 15:56:23,418 - INFO - MainWindow initialized
+2025-05-16 15:56:52,645 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 15:56:53,160 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 15:56:53,293 - INFO - the center slice index is 79
+2025-05-16 15:56:53,371 - INFO - the center slice index is 255
+2025-05-16 15:56:53,427 - INFO - the center slice index is 255
+2025-05-16 15:56:53,525 - INFO - loading manager states
+2025-05-16 15:56:53,525 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x00000252B1547D00> - Loading state
+2025-05-16 15:56:54,599 - INFO - <vtk_point_list_manager.PointListManager object at 0x00000252B1569090> - Loading state
+2025-05-16 15:56:55,378 - INFO - <vtk_line_list_manager.LineListManager object at 0x00000252B1569630> - Loading state
+2025-05-16 15:56:55,380 - INFO - Lines state loaded successfully.
+2025-05-16 15:56:55,380 - INFO - <vtk_rect_list_manager.RectListManager object at 0x00000252B1569B40> - Loading state
+2025-05-16 15:56:55,381 - INFO - Rectangles state loaded successfully.
+2025-05-16 15:56:55,381 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x00000252B156A050> - Loading state
+2025-05-16 15:56:55,382 - INFO - Loaded workspace successfully.
+2025-05-16 16:32:00,124 - INFO - Application started
+2025-05-16 16:32:07,484 - INFO - SegmentationListManager initialized
+2025-05-16 16:32:07,664 - INFO - MainWindow initialized
+2025-05-16 16:32:16,314 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 16:32:16,810 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 16:32:16,943 - INFO - the center slice index is 79
+2025-05-16 16:32:17,021 - INFO - the center slice index is 255
+2025-05-16 16:32:17,078 - INFO - the center slice index is 255
+2025-05-16 16:32:17,191 - INFO - loading manager states
+2025-05-16 16:32:17,192 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000002223B3683A0> - Loading state
+2025-05-16 16:32:18,219 - INFO - <vtk_point_list_manager.PointListManager object at 0x000002223B3696C0> - Loading state
+2025-05-16 16:32:18,975 - INFO - <vtk_line_list_manager.LineListManager object at 0x000002223B369C60> - Loading state
+2025-05-16 16:32:18,976 - INFO - Lines state loaded successfully.
+2025-05-16 16:32:18,977 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000002223B36A170> - Loading state
+2025-05-16 16:32:18,977 - INFO - Rectangles state loaded successfully.
+2025-05-16 16:32:18,978 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000002223B36A680> - Loading state
+2025-05-16 16:32:18,978 - INFO - Loaded workspace successfully.
+2025-05-16 16:33:49,803 - INFO - Application started
+2025-05-16 16:33:57,174 - INFO - SegmentationListManager initialized
+2025-05-16 16:33:57,360 - INFO - MainWindow initialized
+2025-05-16 16:34:04,402 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 16:34:04,880 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 16:34:05,013 - INFO - the center slice index is 79
+2025-05-16 16:34:05,080 - INFO - the center slice index is 255
+2025-05-16 16:34:05,136 - INFO - the center slice index is 255
+2025-05-16 16:34:05,233 - INFO - loading manager states
+2025-05-16 16:34:05,234 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x00000234FFAEC8B0> - Loading state
+2025-05-16 16:34:06,320 - INFO - <vtk_point_list_manager.PointListManager object at 0x00000234FFAEDBD0> - Loading state
+2025-05-16 16:34:07,098 - INFO - <vtk_line_list_manager.LineListManager object at 0x00000234FFAEE170> - Loading state
+2025-05-16 16:34:07,100 - INFO - Lines state loaded successfully.
+2025-05-16 16:34:07,101 - INFO - <vtk_rect_list_manager.RectListManager object at 0x00000234FFAEE680> - Loading state
+2025-05-16 16:34:07,101 - INFO - Rectangles state loaded successfully.
+2025-05-16 16:34:07,102 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x00000234FFAEEB90> - Loading state
+2025-05-16 16:34:07,102 - INFO - Loaded workspace successfully.
+2025-05-16 16:34:47,492 - INFO - Application started
+2025-05-16 16:34:54,566 - INFO - SegmentationListManager initialized
+2025-05-16 16:34:54,746 - INFO - MainWindow initialized
+2025-05-16 16:34:57,314 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 16:34:57,314 - INFO - File extension: .mha
+2025-05-16 16:34:57,792 - INFO - dims=(512, 512, 160)
+2025-05-16 16:34:57,793 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 16:34:57,793 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 16:34:57,919 - INFO - the center slice index is 79
+2025-05-16 16:34:57,993 - INFO - the center slice index is 255
+2025-05-16 16:34:58,048 - INFO - the center slice index is 255
+2025-05-16 16:34:58,146 - INFO - Image loaded successfully
+2025-05-16 16:35:03,684 - INFO - A layer added: Layer 1
+2025-05-16 16:35:06,011 - INFO - Paint tool activated
+2025-05-16 16:35:21,603 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 16:35:21,603 - INFO - File extension: .mha
+2025-05-16 16:35:21,786 - INFO - dims=(512, 512, 64)
+2025-05-16 16:35:21,787 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 16:35:21,787 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 16:35:21,845 - INFO - the center slice index is 31
+2025-05-16 16:35:21,907 - INFO - the center slice index is 255
+2025-05-16 16:35:21,965 - INFO - the center slice index is 255
+2025-05-16 16:35:22,074 - INFO - Image loaded successfully
+2025-05-16 16:35:39,706 - INFO - MainWindow is closing.
+2025-05-16 16:35:39,789 - INFO - Application is quitting.
+2025-05-16 16:57:48,343 - INFO - Application started
+2025-05-16 16:57:55,607 - INFO - SegmentationListManager initialized
+2025-05-16 16:57:55,795 - INFO - MainWindow initialized
+2025-05-16 16:58:28,449 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 16:58:54,433 - ERROR - Failed to load workspace: 'Reslicer' object has no attribute 'clear'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 822, in open_workspace
+    self.vtk_viewer.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 818, in clear
+    v.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 337, in clear
+    self.reslicer.clear()
+AttributeError: 'Reslicer' object has no attribute 'clear'
+2025-05-16 17:08:03,728 - INFO - Application started
+2025-05-16 17:08:10,920 - INFO - SegmentationListManager initialized
+2025-05-16 17:08:11,107 - INFO - MainWindow initialized
+2025-05-16 17:08:18,442 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:09:08,620 - ERROR - Failed to load workspace: 'SegmentationLayerReslicerList' object is not iterable
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 822, in open_workspace
+    self.vtk_viewer.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 824, in clear
+    v.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 341, in clear
+    for seg_reslicer in self.segmentation_layer_reslicers:
+TypeError: 'SegmentationLayerReslicerList' object is not iterable
+2025-05-16 17:10:25,112 - INFO - Application started
+2025-05-16 17:10:32,475 - INFO - SegmentationListManager initialized
+2025-05-16 17:10:32,659 - INFO - MainWindow initialized
+2025-05-16 17:10:41,743 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:11:35,829 - ERROR - Failed to load workspace: 'ModelViewer' object has no attribute 'get_models'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 822, in open_workspace
+    self.vtk_viewer.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 824, in clear
+    v.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\model_viewer.py", line 102, in clear
+    for model in self.get_models():
+AttributeError: 'ModelViewer' object has no attribute 'get_models'
+2025-05-16 17:11:53,359 - INFO - Application started
+2025-05-16 17:12:00,500 - INFO - SegmentationListManager initialized
+2025-05-16 17:12:00,718 - INFO - MainWindow initialized
+2025-05-16 17:12:08,187 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:12:25,668 - ERROR - Failed to load workspace: isinstance expected 2 arguments, got 1
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 822, in open_workspace
+    self.vtk_viewer.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 824, in clear
+    v.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\model_viewer.py", line 103, in clear
+    if model is isinstance(SingleActorModel):
+TypeError: isinstance expected 2 arguments, got 1
+2025-05-16 17:13:36,642 - INFO - Application started
+2025-05-16 17:13:43,676 - INFO - SegmentationListManager initialized
+2025-05-16 17:13:43,865 - INFO - MainWindow initialized
+2025-05-16 17:13:50,719 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:14:46,692 - INFO - Application started
+2025-05-16 17:14:53,879 - INFO - SegmentationListManager initialized
+2025-05-16 17:14:54,056 - INFO - MainWindow initialized
+2025-05-16 17:14:59,995 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:15:25,815 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:15:52,831 - INFO - the center slice index is 79
+2025-05-16 17:15:52,883 - INFO - the center slice index is 255
+2025-05-16 17:15:52,921 - INFO - the center slice index is 255
+2025-05-16 17:15:53,004 - INFO - loading manager states
+2025-05-16 17:15:53,004 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x00000156B9F74160> - Loading state
+2025-05-16 17:15:54,091 - INFO - <vtk_point_list_manager.PointListManager object at 0x00000156B9F75480> - Loading state
+2025-05-16 17:15:54,856 - INFO - <vtk_line_list_manager.LineListManager object at 0x00000156B9F75A20> - Loading state
+2025-05-16 17:15:54,858 - INFO - Lines state loaded successfully.
+2025-05-16 17:15:54,858 - INFO - <vtk_rect_list_manager.RectListManager object at 0x00000156B9F75F30> - Loading state
+2025-05-16 17:15:54,859 - INFO - Rectangles state loaded successfully.
+2025-05-16 17:15:54,860 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x00000156B9F76440> - Loading state
+2025-05-16 17:15:54,860 - INFO - Loaded workspace successfully.
+2025-05-16 17:16:42,155 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 17:16:42,156 - INFO - File extension: .mha
+2025-05-16 17:16:42,350 - INFO - dims=(512, 512, 64)
+2025-05-16 17:16:42,350 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 17:16:42,351 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 17:16:42,427 - INFO - the center slice index is 31
+2025-05-16 17:16:42,474 - INFO - the center slice index is 255
+2025-05-16 17:16:42,515 - INFO - the center slice index is 255
+2025-05-16 17:16:42,596 - INFO - Image loaded successfully
+2025-05-16 17:19:53,709 - INFO - Application started
+2025-05-16 17:20:01,089 - INFO - SegmentationListManager initialized
+2025-05-16 17:20:01,273 - INFO - MainWindow initialized
+2025-05-16 17:20:14,485 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:20:15,003 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:20:15,147 - INFO - the center slice index is 79
+2025-05-16 17:20:15,210 - INFO - the center slice index is 255
+2025-05-16 17:20:15,251 - INFO - the center slice index is 255
+2025-05-16 17:20:15,332 - INFO - loading manager states
+2025-05-16 17:20:15,333 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001F954503910> - Loading state
+2025-05-16 17:20:16,386 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001F954534CA0> - Loading state
+2025-05-16 17:20:17,163 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001F954535240> - Loading state
+2025-05-16 17:20:17,165 - INFO - Lines state loaded successfully.
+2025-05-16 17:20:17,165 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001F954535750> - Loading state
+2025-05-16 17:20:17,165 - INFO - Rectangles state loaded successfully.
+2025-05-16 17:20:17,166 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001F954535C60> - Loading state
+2025-05-16 17:20:17,167 - INFO - Loaded workspace successfully.
+2025-05-16 17:20:27,020 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 17:20:27,021 - INFO - File extension: .mha
+2025-05-16 17:20:27,210 - INFO - dims=(512, 512, 64)
+2025-05-16 17:20:27,211 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 17:20:27,211 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 17:20:27,282 - INFO - the center slice index is 31
+2025-05-16 17:20:27,330 - INFO - the center slice index is 255
+2025-05-16 17:20:27,370 - INFO - the center slice index is 255
+2025-05-16 17:20:27,449 - INFO - Image loaded successfully
+2025-05-16 17:21:47,908 - INFO - Application started
+2025-05-16 17:21:55,040 - INFO - SegmentationListManager initialized
+2025-05-16 17:21:55,226 - INFO - MainWindow initialized
+2025-05-16 17:22:06,382 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:23:25,645 - INFO - Application started
+2025-05-16 17:23:32,665 - INFO - SegmentationListManager initialized
+2025-05-16 17:23:32,851 - INFO - MainWindow initialized
+2025-05-16 17:23:40,892 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:30:05,199 - INFO - Application started
+2025-05-16 17:30:12,235 - INFO - SegmentationListManager initialized
+2025-05-16 17:30:12,421 - INFO - MainWindow initialized
+2025-05-16 17:30:27,362 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:30:45,731 - ERROR - Failed to load workspace: 'ModelViewer' object has no attribute 'image_boundary_model'
+Traceback (most recent call last):
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\mainwindow3d.py", line 820, in open_workspace
+    self.vtk_viewer.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\viewer3d.py", line 827, in clear
+    v.clear()
+  File "C:\Users\jkim20\Documents\projects\vtk_image_labeler_3d\src/vtk_image_labeler_3d\model_viewer.py", line 102, in clear
+    if self.image_boundary_model:
+AttributeError: 'ModelViewer' object has no attribute 'image_boundary_model'
+2025-05-16 17:31:36,233 - INFO - Application started
+2025-05-16 17:31:43,612 - INFO - SegmentationListManager initialized
+2025-05-16 17:31:43,799 - INFO - MainWindow initialized
+2025-05-16 17:31:50,047 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:32:13,410 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:33:13,202 - INFO - the center slice index is 79
+2025-05-16 17:34:06,102 - INFO - Application started
+2025-05-16 17:34:13,524 - INFO - SegmentationListManager initialized
+2025-05-16 17:34:13,707 - INFO - MainWindow initialized
+2025-05-16 17:34:18,892 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:34:19,411 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:34:30,569 - INFO - the center slice index is 79
+2025-05-16 17:34:55,963 - INFO - the center slice index is 255
+2025-05-16 17:34:56,018 - INFO - the center slice index is 255
+2025-05-16 17:34:59,696 - INFO - loading manager states
+2025-05-16 17:35:02,092 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000029D95197D90> - Loading state
+2025-05-16 17:35:06,512 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000029D951BD120> - Loading state
+2025-05-16 17:35:06,513 - INFO - <vtk_line_list_manager.LineListManager object at 0x0000029D951BD6C0> - Loading state
+2025-05-16 17:35:06,514 - INFO - Lines state loaded successfully.
+2025-05-16 17:35:06,514 - INFO - <vtk_rect_list_manager.RectListManager object at 0x0000029D951BDBD0> - Loading state
+2025-05-16 17:35:06,515 - INFO - Rectangles state loaded successfully.
+2025-05-16 17:35:06,515 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x0000029D951BE0E0> - Loading state
+2025-05-16 17:35:06,516 - INFO - Loaded workspace successfully.
+2025-05-16 17:36:28,972 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 17:36:28,973 - INFO - File extension: .mha
+2025-05-16 17:36:29,474 - INFO - dims=(512, 512, 160)
+2025-05-16 17:36:29,474 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 17:36:29,475 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 17:36:29,600 - INFO - the center slice index is 79
+2025-05-16 17:36:29,647 - INFO - the center slice index is 255
+2025-05-16 17:36:29,692 - INFO - the center slice index is 255
+2025-05-16 17:36:42,823 - INFO - Image loaded successfully
+2025-05-16 17:37:12,660 - INFO - MainWindow is closing.
+2025-05-16 17:37:12,731 - INFO - Application is quitting.
+2025-05-16 17:38:25,232 - INFO - Application started
+2025-05-16 17:38:32,400 - INFO - SegmentationListManager initialized
+2025-05-16 17:38:32,583 - INFO - MainWindow initialized
+2025-05-16 17:39:06,419 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 17:39:06,419 - INFO - File extension: .mha
+2025-05-16 17:39:06,928 - INFO - dims=(512, 512, 160)
+2025-05-16 17:39:06,928 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 17:39:06,929 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 17:39:07,052 - INFO - the center slice index is 79
+2025-05-16 17:39:07,122 - INFO - the center slice index is 255
+2025-05-16 17:39:07,167 - INFO - the center slice index is 255
+2025-05-16 17:39:07,255 - INFO - Image loaded successfully
+2025-05-16 17:40:33,830 - INFO - Application started
+2025-05-16 17:41:08,393 - INFO - Application started
+2025-05-16 17:41:15,487 - INFO - SegmentationListManager initialized
+2025-05-16 17:41:15,675 - INFO - MainWindow initialized
+2025-05-16 17:41:18,049 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 17:41:18,050 - INFO - File extension: .mha
+2025-05-16 17:41:18,570 - INFO - dims=(512, 512, 160)
+2025-05-16 17:41:18,571 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 17:41:18,571 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 17:41:18,699 - INFO - the center slice index is 79
+2025-05-16 17:41:18,758 - INFO - the center slice index is 255
+2025-05-16 17:41:18,805 - INFO - the center slice index is 255
+2025-05-16 17:41:18,908 - INFO - Image loaded successfully
+2025-05-16 17:44:17,193 - INFO - MainWindow is closing.
+2025-05-16 17:44:17,255 - INFO - Application is quitting.
+2025-05-16 17:44:21,207 - INFO - Application started
+2025-05-16 17:44:28,528 - INFO - SegmentationListManager initialized
+2025-05-16 17:44:28,712 - INFO - MainWindow initialized
+2025-05-16 17:44:33,144 - INFO - Loading image from C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha
+2025-05-16 17:44:33,144 - INFO - File extension: .mha
+2025-05-16 17:44:33,649 - INFO - dims=(512, 512, 160)
+2025-05-16 17:44:33,650 - INFO - spacing=(0.9765625, 0.9765625, 1.0)
+2025-05-16 17:44:33,650 - INFO - original_origin=(-249.51171875, -528.51171875, -1190.0)
+2025-05-16 17:44:33,773 - INFO - the center slice index is 79
+2025-05-16 17:44:33,847 - INFO - the center slice index is 255
+2025-05-16 17:44:33,896 - INFO - the center slice index is 255
+2025-05-16 17:44:33,985 - INFO - Image loaded successfully
+2025-05-16 17:45:42,619 - DEBUG - Created data directory: C:/Users/jkim20/Downloads/image_only.json.data
+2025-05-16 17:45:48,310 - INFO - Saved input image to C:/Users/jkim20/Downloads/image_only.json.data\input_image.mhd
+2025-05-16 17:45:49,162 - INFO - Saving manager states
+2025-05-16 17:45:50,555 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x00000284F1B48040> - Saving state
+2025-05-16 17:45:52,625 - INFO - <vtk_point_list_manager.PointListManager object at 0x00000284F1B49360> - Saving state
+2025-05-16 17:45:53,498 - INFO - <vtk_line_list_manager.LineListManager object at 0x00000284F1B49900> - Saving state
+2025-05-16 17:45:53,714 - INFO - Lines state saved successfully.
+2025-05-16 17:45:54,161 - INFO - <vtk_rect_list_manager.RectListManager object at 0x00000284F1B49E10> - Saving state
+2025-05-16 17:45:54,362 - INFO - Rectangles state saved successfully.
+2025-05-16 17:46:01,650 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x00000284F1B4A320> - Saving state
+2025-05-16 17:46:01,653 - INFO - Workspace metadata saved to C:/Users/jkim20/Downloads/image_only.json.
+2025-05-16 17:46:11,591 - INFO - MainWindow is closing.
+2025-05-16 17:46:11,653 - INFO - Application is quitting.
+2025-05-16 17:52:19,792 - INFO - Application started
+2025-05-16 17:52:26,866 - INFO - SegmentationListManager initialized
+2025-05-16 17:52:27,049 - INFO - MainWindow initialized
+2025-05-16 17:52:34,778 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:52:35,268 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:52:35,397 - INFO - the center slice index is 79
+2025-05-16 17:52:35,471 - INFO - the center slice index is 255
+2025-05-16 17:52:35,517 - INFO - the center slice index is 255
+2025-05-16 17:52:35,609 - INFO - loading manager states
+2025-05-16 17:52:35,609 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000014C155B8040> - Loading state
+2025-05-16 17:52:36,698 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000014C155B9360> - Loading state
+2025-05-16 17:52:37,459 - INFO - <vtk_line_list_manager.LineListManager object at 0x0000014C155B9900> - Loading state
+2025-05-16 17:52:37,460 - INFO - Lines state loaded successfully.
+2025-05-16 17:52:37,461 - INFO - <vtk_rect_list_manager.RectListManager object at 0x0000014C155B9E10> - Loading state
+2025-05-16 17:52:37,461 - INFO - Rectangles state loaded successfully.
+2025-05-16 17:52:37,461 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x0000014C155BA320> - Loading state
+2025-05-16 17:52:37,462 - INFO - Loaded workspace successfully.
+2025-05-16 17:53:47,093 - INFO - MainWindow is closing.
+2025-05-16 17:53:47,152 - INFO - Application is quitting.
+2025-05-16 17:59:18,484 - INFO - Application started
+2025-05-16 17:59:25,730 - INFO - SegmentationListManager initialized
+2025-05-16 17:59:25,909 - INFO - MainWindow initialized
+2025-05-16 17:59:36,498 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 17:59:37,014 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 17:59:37,140 - INFO - the center slice index is 79
+2025-05-16 17:59:37,211 - INFO - the center slice index is 255
+2025-05-16 17:59:37,258 - INFO - the center slice index is 255
+2025-05-16 17:59:37,346 - INFO - loading manager states
+2025-05-16 17:59:37,347 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001D43B510820> - Loading state
+2025-05-16 17:59:38,419 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001D43B511B40> - Loading state
+2025-05-16 17:59:39,183 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001D43B5120E0> - Loading state
+2025-05-16 17:59:39,184 - INFO - Lines state loaded successfully.
+2025-05-16 17:59:39,185 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001D43B5125F0> - Loading state
+2025-05-16 17:59:39,185 - INFO - Rectangles state loaded successfully.
+2025-05-16 17:59:39,185 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001D43B512B00> - Loading state
+2025-05-16 17:59:39,186 - INFO - Loaded workspace successfully.
+2025-05-16 18:01:53,049 - INFO - Application started
+2025-05-16 18:02:00,117 - INFO - SegmentationListManager initialized
+2025-05-16 18:02:00,302 - INFO - MainWindow initialized
+2025-05-16 18:02:09,048 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:02:09,554 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:02:09,679 - INFO - the center slice index is 79
+2025-05-16 18:02:09,751 - INFO - the center slice index is 255
+2025-05-16 18:02:09,797 - INFO - the center slice index is 255
+2025-05-16 18:02:09,883 - INFO - loading manager states
+2025-05-16 18:02:09,884 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000002141A3D7D90> - Loading state
+2025-05-16 18:02:10,901 - INFO - <vtk_point_list_manager.PointListManager object at 0x000002141A3FD120> - Loading state
+2025-05-16 18:02:11,659 - INFO - <vtk_line_list_manager.LineListManager object at 0x000002141A3FD6C0> - Loading state
+2025-05-16 18:02:11,661 - INFO - Lines state loaded successfully.
+2025-05-16 18:02:11,661 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000002141A3FDBD0> - Loading state
+2025-05-16 18:02:11,662 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:02:11,662 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000002141A3FE0E0> - Loading state
+2025-05-16 18:02:11,663 - INFO - Loaded workspace successfully.
+2025-05-16 18:02:41,495 - INFO - MainWindow is closing.
+2025-05-16 18:02:41,576 - INFO - Application is quitting.
+2025-05-16 18:03:17,182 - INFO - Application started
+2025-05-16 18:03:24,358 - INFO - SegmentationListManager initialized
+2025-05-16 18:03:24,538 - INFO - MainWindow initialized
+2025-05-16 18:03:31,916 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:04:39,379 - INFO - Application started
+2025-05-16 18:04:46,488 - INFO - SegmentationListManager initialized
+2025-05-16 18:04:46,672 - INFO - MainWindow initialized
+2025-05-16 18:04:52,631 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:05:15,795 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:05:23,583 - INFO - the center slice index is 79
+2025-05-16 18:05:23,654 - INFO - the center slice index is 255
+2025-05-16 18:05:23,701 - INFO - the center slice index is 255
+2025-05-16 18:05:28,805 - INFO - loading manager states
+2025-05-16 18:05:28,805 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001D54FFE8280> - Loading state
+2025-05-16 18:05:29,898 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001D54FFE95A0> - Loading state
+2025-05-16 18:05:30,665 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001D54FFE9B40> - Loading state
+2025-05-16 18:05:30,665 - INFO - Lines state loaded successfully.
+2025-05-16 18:05:30,666 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001D54FFEA050> - Loading state
+2025-05-16 18:05:30,666 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:05:30,666 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001D54FFEA560> - Loading state
+2025-05-16 18:05:30,667 - INFO - Loaded workspace successfully.
+2025-05-16 18:05:59,328 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:05:59,828 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:05:59,955 - INFO - the center slice index is 79
+2025-05-16 18:06:00,002 - INFO - the center slice index is 255
+2025-05-16 18:06:00,058 - INFO - the center slice index is 255
+2025-05-16 18:06:00,163 - INFO - loading manager states
+2025-05-16 18:06:00,164 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001D54FFE8280> - Loading state
+2025-05-16 18:06:01,174 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001D54FFE95A0> - Loading state
+2025-05-16 18:06:01,907 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001D54FFE9B40> - Loading state
+2025-05-16 18:06:01,909 - INFO - Lines state loaded successfully.
+2025-05-16 18:06:01,909 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001D54FFEA050> - Loading state
+2025-05-16 18:06:01,910 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:06:01,910 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001D54FFEA560> - Loading state
+2025-05-16 18:06:01,910 - INFO - Loaded workspace successfully.
+2025-05-16 18:06:58,152 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:06:58,676 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:06:58,804 - INFO - the center slice index is 79
+2025-05-16 18:06:58,851 - INFO - the center slice index is 255
+2025-05-16 18:06:58,895 - INFO - the center slice index is 255
+2025-05-16 18:06:58,998 - INFO - loading manager states
+2025-05-16 18:06:58,998 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x000001D54FFE8280> - Loading state
+2025-05-16 18:07:00,072 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001D54FFE95A0> - Loading state
+2025-05-16 18:07:00,826 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001D54FFE9B40> - Loading state
+2025-05-16 18:07:00,828 - INFO - Lines state loaded successfully.
+2025-05-16 18:07:00,829 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001D54FFEA050> - Loading state
+2025-05-16 18:07:00,829 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:07:00,830 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001D54FFEA560> - Loading state
+2025-05-16 18:07:00,831 - INFO - Loaded workspace successfully.
+2025-05-16 18:11:59,177 - INFO - Application started
+2025-05-16 18:12:06,371 - INFO - SegmentationListManager initialized
+2025-05-16 18:12:06,554 - INFO - MainWindow initialized
+2025-05-16 18:12:13,492 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:12:13,988 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:12:14,118 - INFO - the center slice index is 79
+2025-05-16 18:12:14,190 - INFO - the center slice index is 255
+2025-05-16 18:12:14,237 - INFO - the center slice index is 255
+2025-05-16 18:12:14,325 - INFO - loading manager states
+2025-05-16 18:12:14,326 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000020F47BB8040> - Loading state
+2025-05-16 18:12:15,388 - INFO - <vtk_point_list_manager.PointListManager object at 0x0000020F47BB9360> - Loading state
+2025-05-16 18:12:16,172 - INFO - <vtk_line_list_manager.LineListManager object at 0x0000020F47BB9900> - Loading state
+2025-05-16 18:12:16,180 - INFO - Lines state loaded successfully.
+2025-05-16 18:12:16,180 - INFO - <vtk_rect_list_manager.RectListManager object at 0x0000020F47BB9E10> - Loading state
+2025-05-16 18:12:16,181 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:12:16,181 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x0000020F47BBA320> - Loading state
+2025-05-16 18:12:16,181 - INFO - Loaded workspace successfully.
+2025-05-16 18:12:38,730 - INFO - MainWindow is closing.
+2025-05-16 18:12:38,790 - INFO - Application is quitting.

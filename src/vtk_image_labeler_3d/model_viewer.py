@@ -20,23 +20,29 @@ class Model():
 class SingleActorModel(Model):
     def __init__(self, name, actor):
         super().__init__(name)
-        self.actor = actor
+        self._actor = actor
 
     def set_visibility(self, flag):
-        self.actor.SetVisibility(flag)
+        self._actor.SetVisibility(flag)
+
+    def get_actor(self):
+        return self._actor
 
 class ModelList():
     def __init__(self):
-        self.list = {}
+        self._list = {}
 
+    def get_models(self):
+        return self._list
+    
     def add_model(self, name, model):
-        self.list[name] = model
+        self._list[name] = model
 
     def get_model(self, name):
-        return self.list[name]
+        return self._list[name]
         
     def get_model_names(self):
-        return list(self.list.keys())
+        return list(self._list.keys())
     
 from segmentation_layer_surface import SegmentationLayerSurfaceList, SegmentationLayerSurface
 from typing import List
@@ -49,6 +55,9 @@ class ModelViewer(QWidget):
         super().__init__()
     
         self.main_window = main_window
+        
+        self._image_boundary_model = None
+
 
         # delayed rendering
         from PyQt5.QtCore import QTimer
@@ -92,6 +101,15 @@ class ModelViewer(QWidget):
         self.segmentation_surfaces = SegmentationLayerSurfaceList()
         self.models = ModelList()
 
+    def clear(self):
+        if self._image_boundary_model:
+            self.get_renderer().RemoveActor(self._image_boundary_model.get_actor())
+
+        for surface in self.segmentation_surfaces.get_surfaces():
+            for actor in surface.get_actors():
+                self.get_renderer().RemoveActor(actor)
+        self.segmentation_surfaces.clear()
+
     def get_interactor(self):
         return self.interactor
 
@@ -115,12 +133,14 @@ class ModelViewer(QWidget):
         outline_actor.GetProperty().SetColor(0.8, 0.8, 0.8)  
         outline_actor.GetProperty().SetLineWidth(2.0)
 
-        self.add_actor_as_model("image", outline_actor)
+        return self.add_actor_as_model("image", outline_actor)
+
+        
 
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
         
-        self._add_image_boundary_surface_model()
+        self._image_boundary_model = self._add_image_boundary_surface_model()
         
         self.renderer.ResetCamera()
         
@@ -130,6 +150,8 @@ class ModelViewer(QWidget):
         model  = SingleActorModel(name, actor)
         self.models.add_model(name, model)
         self.renderer.AddActor(actor)
+
+        return model
 
     def set_model_visibility(self, name, flag):
         self.models.get_model(name).set_visibility(flag)

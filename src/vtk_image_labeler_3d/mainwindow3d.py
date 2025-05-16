@@ -49,6 +49,8 @@ from vtk_point_list_manager import PointListManager
 from vtk_line_list_manager import LineListManager
 from vtk_rect_list_manager import RectListManager
 
+from nnunet_client_manager import nnUNetDatasetManager
+
 class MainWindow3D(QMainWindow):
     
     def __init__(self):
@@ -58,6 +60,7 @@ class MainWindow3D(QMainWindow):
         self.exclusive_actions = []
         self.managers = []
         self.vtk_image = None
+        self._modified = False
 
         ### init ui ###    
         self.setWindowTitle("Image Labeler 3D")
@@ -153,7 +156,6 @@ class MainWindow3D(QMainWindow):
 
         ##########################
         # nnUNet client manager
-        from nnunet_client_manager import nnUNetDatasetManager
         self.nnunet_client_manager = nnUNetDatasetManager(self.segmentation_list_manager, "nnUNet Dashboard")
         toolbar, dock = self.nnunet_client_manager.setup_ui()
         if toolbar is not None:
@@ -662,8 +664,6 @@ class MainWindow3D(QMainWindow):
         #    _err(f"Failed to load image:{e}") 
         #    self.show_popup("Load Image", f"Error: Load Image Failed, {str(e)}", QMessageBox.Critical)
 
-
-
     def import_image_clicked(self):
         
         #file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
@@ -671,7 +671,6 @@ class MainWindow3D(QMainWindow):
         file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
         if file_path == '':
             return 
-        
 
         # close workspace before loading a new image
         if self.vtk_image is not None:
@@ -679,7 +678,13 @@ class MainWindow3D(QMainWindow):
 
         self.load_image(file_path)
 
+        self._modified = True
+
     def modified(self):
+
+        if self._modified:
+            return True
+        
         for manager in self.managers:
             if manager.modified():
                 return True
@@ -720,8 +725,6 @@ class MainWindow3D(QMainWindow):
             manager.clear()
 
         self.vtk_viewer.clear()
-
-     
 
         self.image_path = None
         self.vtk_image = None
@@ -818,6 +821,8 @@ class MainWindow3D(QMainWindow):
 
             # Clear existing workspace
             self.vtk_image = None
+            self.vtk_viewer.clear()
+
             #self.point_list_manager.points.clear()
 
             from itkvtk import load_vtk_image_using_sitk

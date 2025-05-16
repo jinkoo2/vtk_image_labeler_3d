@@ -20,7 +20,8 @@ def get_config():
 
     ret = {
         'log_dir': log_dir,
-        'temp_dir': temp_dir
+        'temp_dir': temp_dir,
+        'nnunet_server_url': os.getenv('nnunet_server_url')
     }
 
     print('get_config().return=', ret)

@@ -196,7 +196,13 @@ class LineListManager(QObject):
 
         self.color_rotator = ColorRotator()
 
+        self._modified = False
+
     def clear(self):
+
+        if len(self.lines) == 0:
+            return 
+
         """Clear all lines and their widgets."""
         for name, line in list(self.lines.items()):  # Use list to avoid mutation during iteration
             self.remove_line_by_name(name)  # Properly remove each line
