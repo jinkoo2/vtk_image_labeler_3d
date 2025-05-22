@@ -60,8 +60,11 @@ def get_dataset_image_name_list(BASE_URL, dataset_id):
     if response.status_code == 200:
         return response.json()
     else:
-        print(f"Failed to fetch image name list: {response.status_code}, {response.text}")
-        return None
+        error_message = f"Failed to fetch image name list: {response.status_code}, {response.text}"
+        print(error_message)
+        raise ServerError(error_message)  # Raise a custom exception for server errors
+    
+    
 
 def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, out_dir):
     url = f"{BASE_URL}/dataset/get_image_and_labels"
@@ -147,6 +150,74 @@ def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_p
             }
                 
             response = requests.post(url, files=files, data=data)
+
+        # Print response with error handling
+        if response.status_code == 200:
+            reseponse_data = response.json()
+            print("Success:", reseponse_data)
+            return reseponse_data
+        else:
+            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)  # Raise a custom exception for server errors
+    except requests.exceptions.RequestException as e:
+        # Handle network-related errors (e.g., connection issues)
+        print(f"An error occurred while pushing images to the server: {e}")
+        raise  # Re-raise the exception to forward it
+
+
+def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, labels_path):
+    # Required metadata
+    # dataset_id = "Dataset935_Test1"
+    # images_for = "train"  # Must be "train" or "test"
+    url = f"{BASE_URL}/dataset/update_image_and_labels"
+
+    try:
+        # Open files safely using 'with' to avoid leaks
+        with open(image_path, "rb") as img_file, open(labels_path, "rb") as lbl_file:
+            files = {
+                "base_image": img_file,
+                "labels": lbl_file,
+            }
+            
+            data = {
+                "dataset_id": dataset_id,
+                "images_for": images_for,  # train or test
+                "num": num
+            }
+                
+            response = requests.put(url, files=files, data=data)
+
+        # Print response with error handling
+        if response.status_code == 200:
+            reseponse_data = response.json()
+            print("Success:", reseponse_data)
+            return reseponse_data
+        else:
+            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)  # Raise a custom exception for server errors
+    except requests.exceptions.RequestException as e:
+        # Handle network-related errors (e.g., connection issues)
+        print(f"An error occurred while pushing images to the server: {e}")
+        raise  # Re-raise the exception to forward it
+
+    
+def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
+    # Required metadata
+    # dataset_id = "Dataset935_Test1"
+    # images_for = "train"  # Must be "train" or "test"
+    url = f"{BASE_URL}/dataset/delete_image_and_labels"
+
+    try:
+        # Use query parameters for DELETE
+        params = {
+            "dataset_id": dataset_id,
+            "images_for": images_for,
+            "num": num
+        }
+            
+        response = requests.delete(url, params=params)
 
         # Print response with error handling
         if response.status_code == 200:

@@ -693,3 +693,93 @@ AttributeError: 'ModelViewer' object has no attribute 'image_boundary_model'
 2025-05-16 18:12:16,181 - INFO - Loaded workspace successfully.
 2025-05-16 18:12:38,730 - INFO - MainWindow is closing.
 2025-05-16 18:12:38,790 - INFO - Application is quitting.
+2025-05-16 18:15:27,687 - INFO - Application started
+2025-05-16 18:15:34,839 - INFO - SegmentationListManager initialized
+2025-05-16 18:15:35,025 - INFO - MainWindow initialized
+2025-05-16 18:15:39,962 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:15:40,471 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:15:40,597 - INFO - the center slice index is 79
+2025-05-16 18:15:40,666 - INFO - the center slice index is 255
+2025-05-16 18:15:40,715 - INFO - the center slice index is 255
+2025-05-16 18:15:40,802 - INFO - loading manager states
+2025-05-16 18:15:40,803 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000018759427E20> - Loading state
+2025-05-16 18:15:41,842 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001875944D1B0> - Loading state
+2025-05-16 18:15:42,581 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001875944D750> - Loading state
+2025-05-16 18:15:42,584 - INFO - Lines state loaded successfully.
+2025-05-16 18:15:42,584 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001875944DC60> - Loading state
+2025-05-16 18:15:42,585 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:15:42,585 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001875944E170> - Loading state
+2025-05-16 18:15:42,586 - INFO - Loaded workspace successfully.
+2025-05-16 18:15:50,640 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:15:51,126 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:15:51,256 - INFO - the center slice index is 79
+2025-05-16 18:15:51,304 - INFO - the center slice index is 255
+2025-05-16 18:15:51,359 - INFO - the center slice index is 255
+2025-05-16 18:15:51,462 - INFO - loading manager states
+2025-05-16 18:15:51,463 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000018759427E20> - Loading state
+2025-05-16 18:15:52,511 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001875944D1B0> - Loading state
+2025-05-16 18:15:53,227 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001875944D750> - Loading state
+2025-05-16 18:15:53,229 - INFO - Lines state loaded successfully.
+2025-05-16 18:15:53,229 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001875944DC60> - Loading state
+2025-05-16 18:15:53,229 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:15:53,230 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001875944E170> - Loading state
+2025-05-16 18:15:53,230 - INFO - Loaded workspace successfully.
+2025-05-16 18:16:04,000 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:16:04,480 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:16:04,611 - INFO - the center slice index is 79
+2025-05-16 18:16:04,658 - INFO - the center slice index is 255
+2025-05-16 18:16:04,702 - INFO - the center slice index is 255
+2025-05-16 18:16:04,806 - INFO - loading manager states
+2025-05-16 18:16:04,806 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000018759427E20> - Loading state
+2025-05-16 18:16:05,835 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001875944D1B0> - Loading state
+2025-05-16 18:16:06,610 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001875944D750> - Loading state
+2025-05-16 18:16:06,611 - INFO - Lines state loaded successfully.
+2025-05-16 18:16:06,612 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001875944DC60> - Loading state
+2025-05-16 18:16:06,612 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:16:06,613 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001875944E170> - Loading state
+2025-05-16 18:16:06,613 - INFO - Loaded workspace successfully.
+2025-05-16 18:16:22,658 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 18:16:22,659 - INFO - File extension: .mha
+2025-05-16 18:16:22,845 - INFO - dims=(512, 512, 64)
+2025-05-16 18:16:22,845 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 18:16:22,846 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 18:16:22,899 - INFO - the center slice index is 31
+2025-05-16 18:16:22,947 - INFO - the center slice index is 255
+2025-05-16 18:16:22,990 - INFO - the center slice index is 255
+2025-05-16 18:16:23,098 - INFO - Image loaded successfully
+2025-05-16 18:16:53,049 - DEBUG - Created data directory: C:/Users/jkim20/Downloads/cbct1.json.data
+2025-05-16 18:16:53,480 - INFO - Saved input image to C:/Users/jkim20/Downloads/cbct1.json.data\input_image.mhd
+2025-05-16 18:16:53,481 - INFO - Saving manager states
+2025-05-16 18:16:53,481 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000018759427E20> - Saving state
+2025-05-16 18:16:53,568 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001875944D1B0> - Saving state
+2025-05-16 18:16:53,569 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001875944D750> - Saving state
+2025-05-16 18:16:53,569 - INFO - Lines state saved successfully.
+2025-05-16 18:16:53,570 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001875944DC60> - Saving state
+2025-05-16 18:16:53,570 - INFO - Rectangles state saved successfully.
+2025-05-16 18:16:53,570 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001875944E170> - Saving state
+2025-05-16 18:16:53,574 - INFO - Workspace metadata saved to C:/Users/jkim20/Downloads/cbct1.json.
+2025-05-16 18:17:02,409 - INFO - Loaded workspace metadata from C:/Users/jkim20/Downloads/test.json.
+2025-05-16 18:17:02,896 - INFO - Loaded input image from C:/Users/jkim20/Downloads/test.json.data\input_image.mhd.
+2025-05-16 18:17:03,022 - INFO - the center slice index is 79
+2025-05-16 18:17:03,070 - INFO - the center slice index is 255
+2025-05-16 18:17:03,114 - INFO - the center slice index is 255
+2025-05-16 18:17:03,204 - INFO - loading manager states
+2025-05-16 18:17:03,205 - INFO - <vtk_segmentation_list_manager.SegmentationListManager object at 0x0000018759427E20> - Loading state
+2025-05-16 18:17:04,233 - INFO - <vtk_point_list_manager.PointListManager object at 0x000001875944D1B0> - Loading state
+2025-05-16 18:17:04,935 - INFO - <vtk_line_list_manager.LineListManager object at 0x000001875944D750> - Loading state
+2025-05-16 18:17:04,937 - INFO - Lines state loaded successfully.
+2025-05-16 18:17:04,938 - INFO - <vtk_rect_list_manager.RectListManager object at 0x000001875944DC60> - Loading state
+2025-05-16 18:17:04,938 - INFO - Rectangles state loaded successfully.
+2025-05-16 18:17:04,939 - INFO - <nnunet_client_manager.nnUNetDatasetManager object at 0x000001875944E170> - Loading state
+2025-05-16 18:17:04,939 - INFO - Loaded workspace successfully.
+2025-05-16 18:17:11,460 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-16 18:17:11,461 - INFO - File extension: .mha
+2025-05-16 18:17:11,646 - INFO - dims=(512, 512, 64)
+2025-05-16 18:17:11,646 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-16 18:17:11,647 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-16 18:17:11,701 - INFO - the center slice index is 31
+2025-05-16 18:17:11,749 - INFO - the center slice index is 255
+2025-05-16 18:17:11,792 - INFO - the center slice index is 255
+2025-05-16 18:17:11,888 - INFO - Image loaded successfully
+2025-05-19 11:29:55,534 - INFO - MainWindow is closing.
+2025-05-19 11:29:55,611 - INFO - Application is quitting.

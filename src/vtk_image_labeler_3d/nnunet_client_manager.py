@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QWidget,
 from PyQt5.QtWidgets import QListWidget
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QTextEdit, QHBoxLayout, QDialog, QMessageBox
 
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
+
 from logger import logger
 from color_rotator import ColorRotator
 import nnunet_service 
@@ -14,6 +16,8 @@ import requests
 
 from config import get_config
 conf = get_config()
+
+
 
 def extract_image_number(filename):
     import re
@@ -172,9 +176,9 @@ class nnUNetDatasetManager(QObject):
         layout.addWidget(self.label)
 
         # Dropdown (ComboBox)
-        self.dropdown = QComboBox()
-        self.dropdown.currentIndexChanged.connect(self.dataset_selected)
-        layout.addWidget(self.dropdown)
+        self.dataset_dropdown = QComboBox()
+        self.dataset_dropdown.currentIndexChanged.connect(self.dataset_selected)
+        layout.addWidget(self.dataset_dropdown)
 
         # Dataset details text area (Expands to fill space)
         self.details_label = QTextEdit("Dataset details will appear here.")
@@ -184,22 +188,27 @@ class nnUNetDatasetManager(QObject):
         layout.addWidget(self.details_label)
 
         # Train  Image lists
-        import listwidget_with_title
-        listwidget = listwidget_with_title.ListWidgetWithTitle('Training Images')
+        import nnunet_image_dataset_listwidget
+        listwidget = nnunet_image_dataset_listwidget.nnUnetImageDataSetListWidget('train')
+        listwidget.image_dataset_downloaded.connect(self.handle_image_dataset_downloaded)
+        listwidget.post_dataset_clicked.connect(self.handle_image_dataset_listwidget_post_dataset_clicked)
+        listwidget.update_dataset_clicked.connect(self.handle_image_dataset_listwidget_update_dataset_clicked)
+        listwidget.delete_dataset_clicked.connect(self.handle_image_dataset_listwidget_delete_dataset_clicked)
         listwidget.setMinimumWidth(200)
         listwidget.setToolTip("Training Images")
         layout.addWidget(listwidget)
-
-        self.train_image_list_widget = listwidget.list_widget
-        self.train_image_list_widget.itemDoubleClicked.connect(self.on_train_listwidget_item_double_clicked)
+        self.train_image_list_widget = listwidget
        
-        # Train  Image lists
-        listwidget = listwidget_with_title.ListWidgetWithTitle('Test Images')
+        # Test  Image lists
+        listwidget = nnunet_image_dataset_listwidget.nnUnetImageDataSetListWidget('test')
+        listwidget.image_dataset_downloaded.connect(self.handle_image_dataset_downloaded)
+        listwidget.post_dataset_clicked.connect(self.handle_image_dataset_listwidget_post_dataset_clicked)
+        listwidget.update_dataset_clicked.connect(self.handle_image_dataset_listwidget_update_dataset_clicked)
+        listwidget.delete_dataset_clicked.connect(self.handle_image_dataset_listwidget_delete_dataset_clicked)
         listwidget.setMinimumWidth(200)
         listwidget.setToolTip("Test Images")
         layout.addWidget(listwidget)
-        self.test_image_list_widget = listwidget.list_widget
-        self.test_image_list_widget.itemDoubleClicked.connect(self.on_test_listwidget_item_double_clicked)
+        self.test_image_list_widget = listwidget
         return layout
     
     def _create_command_button_layout(self):
@@ -211,16 +220,6 @@ class nnUNetDatasetManager(QObject):
         self.new_dataset_button = QPushButton("New Dataset")
         self.new_dataset_button.clicked.connect(self.open_new_dataset_dialog)
         layout.addWidget(self.new_dataset_button)
-
-        # Pull training images/labels
-        self.pull_seleted_train_data_set_button = QPushButton("Pull Selected Train Data Set")
-        self.pull_seleted_train_data_set_button.clicked.connect(self.pull_seleted_train_dataset_clicked)
-        layout.addWidget(self.pull_seleted_train_data_set_button)
-
-        # Pull test images/labels
-        self.pull_seleted_test_data_set_button = QPushButton("Pull Selected Test Data Set")
-        self.pull_seleted_test_data_set_button.clicked.connect(self.pull_seleted_test_dataset_clicked)
-        layout.addWidget(self.pull_seleted_test_data_set_button)
 
         # Post image and label (training)
         self.post_image_and_labels_for_training_button = QPushButton("Push Images for Training")
@@ -268,8 +267,8 @@ class nnUNetDatasetManager(QObject):
                     new_dataset = response_data["dataset"]
 
                     self.datasets.append(new_dataset)  # Add new dataset to list
-                    self.dropdown.addItem(new_dataset["id"])  # Add to dropdown
-                    self.dropdown.setCurrentIndex(len(self.datasets) - 1)  # Select new dataset
+                    self.dataset_dropdown.addItem(new_dataset["id"])  # Add to dropdown
+                    self.dataset_dropdown.setCurrentIndex(len(self.datasets) - 1)  # Select new dataset
                     self.dataset_selected(len(self.datasets) - 1)  # Show details
 
                     print(f"response_data={response_data}")
@@ -282,7 +281,7 @@ class nnUNetDatasetManager(QObject):
                     self.log_message.emit("ERROR", f"Request failed: {e}")
     
     def get_selected_dataset_id(self):
-        selected_text = self.dropdown.currentText()
+        selected_text = self.dataset_dropdown.currentText()
         return selected_text
 
     def get_seletect_train_image_name(self):
@@ -297,49 +296,26 @@ class nnUNetDatasetManager(QObject):
             return None
         return selected_item.text()
 
-    def pull_seleted_train_dataset(self, images_for='train'):
-        selected_item = self.train_image_list_widget.currentItem()
-        if not selected_item:
-            print("No training image selected.")
-            return
-
-        try:
-            # Extract ID from the selected item's data or text
-            selected_text = selected_item.text()
-            number = extract_image_number(selected_text)  # crude way to extract number
-            dataset_id = self.get_selected_dataset_id()
-            base_url = self.get_server_url()
-
-            from nnunet_service import download_dataset_images_and_labels
-            result = download_dataset_images_and_labels(
-                BASE_URL=base_url,
-                dataset_id=dataset_id,
-                images_for=images_for,
-                num=number,
-                out_dir="./downloads"
-            )
-
-            print("Download complete:", result)
-
-            # notify image download
-            image_path = result['downloaded_base_image_path']
-            labels_path = result['downloaded_labels_image_path']
-            self.image_dataset_downloaded.emit(image_path, labels_path, self)
-
-        except Exception as e:
-            print("Error downloading dataset:", str(e))
+    def pull_seleted_image_dataset(self, images_for='train'):
+        pass
 
     def on_train_listwidget_item_double_clicked(self,item):
-        self.pull_seleted_train_dataset('train')
+        self.pull_seleted_image_dataset('train')
               
     def on_test_listwidget_item_double_clicked(self,item):
-        self.pull_seleted_train_dataset('test')
+        self.pull_seleted_image_dataset('test')
 
-    def pull_seleted_train_dataset_clicked(self):
-        self.pull_seleted_train_dataset('train')
+    def handle_image_dataset_downloaded(self, image_path, labels_path, list_widget):
+        self.image_dataset_downloaded.emit(image_path, labels_path, self)  
 
-    def pull_seleted_test_dataset_clicked(self):
-        self.pull_seleted_train_dataset('test')
+    def handle_image_dataset_listwidget_post_dataset_clicked(self, dataset_id, images_for, sender):
+        self.post_image_and_labels(images_for)
+
+    def handle_image_dataset_listwidget_update_dataset_clicked(self, dataset_id, images_for, num, sender):
+        self.update_image_and_labels(images_for, num)
+
+    def handle_image_dataset_listwidget_delete_dataset_clicked(self, dataset_id, images_for, num, sender):
+        self.delete_image_and_labels(images_for, num)
 
     def post_image_and_labels_for_training_clicked(self):
         self.post_image_and_labels("train")
@@ -348,8 +324,8 @@ class nnUNetDatasetManager(QObject):
         self.post_image_and_labels("test")
 
     def post_image_and_labels(self, images_for):
-        selected_text = self.dropdown.currentText()
-        selected_index = self.dropdown.currentIndex()
+        selected_text = self.dataset_dropdown.currentText()
+        selected_index = self.dataset_dropdown.currentIndex()
 
         if selected_text is "" or selected_index is -1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
@@ -364,31 +340,7 @@ class nnUNetDatasetManager(QObject):
             else:
                 dataset_id = selected_text
 
-            # get vtk image and label list
-            vtk_image = self.segmentation_list_manager.get_base_vtk_image()
-            vtk_label_list = self.segmentation_list_manager.get_segmentation_vtk_images()
-
-            # combine the labels 
-            from itkvtk import vtk_to_sitk
-            sitk_label_list = [vtk_to_sitk(vtk_label) for vtk_label in vtk_label_list]
-            from itk import combine_sitk_labels, save_sitk_image
-            sitk_labels = combine_sitk_labels(sitk_label_list)
-
-            # save the files to a temporary folders
-            temp_dir = conf['temp_dir']
-            import time
-            sec = int(time.time())  # Current time in seconds
-            import os
-            image_path = os.path.join(temp_dir, f'image_{sec}.mha')
-            labels_path = os.path.join(temp_dir, f'labels_{sec}.mha')
-
-            print(f'saving image to {image_path}')
-            #save_as_2d_if_single_slice_3d_image=False, in nnunet everything is 3d. so, no need to save as 2d
-            save_sitk_image(vtk_to_sitk(vtk_image), image_path, save_as_2d_if_single_slice_3d_image=False)
-            
-            print(f'saving labels to {labels_path}')
-            #save_as_2d_if_single_slice_3d_image=False, in nnunet everything is 3d. so, no need to save as 2d
-            save_sitk_image(sitk_labels, labels_path, save_as_2d_if_single_slice_3d_image=False)
+            image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
 
             dataset_updated = nnunet_service.post_image_and_labels(self.get_server_url(), dataset_id, images_for, image_path, labels_path)
             print(f"response_data={dataset_updated}")
@@ -398,6 +350,113 @@ class nnUNetDatasetManager(QObject):
             self.datasets[selected_index] = dataset_updated
             self.dataset_selected(selected_index)  
         
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+            self.log_message.emit("ERROR", f"Server error: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            self.log_message.emit("ERROR", f"Request failed: {e}")
+
+    def save_image_and_combined_label_to_temp_folder(self, dataset):
+         # get vtk image and label list
+        vtk_image = self.segmentation_list_manager.get_base_vtk_image()
+        vtk_label_image_list = []
+        label_list = []
+        for name, pixel_value in dataset['labels'].items():
+            #skip background
+            if pixel_value == 0:
+                continue
+
+            layer = self.segmentation_list_manager.get_segmentation_layer_list().get_layer_by_name(name)
+            if layer:
+                vtk_label = layer.get_image()
+                vtk_label_image_list.append(vtk_label)
+                label_list.append(pixel_value)
+            else:
+                print(f'Warning segmentation layer not found for name={name}')
+
+        # combine the labels 
+        from itkvtk import vtk_to_sitk
+        sitk_label_list = [vtk_to_sitk(vtk_label) for vtk_label in vtk_label_image_list]
+        from itk_tools import combine_sitk_labels, save_sitk_image
+        sitk_labels = combine_sitk_labels(sitk_label_list, label_list)
+
+        # save the files to a temporary folders
+        temp_dir = conf['temp_dir']
+        import time
+        sec = int(time.time())  # Current time in seconds
+        import os
+        image_path = os.path.join(temp_dir, f'image_{sec}.mha')
+        labels_path = os.path.join(temp_dir, f'labels_{sec}.mha')
+
+        print(f'saving image to {image_path}')
+        #save_as_2d_if_single_slice_3d_image=False, in nnunet everything is 3d. so, no need to save as 2d
+        save_sitk_image(vtk_to_sitk(vtk_image), image_path, save_as_2d_if_single_slice_3d_image=False)
+        
+        print(f'saving labels to {labels_path}')
+        #save_as_2d_if_single_slice_3d_image=False, in nnunet everything is 3d. so, no need to save as 2d
+        save_sitk_image(sitk_labels, labels_path, save_as_2d_if_single_slice_3d_image=False)
+
+        return image_path, labels_path
+
+    def update_image_and_labels(self, images_for, num):
+        selected_text = self.dataset_dropdown.currentText()
+        selected_index = self.dataset_dropdown.currentIndex()
+
+        if selected_text is "" or selected_index is -1:
+            self.log_message.emit("INFO", "Please select a dataset to add images to")
+            return 
+
+        dataset = self.datasets[selected_index]
+
+        """updating the images and labels"""
+        try:
+            if "id" in dataset:
+                dataset_id = dataset["id"]
+            else:
+                dataset_id = selected_text
+
+            image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
+
+            dataset_updated = nnunet_service.update_image_and_labels(self.get_server_url(), dataset_id, images_for, num, image_path, labels_path)
+            print(f"response_data={dataset_updated}")
+            self.log_message.emit("INFO",f"dateset_updated={dataset_updated}")
+       
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+            self.log_message.emit("ERROR", f"Server error: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            self.log_message.emit("ERROR", f"Request failed: {e}")
+
+
+    def delete_image_and_labels(self, images_for, num):
+        selected_text = self.dataset_dropdown.currentText()
+        selected_index = self.dataset_dropdown.currentIndex()
+
+        if selected_text == "" or selected_index == -1:
+            self.log_message.emit("INFO", "Please select a dataset to add images to")
+            return 
+
+        dataset = self.datasets[selected_index]
+
+        """deleting the images and labels"""
+        try:
+            if "id" in dataset:
+                dataset_id = dataset["id"]
+            else:
+                dataset_id = selected_text
+
+            delete_info = nnunet_service.delete_image_and_labels(self.get_server_url(), dataset_id, images_for, num)
+            print(f"response_data={delete_info}")
+            self.log_message.emit("INFO",f"dateset_updated={delete_info}")
+       
+            dataset_updated = delete_info['dataset_json']
+
+            # update the data & the view
+            self.datasets[selected_index] = dataset_updated
+            self.dataset_selected(selected_index)  
+
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
             self.log_message.emit("ERROR", f"Server error: {e}")
@@ -423,20 +482,20 @@ class nnUNetDatasetManager(QObject):
 
     def connect_to_server_clicked(self):
         """Fetch datasets and populate dropdown list."""
-        self.dropdown.clear()  # Clear existing items
+        self.dataset_dropdown.clear()  # Clear existing items
         self.datasets = self.get_dataset_json_list()
 
         if not self.datasets:
-            self.dropdown.addItem("No datasets available")
+            self.dataset_dropdown.addItem("No datasets available")
             self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
             return
 
         dataset_ids = [dataset['id'] for dataset in self.datasets]
-        self.dropdown.addItems(dataset_ids)
+        self.dataset_dropdown.addItems(dataset_ids)
 
         # Set first dataset as default and show its details
         if dataset_ids:
-            self.dropdown.setCurrentIndex(0)
+            self.dataset_dropdown.setCurrentIndex(0)
             self.dataset_selected(0)
 
 
@@ -454,6 +513,7 @@ class nnUNetDatasetManager(QObject):
     
     def get_selected_dataset(self):
         return self._current_datast
+    
     
     def dataset_selected(self, index):
         """Triggered when the user selects a dataset."""
@@ -485,14 +545,10 @@ class nnUNetDatasetManager(QObject):
             print(f"response_data={response_data}")
 
             # --- Populate training image list ---
-            self.train_image_list_widget.clear()
-            for item in response_data.get("train_images", []):
-                self.train_image_list_widget.addItem(item["filename"])
+            self.train_image_list_widget.set_dataset(dataset_id, response_data['train_images'])
 
             # --- Populate testing image list ---
-            self.test_image_list_widget.clear()
-            for item in response_data.get("test_images", []):
-                self.test_image_list_widget.addItem(item["filename"])
+            self.test_image_list_widget.set_dataset(dataset_id, response_data['test_images'])
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -513,6 +569,6 @@ class nnUNetDatasetManager(QObject):
 
     def clear(self):
         pass 
-    
+
     def modified(self):
         return False

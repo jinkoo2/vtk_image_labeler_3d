@@ -70,49 +70,42 @@ def flip(sitk_image, axis):
 import SimpleITK as sitk
 import numpy as np
 
-def combine_sitk_labels(label_images):
+def combine_sitk_labels(label_images, label_values):
     """
-    Combine multiple binary label images into a single labeled image.
-    
+    Combine multiple binary label images into a single labeled image, using specified label values.
+
     Parameters:
-        label_images (list of sitk.Image): List of SimpleITK binary label images (0-background, 1-object).
+        label_images (list of sitk.Image): List of binary SimpleITK images (0=background, 1=foreground).
+        label_values (list of int): List of unique label values to assign in the combined image.
         
     Returns:
-        sitk.Image: A single SimpleITK image where each object is uniquely labeled.
+        sitk.Image: A single SimpleITK label image with specified label values.
     """
-    if not label_images:
+    if not label_images or len(label_images)==0:
         raise ValueError("Input label_images list is empty.")
 
-    # Get image size and dimension
-    ref_size = label_images[0].GetSize()
-    ref_spacing = label_images[0].GetSpacing()
-    ref_origin = label_images[0].GetOrigin()
-    ref_direction = label_images[0].GetDirection()
+    if len(label_images) != len(label_values):
+        raise ValueError("label_images and label_values must be the same length.")
 
-    # Convert all images to numpy arrays
-    label_arrays = [sitk.GetArrayFromImage(img) for img in label_images]
+    # Reference metadata from first image
+    ref_img = label_images[0]
+    ref_shape = sitk.GetArrayFromImage(ref_img).shape
 
-    # Ensure all images have the same shape
-    for i, arr in enumerate(label_arrays):
-        if arr.shape != label_arrays[0].shape:
-            raise ValueError(f"Label image {i} does not match dimensions of the first label image.")
+    # Initialize combined label array
+    combined = np.zeros(ref_shape, dtype=np.uint16)
 
-    # Create an empty label map
-    combined_label_array = np.zeros_like(label_arrays[0], dtype=np.uint8)
+    # Assign label values
+    for img, label in zip(label_images, label_values):
+        arr = sitk.GetArrayFromImage(img)
+        if arr.shape != ref_shape:
+            raise ValueError("All label images must have the same shape.")
+        combined[arr > 0] = label  # Use the given label value
 
-    # Assign unique labels to each object
-    for i, label_array in enumerate(label_arrays):
-        combined_label_array[label_array > 0] = i + 1  # Background remains 0, first object = 1, second = 2, etc.
-
-    # Convert back to SimpleITK image
-    combined_label_image = sitk.GetImageFromArray(combined_label_array)
-
-    # Set spatial information
-    combined_label_image.SetSpacing(ref_spacing)
-    combined_label_image.SetOrigin(ref_origin)
-    combined_label_image.SetDirection(ref_direction)
-
-    return combined_label_image
+    # Convert to SimpleITK image
+    combined_img = sitk.GetImageFromArray(combined)
+    combined_img.CopyInformation(ref_img)
+    
+    return combined_img
 
 def is_single_slice_3d_image(image):
     # Get the image dimension

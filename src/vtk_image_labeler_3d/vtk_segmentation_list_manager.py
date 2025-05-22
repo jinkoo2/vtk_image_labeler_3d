@@ -318,6 +318,8 @@ class SegmentationLayer(QObject):
     # def get_actor(self):
     #     return self._actor
 
+from typing import List
+
 class SegmentationLayerList(QObject):
 
     layer_added = pyqtSignal(QObject, QObject)
@@ -325,7 +327,7 @@ class SegmentationLayerList(QObject):
 
     def __init__(self):
         super().__init__()
-        self._layers = []
+        self._layers: List[SegmentationLayer] = []
     
     def clear(self):
         if len(self._layers) == 0:
@@ -729,6 +731,9 @@ class SegmentationListManager(QObject):
 
         logger.info("SegmentationListManager initialized")
 
+    def get_segmentation_layer_list(self) -> SegmentationLayerList:
+        return self.segmentation_layers
+    
     def get_vtk_viewer(self):
         return self.vtk_viewer
     

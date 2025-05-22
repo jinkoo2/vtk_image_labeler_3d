@@ -1,0 +1,98 @@
+2025-05-21 09:04:43,782 - INFO - Application started
+2025-05-21 09:05:00,632 - INFO - SegmentationListManager initialized
+2025-05-21 09:05:01,826 - INFO - MainWindow initialized
+2025-05-21 17:01:06,758 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:01:06,759 - INFO - File extension: .mha
+2025-05-21 17:01:06,959 - INFO - dims=(512, 512, 64)
+2025-05-21 17:01:06,959 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:01:06,960 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:01:07,021 - INFO - the center slice index is 31
+2025-05-21 17:01:07,101 - INFO - the center slice index is 255
+2025-05-21 17:01:07,149 - INFO - the center slice index is 255
+2025-05-21 17:01:07,239 - INFO - Image loaded successfully
+2025-05-21 17:15:43,039 - INFO - Application started
+2025-05-21 17:15:59,532 - INFO - SegmentationListManager initialized
+2025-05-21 17:16:00,472 - INFO - MainWindow initialized
+2025-05-21 17:16:15,590 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:16:15,591 - INFO - File extension: .mha
+2025-05-21 17:16:15,776 - INFO - dims=(512, 512, 64)
+2025-05-21 17:16:15,776 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:16:15,777 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:16:15,835 - INFO - the center slice index is 31
+2025-05-21 17:16:15,906 - INFO - the center slice index is 255
+2025-05-21 17:16:15,953 - INFO - the center slice index is 255
+2025-05-21 17:16:16,043 - INFO - Image loaded successfully
+2025-05-21 17:46:02,930 - INFO - Application started
+2025-05-21 17:46:10,365 - INFO - SegmentationListManager initialized
+2025-05-21 17:46:10,547 - INFO - MainWindow initialized
+2025-05-21 17:46:18,957 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:46:18,958 - INFO - File extension: .mha
+2025-05-21 17:46:19,146 - INFO - dims=(512, 512, 64)
+2025-05-21 17:46:19,147 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:46:19,147 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:46:19,202 - INFO - the center slice index is 31
+2025-05-21 17:46:19,279 - INFO - the center slice index is 255
+2025-05-21 17:46:19,325 - INFO - the center slice index is 255
+2025-05-21 17:46:19,416 - INFO - Image loaded successfully
+2025-05-21 17:48:43,047 - INFO - Application started
+2025-05-21 17:48:49,913 - INFO - SegmentationListManager initialized
+2025-05-21 17:48:50,096 - INFO - MainWindow initialized
+2025-05-21 17:48:56,113 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:48:56,114 - INFO - File extension: .mha
+2025-05-21 17:48:56,308 - INFO - dims=(512, 512, 64)
+2025-05-21 17:48:56,309 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:48:56,309 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:48:56,368 - INFO - the center slice index is 31
+2025-05-21 17:48:56,442 - INFO - the center slice index is 255
+2025-05-21 17:48:56,489 - INFO - the center slice index is 255
+2025-05-21 17:48:56,576 - INFO - Image loaded successfully
+2025-05-21 17:50:30,629 - INFO - dateset_updated={'name': 'CBCTBladderRectumBowel2', 'description': 'Copy of CBCTBladderRectumBowel, but rectum is added', 'reference': 'Stony Brook Univ Hospital', 'licence': 'CC-BY-SA 4.0', 'tensorImageSize': '3D', 'labels': {'background': 0, 'bladder': 1, 'rectum': 2, 'bowel': 3}, 'channel_names': {'0': 'CT'}, 'file_ending': '.mha', 'numTraining': 2, 'numTest': 0, 'id': 'Dataset015_CBCTBladderRectumBowel2'}
+2025-05-21 17:51:19,940 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:51:19,940 - INFO - File extension: .mha
+2025-05-21 17:51:20,141 - INFO - dims=(512, 512, 64)
+2025-05-21 17:51:20,141 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:51:20,141 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:51:20,199 - INFO - the center slice index is 31
+2025-05-21 17:51:20,246 - INFO - the center slice index is 255
+2025-05-21 17:51:20,293 - INFO - the center slice index is 255
+2025-05-21 17:51:20,385 - INFO - Image loaded successfully
+2025-05-21 17:51:46,257 - INFO - Paint tool activated
+2025-05-21 17:52:16,139 - INFO - dateset_updated={'name': 'CBCTBladderRectumBowel2', 'description': 'Copy of CBCTBladderRectumBowel, but rectum is added', 'reference': 'Stony Brook Univ Hospital', 'licence': 'CC-BY-SA 4.0', 'tensorImageSize': '3D', 'labels': {'background': 0, 'bladder': 1, 'rectum': 2, 'bowel': 3}, 'channel_names': {'0': 'CT'}, 'file_ending': '.mha', 'numTraining': 3, 'numTest': 0, 'id': 'Dataset015_CBCTBladderRectumBowel2'}
+2025-05-21 17:52:30,146 - INFO - Loading image from ./downloads\image_2_0000.mha
+2025-05-21 17:52:30,147 - INFO - File extension: .mha
+2025-05-21 17:52:30,335 - INFO - dims=(512, 512, 64)
+2025-05-21 17:52:30,336 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:52:30,336 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:52:30,394 - INFO - the center slice index is 31
+2025-05-21 17:52:30,441 - INFO - the center slice index is 255
+2025-05-21 17:52:30,488 - INFO - the center slice index is 255
+2025-05-21 17:52:30,579 - INFO - Image loaded successfully
+2025-05-21 17:54:19,148 - INFO - Application started
+2025-05-21 17:54:26,112 - INFO - SegmentationListManager initialized
+2025-05-21 17:54:26,301 - INFO - MainWindow initialized
+2025-05-21 17:54:33,095 - INFO - Loading image from ./downloads\image_2_0000.mha
+2025-05-21 17:54:33,096 - INFO - File extension: .mha
+2025-05-21 17:54:33,284 - INFO - dims=(512, 512, 64)
+2025-05-21 17:54:33,285 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:54:33,285 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:54:33,344 - INFO - the center slice index is 31
+2025-05-21 17:54:33,415 - INFO - the center slice index is 255
+2025-05-21 17:54:33,461 - INFO - the center slice index is 255
+2025-05-21 17:54:33,551 - INFO - Image loaded successfully
+2025-05-21 17:54:40,054 - INFO - dateset_updated={'name': 'CBCTBladderRectumBowel2', 'description': 'Copy of CBCTBladderRectumBowel, but rectum is added', 'reference': 'Stony Brook Univ Hospital', 'licence': 'CC-BY-SA 4.0', 'tensorImageSize': '3D', 'labels': {'background': 0, 'bladder': 1, 'rectum': 2, 'bowel': 3}, 'channel_names': {'0': 'CT'}, 'file_ending': '.mha', 'numTraining': 3, 'numTest': 1, 'id': 'Dataset015_CBCTBladderRectumBowel2'}
+2025-05-21 17:54:48,303 - INFO - MainWindow is closing.
+2025-05-21 17:54:48,363 - INFO - Application is quitting.
+2025-05-21 17:54:54,371 - INFO - Application started
+2025-05-21 17:55:01,255 - INFO - SegmentationListManager initialized
+2025-05-21 17:55:01,435 - INFO - MainWindow initialized
+2025-05-21 17:55:08,202 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-21 17:55:08,203 - INFO - File extension: .mha
+2025-05-21 17:55:08,412 - INFO - dims=(512, 512, 64)
+2025-05-21 17:55:08,412 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-21 17:55:08,413 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-21 17:55:08,470 - INFO - the center slice index is 31
+2025-05-21 17:55:08,539 - INFO - the center slice index is 255
+2025-05-21 17:55:08,586 - INFO - the center slice index is 255
+2025-05-21 17:55:08,678 - INFO - Image loaded successfully
+2025-05-22 12:49:01,224 - INFO - MainWindow is closing.
+2025-05-22 12:49:01,291 - INFO - Application is quitting.

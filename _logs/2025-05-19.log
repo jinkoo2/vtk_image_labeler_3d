@@ -1,0 +1,54 @@
+2025-05-19 11:30:04,149 - INFO - Application started
+2025-05-19 11:30:20,627 - INFO - SegmentationListManager initialized
+2025-05-19 11:30:21,895 - INFO - MainWindow initialized
+2025-05-19 11:31:30,002 - INFO - Application started
+2025-05-19 11:31:37,097 - INFO - SegmentationListManager initialized
+2025-05-19 11:31:37,326 - INFO - MainWindow initialized
+2025-05-19 11:31:56,159 - INFO - MainWindow is closing.
+2025-05-19 11:31:56,238 - INFO - Application is quitting.
+2025-05-19 11:41:04,106 - INFO - Application started
+2025-05-19 11:41:11,274 - INFO - SegmentationListManager initialized
+2025-05-19 11:41:11,462 - INFO - MainWindow initialized
+2025-05-19 11:41:35,585 - INFO - MainWindow is closing.
+2025-05-19 11:41:35,687 - INFO - Application is quitting.
+2025-05-19 16:25:44,233 - INFO - Application started
+2025-05-19 16:26:01,863 - INFO - SegmentationListManager initialized
+2025-05-19 16:26:03,218 - INFO - MainWindow initialized
+2025-05-19 17:04:52,150 - INFO - Application started
+2025-05-19 17:04:59,254 - INFO - SegmentationListManager initialized
+2025-05-19 17:04:59,449 - INFO - MainWindow initialized
+2025-05-19 17:05:44,423 - INFO - Application started
+2025-05-19 17:05:51,550 - INFO - SegmentationListManager initialized
+2025-05-19 17:05:51,736 - INFO - MainWindow initialized
+2025-05-19 17:13:48,121 - INFO - Application started
+2025-05-19 17:13:55,206 - INFO - SegmentationListManager initialized
+2025-05-19 17:14:13,736 - INFO - Application started
+2025-05-19 17:14:20,807 - INFO - SegmentationListManager initialized
+2025-05-19 17:14:20,996 - INFO - MainWindow initialized
+2025-05-19 17:15:13,795 - INFO - Application started
+2025-05-19 17:15:20,933 - INFO - SegmentationListManager initialized
+2025-05-19 17:15:21,126 - INFO - MainWindow initialized
+2025-05-19 17:17:06,279 - INFO - Application started
+2025-05-19 17:17:13,381 - INFO - SegmentationListManager initialized
+2025-05-19 17:17:13,574 - INFO - MainWindow initialized
+2025-05-19 17:18:00,318 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-19 17:18:00,319 - INFO - File extension: .mha
+2025-05-19 17:18:00,513 - INFO - dims=(512, 512, 64)
+2025-05-19 17:18:00,514 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-19 17:18:00,514 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-19 17:18:00,576 - INFO - the center slice index is 31
+2025-05-19 17:18:00,646 - INFO - the center slice index is 255
+2025-05-19 17:18:00,704 - INFO - the center slice index is 255
+2025-05-19 17:18:00,813 - INFO - Image loaded successfully
+2025-05-19 17:19:26,325 - INFO - Application started
+2025-05-19 17:19:33,517 - INFO - SegmentationListManager initialized
+2025-05-19 17:19:33,736 - INFO - MainWindow initialized
+2025-05-19 17:19:47,812 - INFO - Loading image from ./downloads\image_0_0000.mha
+2025-05-19 17:19:47,813 - INFO - File extension: .mha
+2025-05-19 17:19:48,005 - INFO - dims=(512, 512, 64)
+2025-05-19 17:19:48,005 - INFO - spacing=(0.87890625, 0.87890625, 2.5)
+2025-05-19 17:19:48,006 - INFO - original_origin=(-449.560546875, -449.560546875, -80.0)
+2025-05-19 17:19:48,065 - INFO - the center slice index is 31
+2025-05-19 17:19:48,132 - INFO - the center slice index is 255
+2025-05-19 17:19:48,179 - INFO - the center slice index is 255
+2025-05-19 17:19:48,269 - INFO - Image loaded successfully
