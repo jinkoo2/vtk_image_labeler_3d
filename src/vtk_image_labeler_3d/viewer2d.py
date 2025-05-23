@@ -331,6 +331,16 @@ class VTKViewer2D(QWidget):
     pan_changed = pyqtSignal(QObject)
     status_message = pyqtSignal(str, QObject)
 
+    left_button_pressed = pyqtSignal(object)
+    left_button_released = pyqtSignal(object)
+    left_button_double_pressed = pyqtSignal(object)
+    right_button_pressed = pyqtSignal(object)
+    right_button_released = pyqtSignal(object)
+    mouse_moved = pyqtSignal(object)
+
+    right_button_pressed
+
+
     def __init__(self, name = None, parent=None):
         super().__init__(parent)
 
@@ -651,42 +661,42 @@ class VTKViewer2D(QWidget):
     def on_left_button_press(self, obj, event):
         self.left_button_is_pressed = True
 
+        self.mouse_event_obj = obj
+        self.mouse_event = event 
+        self.left_button_pressed.emit(self)
+
+        import time
+        current_time = time.time()
+        if hasattr(self, 'last_click_time') and (current_time - self.last_click_time < 0.3): # 0.3 seconds
+            self.left_button_double_pressed.emit(self)
+        self.last_click_time = current_time
+
+
+    def on_left_button_release(self, obj, event):
+        self.left_button_is_pressed = False
+
+        self.mouse_event_obj = obj
+        self.mouse_event = event 
+        self.left_button_released.emit(self)
+
     def on_mouse_move(self, obj, event):
         self.print_status_with_mouse_coordiantes()
-        
         self.render()
+
+        self.mouse_event_obj = obj
+        self.mouse_event = event 
+        self.mouse_moved.emit(self)
 
     def on_right_button_press(self, obj, event):
-        pass
-
-    def show_camera_properties(self):
-        import vtk_camera_property_editor
-        import widget_dialog
-
-        camera = self.renderer.GetActiveCamera()
-        editor_widget = vtk_camera_property_editor.VTKCameraPropertyEditor(camera)
-
-        # Connect the signal
-        editor_widget.property_changed.connect(self.on_camera_property_changed)
-
-        dlg = widget_dialog.WidgetDialog(editor_widget)
-
-        # Disconnect the signal after the dialog is closed
-        def cleanup():
-            editor_widget.property_changed.disconnect(self.on_camera_property_changed)
-
-        dlg.finished.connect(cleanup)  # Will be called when the dialog is closed
-
-        dlg.exec_()
+        self.mouse_event_obj = obj
+        self.mouse_event = event 
+        self.right_button_pressed.emit(self)
     
-    def on_camera_property_changed(self, property_name, sender):
-        print(f'on_camera_property_changed({property_name})')
-        self.render()
-
-    def on_right_button_release(self, obj, event):
-        from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QAction, QVBoxLayout, QWidget
-
+    def show_context_menu(self):
         """Show a pop-up menu when the right mouse button is released."""
+        
+        from PyQt5.QtWidgets import QMenu, QAction
+
         menu = QMenu(self)
 
         # Camera with a submenu
@@ -717,6 +727,41 @@ class VTKViewer2D(QWidget):
         # Show the menu at cursor position
         cursor_position = self.mapFromGlobal(self.cursor().pos())
         menu.exec_(self.mapToGlobal(cursor_position))
+
+    def on_right_button_release(self, obj, event):
+
+        self.show_context_menu()
+
+        self.mouse_event_obj = obj
+        self.mouse_event = event 
+        self.right_button_released.emit(self)
+
+
+    def show_camera_properties(self):
+        import vtk_camera_property_editor
+        import widget_dialog
+
+        camera = self.renderer.GetActiveCamera()
+        editor_widget = vtk_camera_property_editor.VTKCameraPropertyEditor(camera)
+
+        # Connect the signal
+        editor_widget.property_changed.connect(self.on_camera_property_changed)
+
+        dlg = widget_dialog.WidgetDialog(editor_widget)
+
+        # Disconnect the signal after the dialog is closed
+        def cleanup():
+            editor_widget.property_changed.disconnect(self.on_camera_property_changed)
+
+        dlg.finished.connect(cleanup)  # Will be called when the dialog is closed
+
+        dlg.exec_()
+    
+    def on_camera_property_changed(self, property_name, sender):
+        print(f'on_camera_property_changed({property_name})')
+        self.render()
+
+    
 
     def get_mouse_event_coordiantes(self):
 
@@ -794,10 +839,6 @@ class VTKViewer2D(QWidget):
             world_pos = event_data['world_point']
             self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
         
-
-    def on_left_button_release(self, obj, event):
-        self.left_button_is_pressed = False
-
     def center_image(self):
         
         dims = self.vtk_image.GetDimensions()

@@ -49,7 +49,6 @@ def _info(msg):
 
 def _err(msg):
     logger.error(msg)
-
    
 # Example usage:
 if __name__ == "__main__":

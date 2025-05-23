@@ -517,6 +517,11 @@ class SegmentationListItemWidget(QWidget):
         self.extract_the_largest_component_button.clicked.connect(self.extract_the_largest_component_clicked)
         layout.addWidget(self.extract_the_largest_component_button)
 
+        # # Extract a compoment
+        # self.extract_a_component_button = QPushButton("Extract a Compoment")
+        # self.extract_a_component_button.setToolTip("Mouse pick a component")
+        # self.extract_a_component_button.clicked.connect(self.extract_a_component_using_mouse_clicked)
+        # layout.addWidget(self.extract_a_component_button)
 
         # Interpolate sparse labels
         self.make_convex_hull_label_button = QPushButton("Make Enclusure Segmentation")
@@ -570,6 +575,44 @@ class SegmentationListItemWidget(QWidget):
         largest_image = blob_images[0]
         layer_largest = SegmentationLayer(segmentation=largest_image, name=f'{self.layer.get_name()}-largest', color = color_rotator1.next())
         self.layer.get_parent_list().add_layer(layer_largest)
+
+    # def extract_a_component_using_mouse_clicked(self):
+
+    #     from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QFormLayout
+    #     from PyQt5.QtCore import Qt
+        
+    #     dialog = QDialog()
+    #     dialog.setWindowTitle("Extract a Component")
+    #     dialog.setModal(False)  # Modeless dialog
+
+    #     layout = QVBoxLayout()
+
+    #     label = QLabel()
+    #     label.setText("Please move your cross hair to the compoenent you want to extract and click 'Extract' button. ")
+
+    #     # Run button
+    #     run_button = QPushButton("Extract")
+    #     layout.addWidget(run_button, alignment=Qt.AlignRight)
+    #     dialog.setLayout(layout)
+
+    #     def run_operation():
+            
+    #         # get the focus point from the viewer
+
+    #         # extract the picked compoment
+    #         import vtk_tools
+    #         blob_images = vtk_tools.extract_largest_components(self.layer.get_image(), 1)
+    #         largest_image = blob_images[0]
+    #         layer_largest = SegmentationLayer(segmentation=largest_image, name=f'{self.layer.get_name()}-largest', color = color_rotator1.next())
+            
+    #         # add the layer
+    #         self.layer.get_parent_list().add_layer(layer_largest)
+
+    #         self.print_status(f"Boolean operation {op} applied. New layer: {new_name}")
+    #         dialog.close()
+
+    #     run_button.clicked.connect(run_operation)
+    #     dialog.show()
 
     def make_convex_hull_label_button_clicked(self):
         import itk_tools
@@ -936,6 +979,10 @@ class SegmentationListManager(QObject):
         self._modified = False
         self.segmentation_layers.clear()
         self.list_widget.clear()
+
+        # reset rgw color rotator
+        color_rotator1.reset()
+
 
     def save_segmentation_layer(self, segmentation, file_path):
         from itkvtk import save_vtk_image_using_sitk

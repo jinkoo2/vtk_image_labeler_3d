@@ -113,13 +113,15 @@ class Slicing(QObject):
         if enabled:
             self.mouse_wheel_forward_observer = self.interactor.AddObserver("MouseWheelForwardEvent", self.on_mouse_wheel_forward)
             self.on_mouse_wheel_backward_observer = self.interactor.AddObserver("MouseWheelBackwardEvent", self.on_mouse_wheel_backward)
+            self.key_press_observer = self.interactor.AddObserver("KeyPressEvent", self.on_key_press)
         else:    
             self.interactor.RemoveObserver(self.mouse_wheel_forward_observer)
             self.interactor.RemoveObserver(self.on_mouse_wheel_backward_observer)   
+            self.interactor.RemoveObserver(self.key_press_observer)   
 
         print(f"Slicing mode: {'enabled' if enabled else 'disabled'}")
     
-    def set_index(self, new_index):
+    def set_slice_index(self, new_index):
         if not self.interactor:
             return 
         
@@ -131,25 +133,32 @@ class Slicing(QObject):
 
             self.slice_changed.emit(new_index, old_index, self)
 
+    def move_slice_up(self):
+        current_index = self.slice_index
+        self.slice_index += self.slicing_step_size
+        self.slice_changed.emit(self.slice_index, current_index, self)
+
+    def move_slice_down(self):
+        current_index = self.slice_index
+        self.slice_index -= self.slicing_step_size
+        self.slice_changed.emit(self.slice_index, current_index, self)
+        
     def on_mouse_wheel_forward(self, obj, event):
         if not self.enabled:
             return
-
-        current_index = self.slice_index
-
-        self.slice_index += self.slicing_step_size
-
-        self.slice_changed.emit(self.slice_index, current_index, self)
+        self.move_slice_up()
 
     def on_mouse_wheel_backward(self, obj, event):
         if not self.enabled:
             return
+        self.move_slice_down()
 
-        current_index = self.slice_index
-
-        self.slice_index -= self.slicing_step_size
-
-        self.slice_changed.emit(self.slice_index, current_index, self)
+    def on_key_press(self, obj, event):
+        key = self.interactor.GetKeySym()
+        if key == "Up":
+            self.move_slice_up()
+        elif key == "Down":
+            self.move_slice_down()
 
 from PyQt5.QtCore import QTimer
 
@@ -320,11 +329,12 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
     def __init__(self, axis, name, slice_plane_color, parent):
         super().__init__(name=name, parent=parent)
+
         self.reslicer = reslicer.Reslicer(axis)
         self.vtk_image_3d = None
         self._set_slice(None)
         self.slice_index = None
-        self.slicing = Slicing(self.interactor)
+        self.slicing = Slicing(self.get_interactor())
         self.slicing.slice_changed.connect(self.on_slice_changed)
         self.slicing.enable(True)
 
@@ -347,10 +357,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         self.segmentation_layer_reslicers.clear()
 
-        # remove slice indicators
+        # hide slice indicators
         for name, slice_indicator in self.slice_indicators_of_other_views.items():
             if slice_indicator.actor:
-                self.get_renderer().RemoveActor(slice_indicator.actor)
+                slice_indicator.actor.SetVisibility(False)
 
         super().clear()
 
@@ -367,7 +377,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         slice_index = source_viewer.slice_index
         color = source_viewer.slice_plane_object.color
         print(f'update_slice_indicator(axis={axis}, slice_index={slice_index})')
-
 
         # plane objects points
         pt0_w = source_viewer.slice_plane_object.pt0_w
@@ -526,11 +535,16 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self._set_slice(slice)
         self.slice_index = index
 
-        self.slicing.set_index(index)
+        self.slicing.set_slice_index(index)
 
         super().set_vtk_image(slice, window, level)
 
         self.update_slice_plane_object()
+
+        # show slice indicators
+        for name, slice_indicator in self.slice_indicators_of_other_views.items():
+            if slice_indicator.actor:
+                slice_indicator.actor.SetVisibility(True)
 
 
         self.reset_camera()
@@ -730,6 +744,7 @@ class VTKViewer3D(QWidget):
         # listen to slice changes from viewers
         for v in self.viewers_2d:
             v.slice_changed.connect(self.on_slice_changed)
+            v.left_button_double_pressed.connect(self.on_left_button_double_pressed_on_2d_viewer)
 
         # listen to mouse events form viewers
         for v in self.viewers_2d:
@@ -753,6 +768,21 @@ class VTKViewer3D(QWidget):
         layout.addWidget(self.viewer_sg, 1, 1)
         layout.addWidget(self.viewer_surf, 0, 1)
         self.setLayout(layout)
+
+    def on_left_button_double_pressed_on_2d_viewer(self, sender):
+        source_viewer: VTKViewer2DWithReslicer = sender
+        print(f'double clicked on {source_viewer.name} view')
+
+        event_coordiantes = source_viewer.get_mouse_event_coordiantes()
+        if event_coordiantes:
+            if 'image_index' in event_coordiantes:
+                image_index = event_coordiantes['image_index']
+                print(f'double clicked image_index = {image_index}')
+                for v in self.viewers_2d:
+                    if v is not source_viewer:
+                        new_slice_index = image_index[v.reslicer.axis]
+                        print(f'setting the slice index to {new_slice_index} for viewer {v.name}')
+                        v.slicing.set_slice_index(new_slice_index)
 
     def get_viewers_2d(self):
         return self.viewers_2d

@@ -221,16 +221,6 @@ class nnUNetDatasetManager(QObject):
         self.new_dataset_button.clicked.connect(self.open_new_dataset_dialog)
         layout.addWidget(self.new_dataset_button)
 
-        # Post image and label (training)
-        self.post_image_and_labels_for_training_button = QPushButton("Push Images for Training")
-        self.post_image_and_labels_for_training_button.clicked.connect(self.post_image_and_labels_for_training_clicked)
-        layout.addWidget(self.post_image_and_labels_for_training_button)
-
-        # Post image and label (test)
-        self.post_image_and_labels_for_test_button = QPushButton("Push Images for Test")
-        self.post_image_and_labels_for_test_button.clicked.connect(self.post_image_and_labels_for_test_clicked)
-        layout.addWidget(self.post_image_and_labels_for_test_button)
-
         return layout
     ""
     def get_exclusive_actions(self):
@@ -317,11 +307,6 @@ class nnUNetDatasetManager(QObject):
     def handle_image_dataset_listwidget_delete_dataset_clicked(self, dataset_id, images_for, num, sender):
         self.delete_image_and_labels(images_for, num)
 
-    def post_image_and_labels_for_training_clicked(self):
-        self.post_image_and_labels("train")
-
-    def post_image_and_labels_for_test_clicked(self):
-        self.post_image_and_labels("test")
 
     def post_image_and_labels(self, images_for):
         selected_text = self.dataset_dropdown.currentText()
@@ -468,35 +453,31 @@ class nnUNetDatasetManager(QObject):
         """Retrieve the current server URL from the input field."""
         return self.server_url_input.text()
 
-    def get_dataset_json_list(self):
-        """Fetch dataset list from nnUNet server."""
+    def connect_to_server_clicked(self):
+        """Fetch datasets and populate dropdown list."""
+        self.dataset_dropdown.clear()  # Clear existing items
+        
         try:
-            response_data = nnunet_service.get_dataset_json_list(self.get_server_url())
-            print(f"response_data={response_data}")
-            return response_data
+            self.datasets = nnunet_service.get_dataset_json_list(self.get_server_url(), 5)
+    
+            if not self.datasets:
+                self.dataset_dropdown.addItem("No datasets available")
+                self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
+                return
+
+            dataset_ids = [dataset['id'] for dataset in self.datasets]
+            self.dataset_dropdown.addItems(dataset_ids)
+
+            # Set first dataset as default and show its details
+            if dataset_ids:
+                self.dataset_dropdown.setCurrentIndex(0)
+                self.dataset_selected(0)
+
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
         return []  # Return an empty list in case of failure
-
-    def connect_to_server_clicked(self):
-        """Fetch datasets and populate dropdown list."""
-        self.dataset_dropdown.clear()  # Clear existing items
-        self.datasets = self.get_dataset_json_list()
-
-        if not self.datasets:
-            self.dataset_dropdown.addItem("No datasets available")
-            self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
-            return
-
-        dataset_ids = [dataset['id'] for dataset in self.datasets]
-        self.dataset_dropdown.addItems(dataset_ids)
-
-        # Set first dataset as default and show its details
-        if dataset_ids:
-            self.dataset_dropdown.setCurrentIndex(0)
-            self.dataset_selected(0)
 
 
     def get_dataset_image_list(self, dataset_id):
@@ -555,8 +536,6 @@ class nnUNetDatasetManager(QObject):
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
         return []  # Return an empty list in case of failure
-
-
 
     def load_state(self, data_dict, data_dir, aux_data):
         pass

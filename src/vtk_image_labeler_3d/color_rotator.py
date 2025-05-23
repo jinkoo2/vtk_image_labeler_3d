@@ -20,3 +20,6 @@ class ColorRotator:
         color = self.colors[self.index]
         self.index = (self.index + 1) % len(self.colors)  # Move to the next color, wrap around if needed
         return color
+
+    def reset(self):
+        self.index = 0

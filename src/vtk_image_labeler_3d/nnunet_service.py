@@ -4,67 +4,92 @@ class ServerError(Exception):
     """Custom exception for server errors."""
     pass
 
-def get_ping(BASE_URL):
+def get_ping(BASE_URL, timeout_seconds=10):
     """
-    Ping the server and return the response.
+    Ping the server and return the response with timeout handling.
     """
     url = f"{BASE_URL}/ping"
-    print(f'pinging the server at {url}')
+    print(f'Pinging the server at {url}')
     
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=timeout_seconds)
         
         if response.status_code == 200:
             return response.json()
         else:
             error_message = f"Failed to ping server: {response.status_code}, {response.text}"
             print(error_message)
-            raise ServerError(error_message)  # Raise a custom exception for server errors
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
     except requests.exceptions.RequestException as e:
-        # Handle network-related errors (e.g., connection issues)
         print(f"An error occurred while pinging the server: {e}")
-        raise  # Re-raise the exception to forward it
+        raise
 
-def get_dataset_json_list(BASE_URL):
+def get_dataset_json_list(BASE_URL, timeout_seconds=10): 
     """
-    list of datasets
+    List of datasets with timeout handling
     """
-    print('getting the list of dataset')
-    response = requests.get(f"{BASE_URL}/dataset_json/list")
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Failed to fetch task status: {response.status_code}, {response.text}")
-        return None
+    print('Getting the list of dataset')
+    try:
+        response = requests.get(f"{BASE_URL}/dataset_json/list", timeout=timeout_seconds)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            error_message = f"Failed to fetch task status: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise 
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        raise 
 
-def get_dataset_json_id_list(BASE_URL):
+def get_dataset_json_id_list(BASE_URL, timeout_seconds=10):
     """
-    list of datasets
+    List of dataset IDs with timeout handling.
     """
-    print('getting the list of dataset')
-    response = requests.get(f"{BASE_URL}/dataset_json/id-list")
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Failed to fetch task status: {response.status_code}, {response.text}")
-        return None
+    print('Getting the list of dataset IDs')
+    try:
+        response = requests.get(f"{BASE_URL}/dataset_json/id-list", timeout=timeout_seconds)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            error_message = f"Failed to fetch task status: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while fetching dataset ID list: {e}")
+        raise
 
-def get_dataset_image_name_list(BASE_URL, dataset_id):
+
+def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
     """
-    Fetch the list of image and label file names for a given dataset.
+    Fetch the list of image and label file names for a given dataset with timeout handling.
     """
     print(f'Getting the image name list for dataset: {dataset_id}')
     params = {"dataset_id": dataset_id}
-    response = requests.get(f"{BASE_URL}/dataset/image_name_list", params=params)
-
-    if response.status_code == 200:
-        return response.json()
-    else:
-        error_message = f"Failed to fetch image name list: {response.status_code}, {response.text}"
-        print(error_message)
-        raise ServerError(error_message)  # Raise a custom exception for server errors
     
-    
+    try:
+        response = requests.get(f"{BASE_URL}/dataset/image_name_list", params=params, timeout=timeout_seconds)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            error_message = f"Failed to fetch image name list: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while fetching image name list: {e}")
+        raise
+        
 
 def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, out_dir):
     url = f"{BASE_URL}/dataset/get_image_and_labels"

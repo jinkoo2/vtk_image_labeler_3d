@@ -712,7 +712,6 @@ class MainWindow3D(QMainWindow):
     def close_workspace(self):
 
         if self.vtk_image is None:
-            self.show_popup("Close Image", "No image has been loaded.")
             return 
 
         if self.modified():
@@ -794,6 +793,10 @@ class MainWindow3D(QMainWindow):
             self.show_popup("Save Workspace", f"Error saving workspace: {str(e)}", QMessageBox.Critical)      
 
     def open_workspace(self):
+
+        if self.vtk_image is not None:
+            self.close_workspace()
+
         import json
         import os
 
@@ -820,8 +823,8 @@ class MainWindow3D(QMainWindow):
             _info(f"Loaded workspace metadata from {workspace_json_path}.")
 
             # Clear existing workspace
-            self.vtk_image = None
-            self.vtk_viewer.clear()
+            #self.vtk_image = None
+            #self.vtk_viewer.clear()
 
             #self.point_list_manager.points.clear()
 

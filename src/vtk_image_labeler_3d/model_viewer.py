@@ -255,8 +255,12 @@ class ModelViewer(QWidget):
         print(f'SurfaceViewer: on_segmentation_layer_removed(layername={layer.get_name()}')
         
         seg_surface = self.segmentation_surfaces.pop(layer.get_name())
+        if seg_surface is None:
+            return 
+        
         for actor in seg_surface.get_actors():
-            self.get_renderer().RemoveActor(actor)
+            if actor:
+                self.get_renderer().RemoveActor(actor)
 
         self.render()     
 
