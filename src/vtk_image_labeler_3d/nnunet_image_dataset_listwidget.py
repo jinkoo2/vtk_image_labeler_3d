@@ -105,7 +105,7 @@ class nnUnetImageDataSetListWidget(QWidget):
                 dataset_id=dataset_id,
                 images_for=self.images_for,
                 num=number,
-                out_dir="./downloads"
+                out_dir="./_downloads"
             )
 
             print("Download complete:", result)
