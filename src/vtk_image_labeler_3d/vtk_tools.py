@@ -6,6 +6,23 @@ def to_vtk_color(c):
 def from_vtk_color(c):
     return [int(c[0]*255), int(c[1]*255), int(c[2]*255)]
 
+def copy_image_origin_spacing_direction_matrix(src_img: vtk.vtkImageData, dst_img: vtk.vtkImageData):
+
+    # Copy spacing
+    spacing = src_img.GetSpacing()
+    dst_img.SetSpacing(spacing)
+
+    # Copy origin
+    origin = src_img.GetOrigin()
+    dst_img.SetOrigin(origin)
+
+    # Copy direction matrix (VTK 9+)
+    if hasattr(dst_img, 'SetDirectionMatrix') and hasattr(src_img, 'GetDirectionMatrix'):
+        direction_matrix = src_img.GetDirectionMatrix()
+        dst_img.SetDirectionMatrix(direction_matrix)
+    else:
+        print("Direction matrix support requires VTK 9 or higher.")
+
 def remove_widget(widget, renderer):
     if widget:
         # Disable the widget
@@ -112,7 +129,6 @@ def extract_largest_components(binary_image: vtk.vtkImageData, top_n: int = 3):
     return result_images
 
 
-import vtk
 
 def _copy_geometry_and_return(source_image, result_image):
     output = vtk.vtkImageData()

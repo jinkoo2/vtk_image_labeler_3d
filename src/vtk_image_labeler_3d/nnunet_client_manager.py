@@ -289,11 +289,11 @@ class nnUNetDatasetManager(QObject):
     def pull_seleted_image_dataset(self, images_for='train'):
         pass
 
-    def on_train_listwidget_item_double_clicked(self,item):
-        self.pull_seleted_image_dataset('train')
+    # def on_train_listwidget_item_double_clicked(self,item):
+    #     self.pull_seleted_image_dataset('train')
               
-    def on_test_listwidget_item_double_clicked(self,item):
-        self.pull_seleted_image_dataset('test')
+    # def on_test_listwidget_item_double_clicked(self,item):
+    #     self.pull_seleted_image_dataset('test')
 
     def handle_image_dataset_downloaded(self, image_path, labels_path, list_widget):
         self.image_dataset_downloaded.emit(image_path, labels_path, self)  

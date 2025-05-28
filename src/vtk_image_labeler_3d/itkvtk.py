@@ -229,6 +229,16 @@ def vtk_matrix4x4_to_matrix3x3_and_t(matrix4x4):
 
     return matrix3x3, t
 
+def numpy_to_vtk_matrix4x4(matrix_np: np.ndarray) -> vtk.vtkMatrix4x4:
+    if matrix_np.shape != (4, 4):
+        raise ValueError("Input matrix must be 4x4")
+
+    vtk_mat = vtk.vtkMatrix4x4()
+    for i in range(4):
+        for j in range(4):
+            vtk_mat.SetElement(i, j, matrix_np[i, j])
+    return vtk_mat
+
 
 def fill_square_at_center(image, width_in_pixels, pixel_value):
     dims = image.GetDimensions()

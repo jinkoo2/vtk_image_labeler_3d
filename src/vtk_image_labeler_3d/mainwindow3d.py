@@ -596,6 +596,10 @@ class MainWindow3D(QMainWindow):
         # load label
         import itkvtk
         composit_labels_image = itkvtk.load_vtk_image_using_sitk(labels_path)
+
+        import vtk_tools
+        vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, composit_labels_image)
+        
         ds = self.nnunet_client_manager.get_selected_dataset()
         labels = ds['labels']
         for label_name in labels.keys():

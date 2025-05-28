@@ -133,6 +133,9 @@ class Slicing(QObject):
 
             self.slice_changed.emit(new_index, old_index, self)
 
+    def get_slice_index(self):
+        return self.slice_index
+    
     def move_slice_up(self):
         current_index = self.slice_index
         self.slice_index += self.slicing_step_size
@@ -364,6 +367,12 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         super().clear()
 
+    def set_slice_index(self, index):
+        self.slicing.set_slice_index(index)
+
+    def get_slice_index(self):
+        return self.slicing.get_slice_index()
+    
     def _set_slice(self, slice):
         self.slice = slice
         self.vtk_image = slice
@@ -520,9 +529,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
     def set_vtk_image_3d(self, vtk_image_3d, window, level):
 
-        # debug
-        #vtk_image_3d.SetOrigin([0.0, 0.0, 0.0])
-
         self.vtk_image_3d = vtk_image_3d 
 
         self.reslicer.set_vtk_image(vtk_image_3d)
@@ -620,7 +626,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'Visibility changed to {new_visibility} for {layer_name}')
 
         seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer_name)
+        
         if seg_reslicer:
+            seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
             for actor in seg_reslicer.get_actors():
                 actor.SetVisibility(new_visibility)
             self.render()
@@ -692,7 +700,28 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         event_data["image_index"] = np.rint(imageI[:3]).astype(int)
 
         return event_data
+
+    # def get_mouse_event_coordiantes(self):
+
+    #     # event data on the 2d slice image
+    #     event_data = super().get_mouse_event_coordiantes()
+                
+    #     import vtk_image_wrapper
+    #     image_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
         
+    #     # convert from slice I to 3d image I
+    #     imageI_H_w = image_wrapper.get_I_H_w()
+
+    #     pt_w = np.append(np.array(event_data['world_point']), 1.0).reshape(4,1)
+
+    #     # index on the 3d image
+    #     imageI = (imageI_H_w @ pt_w).flatten()
+
+    #     # override image_index
+    #     event_data["image_index"] = np.rint(imageI[:3]).astype(int)
+
+    #     return event_data
+      
     def print_mouse_coordiantes(self):
         
         if not self.vtk_image_3d:
@@ -871,15 +900,65 @@ class VTKViewer3D(QWidget):
     def get_vtk_image(self):
         return self.vtk_image
     
+    def _debug_rot_image(self):
+        pass
+        # # Create a 3x3 direction matrix with 10 degree rotation around Z
+        # angle_deg = 10
+        # angle_rad = np.radians(angle_deg)
+
+        # cos_a = np.cos(angle_rad)
+        # sin_a = np.sin(angle_rad)
+
+        # # Rotation around Z axis (standard 3D rotation matrix)
+        # rotation_matrix = np.array([
+        #     [cos_a, -sin_a, 0],
+        #     [sin_a,  cos_a, 0],
+        #     [0,      0,     1]
+        # ])
+
+        # # Convert to vtkMatrix3x3
+        # vtk_mat = vtk.vtkMatrix3x3()
+        # for i in range(3):
+        #     for j in range(3):
+        #         vtk_mat.SetElement(i, j, rotation_matrix[i, j])
+
+        # # Set it to a vtkImageData
+        # vtk_image.SetDirectionMatrix(vtk_mat)
+
+    def _debug_highlight_one_pixel(self):
+        pass
+        #scalars = vtk_image.GetPointData().GetScalars()
+        #scalars.Fill(0)
+        #scalars.SetTuple1(vtk_image.ComputePointId((100, 100, 100)), 100) # image (300, 200, 100) = 100
+
+
     def set_vtk_image(self, vtk_image, window, level):
+
+        import vtk
+        import numpy as np
 
         # reset first
         self.clear()
+
+        #######################################
+        # set primary image origin to zero
+        vtk_image.SetOrigin([0.0, 0.0, 0.0])
+        
+        ########################
+        # set itendity matrix for the primary image. vtkOutlineFilter seems does not take it into account.
+        identity_matrix = vtk.vtkMatrix3x3()
+        identity_matrix.Identity()
+        vtk_image.SetDirectionMatrix(identity_matrix)
 
         self.vtk_image = vtk_image
 
         for v in self.viewers_2d:
             v.set_vtk_image_3d(vtk_image, window, level)
+
+        #self.viewer_ax.set_slice_index(100)
+        #self.viewer_cr.set_slice_index(100)
+        #self.viewer_sg.set_slice_index(100)
+
 
         # display image properties
         dims = vtk_image.GetDimensions()

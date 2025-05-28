@@ -172,38 +172,82 @@ class Reslicer():
     
     def calculate_axes(self, index):
         
+        # spacing = self.vtk_image.GetSpacing()
+        # offset = index * spacing[self.axis]
+        # #reslice = self.vtk_image_reslice
+        # imgo_H_sliceo = vtk.vtkMatrix4x4()
+
+        # extent = self.vtk_image.GetExtent()
+        
+        # if self.axis == AXIAL:
+        #     imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
+        #                             0, 1, 0, 0,
+        #                             0, 0, 1, offset,
+        #                             0, 0, 0, 1))
+        # elif self.axis == CORONAL:
+        #     z_offset = extent[5] * spacing[2]
+        #     imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
+        #                             0, 0,  1, offset,  
+        #                             0, -1, 0, z_offset,
+        #                             0, 0, 0, 1))
+        # elif self.axis == SAGITTAL:
+        #     z_offset = extent[5] * spacing[2]
+        #     y_offset = extent[3] * spacing[1]
+        #     imgo_H_sliceo.DeepCopy(( 0,  0, 1, offset,
+        #                             -1,  0, 0, y_offset,
+        #                              0, -1, 0, z_offset,
+        #                              0,  0, 0, 1))
+        # else:
+        #     raise Exception(f'Invalid Axis ({self.axis})')
+
+        # import itkvtk
+        # w_H_imgo = itkvtk.vtk_get_w_H_imageo(self.vtk_image)
+        # w_H_sliceo = vtk.vtkMatrix4x4()
+        # vtk.vtkMatrix4x4.Multiply4x4(w_H_imgo, imgo_H_sliceo, w_H_sliceo)
+
+        # return w_H_sliceo
+    
+        w_H_sliceo = self.calculate_axes_np(index)
+        return itkvtk.numpy_to_vtk_matrix4x4(w_H_sliceo)
+
+    def calculate_axes_np(self, index):
+        
         spacing = self.vtk_image.GetSpacing()
         offset = index * spacing[self.axis]
-        #reslice = self.vtk_image_reslice
-        imgo_H_sliceo = vtk.vtkMatrix4x4()
-
         extent = self.vtk_image.GetExtent()
         
         if self.axis == AXIAL:
-            imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-                                    0, 1, 0, 0,
-                                    0, 0, 1, offset,
-                                    0, 0, 0, 1))
+            imgo_H_sliceo = np.array([
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, offset],
+                [0, 0, 0, 1]
+            ], dtype=np.float64)
         elif self.axis == CORONAL:
             z_offset = extent[5] * spacing[2]
-            imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-                                    0, 0,  1, offset,  
-                                    0, -1, 0, z_offset,
-                                    0, 0, 0, 1))
+            imgo_H_sliceo = np.array([
+                [1,  0,  0,      0],
+                [0,  0,  1,  offset],
+                [0, -1,  0, z_offset],
+                [0,  0,  0,      1]
+            ], dtype=np.float64)
         elif self.axis == SAGITTAL:
             z_offset = extent[5] * spacing[2]
             y_offset = extent[3] * spacing[1]
-            imgo_H_sliceo.DeepCopy(( 0,  0, 1, offset,
-                                    -1,  0, 0, y_offset,
-                                     0, -1, 0, z_offset,
-                                     0,  0, 0, 1))
+            imgo_H_sliceo = np.array([
+                [ 0,  0,  1,      offset],
+                [-1,  0,  0,    y_offset],
+                [ 0, -1,  0,    z_offset],
+                [ 0,  0,  0,          1]
+            ], dtype=np.float64)
         else:
             raise Exception(f'Invalid Axis ({self.axis})')
 
-        import itkvtk
-        w_H_imgo = itkvtk.vtk_get_w_H_imageo(self.vtk_image)
-        w_H_sliceo = vtk.vtkMatrix4x4()
-        vtk.vtkMatrix4x4.Multiply4x4(w_H_imgo, imgo_H_sliceo, w_H_sliceo)
+        import vtk_image_wrapper
+        image_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
+
+        w_H_imgo = image_wrapper.get_w_H_o()
+        w_H_sliceo = w_H_imgo @ imgo_H_sliceo
 
         return w_H_sliceo
     

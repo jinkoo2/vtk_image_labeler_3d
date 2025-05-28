@@ -761,8 +761,6 @@ class VTKViewer2D(QWidget):
         print(f'on_camera_property_changed({property_name})')
         self.render()
 
-    
-
     def get_mouse_event_coordiantes(self):
 
         event_data = {}
@@ -864,43 +862,83 @@ class VTKViewer2D(QWidget):
 
         self.image_original_origin = original_origin
 
+    def __str__(self):
+        """Return a string representing the properties of the camera, image, and line widgets."""
+        lines = []
 
-    def print_properties(self):
-        """Print the properties of the camera, image, and line widgets."""
         # Camera properties
         camera = self.renderer.GetActiveCamera()
-        print("Camera Properties:")
-        print(f"  Position: {camera.GetPosition()}")
-        print(f"  Focal Point: {camera.GetFocalPoint()}")
-        print(f"  View Up: {camera.GetViewUp()}")
-        print(f"  Clipping Range: {camera.GetClippingRange()}")
-        print(f"  Parallel Scale: {camera.GetParallelScale()}")
-        print()
+        lines.append("Camera Properties:")
+        lines.append(f"  Position: {camera.GetPosition()}")
+        lines.append(f"  Focal Point: {camera.GetFocalPoint()}")
+        lines.append(f"  View Up: {camera.GetViewUp()}")
+        lines.append(f"  Clipping Range: {camera.GetClippingRange()}")
+        lines.append(f"  Parallel Scale: {camera.GetParallelScale()}")
+        lines.append("")
 
         # Image properties
         if self.vtk_image:
             dims = self.vtk_image.GetDimensions()
             spacing = self.vtk_image.GetSpacing()
             origin = self.vtk_image.GetOrigin()
-            print("Image Properties:")
-            print(f"  Dimensions: {dims}")
-            print(f"  Spacing: {spacing}")
-            print(f"  Origin: {origin}")
-            print()
+            lines.append("Image Properties:")
+            lines.append(f"  Dimensions: {dims}")
+            lines.append(f"  Spacing: {spacing}")
+            lines.append(f"  Origin: {origin}")
+            lines.append("")
 
         # Line widget properties
         if self.rulers:
-            print("Line Widget Properties:")
+            lines.append("Line Widget Properties:")
             for idx, line_widget in enumerate(self.rulers, start=1):
                 representation = line_widget.GetRepresentation()
                 point1 = representation.GetPoint1WorldPosition()
                 point2 = representation.GetPoint2WorldPosition()
-                print(f"  Line Widget {idx}:")
-                print(f"    Point 1: {point1}")
-                print(f"    Point 2: {point2}")
-                print()
+                lines.append(f"  Line Widget {idx}:")
+                lines.append(f"    Point 1: {point1}")
+                lines.append(f"    Point 2: {point2}")
+                lines.append("")
         else:
-            print("No Line Widgets Present.")
+            lines.append("No Line Widgets Present.")
+
+        return "\n".join(lines)
+
+    # def print_properties(self):
+    #     """Print the properties of the camera, image, and line widgets."""
+    #     # Camera properties
+    #     camera = self.renderer.GetActiveCamera()
+    #     print("Camera Properties:")
+    #     print(f"  Position: {camera.GetPosition()}")
+    #     print(f"  Focal Point: {camera.GetFocalPoint()}")
+    #     print(f"  View Up: {camera.GetViewUp()}")
+    #     print(f"  Clipping Range: {camera.GetClippingRange()}")
+    #     print(f"  Parallel Scale: {camera.GetParallelScale()}")
+    #     print()
+
+    #     # Image properties
+    #     if self.vtk_image:
+    #         dims = self.vtk_image.GetDimensions()
+    #         spacing = self.vtk_image.GetSpacing()
+    #         origin = self.vtk_image.GetOrigin()
+    #         print("Image Properties:")
+    #         print(f"  Dimensions: {dims}")
+    #         print(f"  Spacing: {spacing}")
+    #         print(f"  Origin: {origin}")
+    #         print()
+
+    #     # Line widget properties
+    #     if self.rulers:
+    #         print("Line Widget Properties:")
+    #         for idx, line_widget in enumerate(self.rulers, start=1):
+    #             representation = line_widget.GetRepresentation()
+    #             point1 = representation.GetPoint1WorldPosition()
+    #             point2 = representation.GetPoint2WorldPosition()
+    #             print(f"  Line Widget {idx}:")
+    #             print(f"    Point 1: {point1}")
+    #             print(f"    Point 2: {point2}")
+    #             print()
+    #     else:
+    #         print("No Line Widgets Present.")
 
     def reset_camera_parameters(self):
         """Align the camera viewport center to the center of the loaded image."""

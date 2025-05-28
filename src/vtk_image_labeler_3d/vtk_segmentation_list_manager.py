@@ -975,13 +975,23 @@ class SegmentationListManager(QObject):
         return [self.paint_action, self.erase_action]
     
     def clear(self):       
+        
+        # deactivate editing
+        self.toggle_erase_tool(False)
+        self.toggle_paint_tool(False)
+
+        # reset rgw color rotator
+        color_rotator1.reset()
+
         self.vtk_image = None
         self._modified = False
         self.segmentation_layers.clear()
         self.list_widget.clear()
 
-        # reset rgw color rotator
-        color_rotator1.reset()
+        
+
+        
+
 
 
     def save_segmentation_layer(self, segmentation, file_path):
@@ -1025,6 +1035,9 @@ class SegmentationListManager(QObject):
             if os.path.exists(seg_path):
                 try:
                     vtk_seg = load_vtk_image_using_sitk(seg_path)
+
+                    import vtk_tools
+                    vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, vtk_seg)
 
                     self.add_layer(
                         segmentation=vtk_seg,
@@ -1110,6 +1123,11 @@ class SegmentationListManager(QObject):
             print("No active layer selected.")
             return
 
+        if not layer.get_visible():
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(None, "Warning", "The layer being editted is not visible. Please turn it on first.")
+            return 
+            
         # paint or erase
         if self.paint_active:
             value = 1
@@ -1149,8 +1167,13 @@ class SegmentationListManager(QObject):
         self.last_mouse_position = v2d.get_interactor().GetEventPosition()
         
         if self.left_button_is_pressed and v2d.paintbrush.enabled and self._active_layer is not None:
-            print('paint...')
-            self.paint_at_mouse_position(v2d)
+            if self._active_layer.get_visible():
+                self.paint_at_mouse_position(v2d)
+            else:
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.warning(None, "Warning", "The layer being editted is not visible. Please turn it on first.")
+                self.left_button_is_pressed = False
+                return 
        
     def on_mouse_move(self, obj, event):
         # obj is the sender, which is vtkRenderWindowInteractor
@@ -1214,8 +1237,8 @@ class SegmentationListManager(QObject):
 
             # Paint 
             if self.left_button_is_pressed and paintbrush.enabled and self._active_layer is not None:
-                print('paint...')
-                self.paint_at_mouse_position(v2d)
+                if self._active_layer.get_visible():
+                    self.paint_at_mouse_position(v2d)
         else:
             paintbrush.get_actor().SetVisibility(False)  # Hide the brush when not painting
        
