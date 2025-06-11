@@ -16,7 +16,8 @@ def extract_image_number(filename):
 
 nnunet_server_url = conf['nnunet_server_url']
 
-class nnUnetImageDataSetListWidget(QWidget):
+from base_widget import BaseWidget
+class nnUnetImageDataSetListWidget(BaseWidget):
 
     image_dataset_downloaded = pyqtSignal(str, str, QObject) # 
     post_dataset_clicked = pyqtSignal(str, str, QObject) 

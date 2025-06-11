@@ -257,3 +257,197 @@ def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
         # Handle network-related errors (e.g., connection issues)
         print(f"An error occurred while pushing images to the server: {e}")
         raise  # Re-raise the exception to forward it
+
+
+
+def test_post_predictions_zip():
+    url = "http://127.0.0.1:8000/predictions_zip"
+
+    dataset_id = "Dataset847_FourCirclesOnJawCalKv2"
+    requester_id = "tester_001"
+    image_id_list = "image0|image1"
+
+    zip_dir = os.path.join(os.path.dirname(__file__), "_test_images/temp")
+    images_dir = os.path.join(os.path.dirname(__file__), "_test_images/predictions")
+    zip_path = os.path.join(zip_dir, 'images.zip')
+
+    os.makedirs(zip_dir, exist_ok=True)
+    zip_mha_files(images_dir, zip_path)
+
+    extra_fields = {
+        "notes": "This is a test",
+        "priority": "high",
+        "name": "jinkoo kim",
+        "inst": "stony brook"
+    }
+
+    with open(zip_path, "rb") as zip_file:
+        form_data = {
+            "dataset_id": dataset_id,
+            "requester_id": requester_id,
+            "image_id_list": image_id_list,
+            **extra_fields
+        }
+        files = {
+            "images_zip": ("images.zip", zip_file, "application/zip")
+        }
+
+        response = requests.post(url, data=form_data, files=files)
+
+    if response.status_code == 200:
+        print("Request succeeded:", response.json())
+    else:
+        print(f"Error {response.status_code}: {response.text}")
+
+def test_post_predictions():
+    url = "http://127.0.0.1:8000/predictions"
+
+    dataset_id = "Dataset847_FourCirclesOnJawCalKv2"
+    requester_id = "tester_001"
+    image_id = "image0"
+
+    
+    images_dir = os.path.join(os.path.dirname(__file__), "_test_images/predictions")
+    image_path = os.path.join(images_dir, '0.mha')
+
+    extra_fields = {
+        "notes": "This is a test for 1 image prediction",
+        "priority": "high",
+        "name": "jinkoo kim",
+        "inst": "stony brook"
+    }
+
+    with open(image_path, "rb") as image_file:
+        form_data = {
+            "dataset_id": dataset_id,
+            "requester_id": requester_id,
+            "image_id": image_id,
+            **extra_fields
+        }
+        files = {
+            "image": image_file
+        }
+
+        response = requests.post(url, data=form_data, files=files)
+
+    if response.status_code == 200:
+        print("Request succeeded:", response.json())
+    else:
+        print(f"Error {response.status_code}: {response.text}")
+
+def get_prediction_list(BASE_URL, dataset_id):
+    print(f'getting prediciont list for {dataset_id}')
+
+    url = f"{BASE_URL}/predictions"
+    params = {"dataset_id": dataset_id}
+
+    try:
+        response = requests.get(url, params=params)
+
+        if response.status_code == 200:
+            data = response.json()
+            print("Prediction requests:", data)
+            return data
+        else:
+            error_message = f"GET failed: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while fetching prediction status: {e}")
+        raise
+
+
+def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, image_id, req_metadata):
+
+    url = f"{BASE_URL}/dataset/predictions"
+
+    try:
+       with open(image_path, "rb") as image_file:
+        form_data = {
+            "dataset_id": dataset_id,
+            "requester_id": requester_id,
+            "image_id": image_id,
+            **req_metadata
+        }
+        files = {
+            "image": image_file
+        }
+
+        response = requests.post(url, data=form_data, files=files)
+
+        # Print response with error handling
+        if response.status_code == 200:
+            reseponse_data = response.json()
+            print("Success:", reseponse_data)
+            return reseponse_data
+        else:
+            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)  # Raise a custom exception for server errors
+    except requests.exceptions.RequestException as e:
+        # Handle network-related errors (e.g., connection issues)
+        print(f"An error occurred while pushing images to the server: {e}")
+        raise  # Re-raise the exception to forward it
+
+def delete_prediction_request(BASE_URL, dataset_id, request_id):
+    url = f"{BASE_URL}/dataset/predictions"
+    params = {"dataset_id": dataset_id, "request_id": request_id}
+
+    try:
+        response = requests.delete(url, params=params)
+
+        if response.status_code == 200:
+            print("Delete successful:", response.json())
+            return response.json()
+        else:
+            error_message = f"DELETE failed: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while deleting prediction request: {e}")
+        raise
+
+
+def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_number, out_dir):
+    # 1. Get metadata and download URL
+    meta_url = f"{BASE_URL}/predictions/image_and_label_metadata"
+    meta_params = {
+        "dataset_id": dataset_id,
+        "req_id": req_id,
+        "image_number": image_number
+    }
+    meta_response = requests.get(meta_url, params=meta_params)
+
+    if meta_response.status_code != 200:
+        raise Exception(f"Failed to fetch metadata: {meta_response.status_code}, {meta_response.text}")
+
+    metadata = meta_response.json()
+    image_names = metadata.get("image_names", [])
+    label_name = metadata.get("label_name", "")
+    download_url = f"{BASE_URL}{metadata.get('download_url')}"
+
+    print("Image files:", image_names)
+    print("Label file:", label_name)
+    print("Download URL:", download_url)
+
+    # 2. Download ZIP
+    if not os.path.exists(out_dir):
+        print(f"Creating output directory: {out_dir}")
+        os.makedirs(out_dir)
+
+    zip_filename = f"{req_id}_image_{image_number}.zip"
+    zip_path = os.path.join(out_dir, zip_filename)
+
+    zip_response = requests.get(download_url)
+    if zip_response.status_code == 200:
+        print(f"Saving ZIP to: {zip_path}")
+        with open(zip_path, "wb") as f:
+            f.write(zip_response.content)
+    else:
+        raise Exception(f"Failed to download ZIP file: {zip_response.status_code}")
+
+    return {
+        "image_names": image_names,
+        "label_name": label_name,
+        "zip_path": zip_path
+    }

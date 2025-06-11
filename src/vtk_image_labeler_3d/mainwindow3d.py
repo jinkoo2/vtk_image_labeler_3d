@@ -670,9 +670,9 @@ class MainWindow3D(QMainWindow):
 
     def import_image_clicked(self):
         
-        #file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
         
-        file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
+        #file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
         if file_path == '':
             return 
 
@@ -681,6 +681,8 @@ class MainWindow3D(QMainWindow):
             self.close_workspace()
 
         self.load_image(file_path)
+
+        self._primary_image_path = file_path
 
         self._modified = True
 
