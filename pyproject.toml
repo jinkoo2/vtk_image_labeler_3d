@@ -36,11 +36,12 @@ dependencies = [
     "urllib3 == 2.3.0",
     "vtk == 9.3.1",
     "python-dotenv",  # No version specified, Poetry will resolve
-    "scikit-image (>=0.25.2,<0.26.0)"
+    "scikit-image (>=0.25.2,<0.26.0)",
+    "websocket-client (>=1.8.0,<2.0.0)"
 ]
 
 [tool.poetry.scripts]
-main = "vtk_image_labeler_3d.main:main"
+#main = "vtk_image_labeler_3d.app:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

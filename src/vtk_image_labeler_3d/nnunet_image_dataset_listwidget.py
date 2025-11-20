@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QApplication
 import sys
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-
+import uuid
+import os
 import nnunet_service 
 
 from config import get_config
@@ -106,7 +107,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                 dataset_id=dataset_id,
                 images_for=self.images_for,
                 num=number,
-                out_dir="./_downloads"
+                out_dir= os.path.join("./_downloads", str(uuid.uuid4()))
             )
 
             print("Download complete:", result)

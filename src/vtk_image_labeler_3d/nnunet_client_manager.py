@@ -223,7 +223,6 @@ class nnUNetDatasetManager(BaseObject):
         predictions_list_widget = nnunet_predictions_listwidget.nnUnetPredictionsListWidget()
         predictions_list_widget.images_downloaded.connect(self.handle_image_dataset_downloaded)
         predictions_list_widget.post_clicked.connect(self.handle_predictions_listwidget_post_dataset_clicked)
-        predictions_list_widget.update_clicked.connect(self.handle_predictions_listwidget_update_dataset_clicked)
         predictions_list_widget.delete_clicked.connect(self.handle_predictions_listwidget_delete_dataset_clicked)
         predictions_list_widget.setMinimumWidth(200)
         predictions_list_widget.setToolTip("Predictions")
@@ -244,6 +243,12 @@ class nnUNetDatasetManager(BaseObject):
         self.new_dataset_button = QPushButton("New Dataset")
         self.new_dataset_button.clicked.connect(self.open_new_dataset_dialog)
         layout.addWidget(self.new_dataset_button)
+
+        # Update list
+        self.refresh_list_button = QPushButton("Refrush List")
+        self.refresh_list_button.clicked.connect(self.update_train_test_prediction_lists)
+        layout.addWidget(self.refresh_list_button)
+
 
         # # push for prediction
         # self.new_dataset_button = QPushButton("Push Image for Prediction")
@@ -341,17 +346,15 @@ class nnUNetDatasetManager(BaseObject):
         print('posting a prediction request')
         self.post_image_for_prediction()
 
-    def handle_predictions_listwidget_update_dataset_clicked(self, dataset_id, num, sender):
-        print('updating a prediction request')
-
-    def handle_predictions_listwidget_delete_dataset_clicked(self, dataset_id, num, sender):
-        print('deleting a prediction request')
+    def handle_predictions_listwidget_delete_dataset_clicked(self, dataset_id, req_id, sender):
+        print(f'deleting a prediction request: dataset_id={dataset_id}, req_id={req_id}')
+        self.delete_prediction(req_id)
 
     def post_image_and_labels(self, images_for):
         selected_text = self.dataset_dropdown.currentText()
         selected_index = self.dataset_dropdown.currentIndex()
 
-        if selected_text is "" or selected_index is -1:
+        if selected_text=="" or selected_index==-1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return 
 
@@ -446,7 +449,7 @@ class nnUNetDatasetManager(BaseObject):
         selected_text = self.dataset_dropdown.currentText()
         selected_index = self.dataset_dropdown.currentIndex()
 
-        if selected_text is "" or selected_index is -1:
+        if selected_text == "" or selected_index == -1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return 
 
@@ -511,7 +514,7 @@ class nnUNetDatasetManager(BaseObject):
         selected_text = self.dataset_dropdown.currentText()
         selected_index = self.dataset_dropdown.currentIndex()
 
-        if selected_text is "" or selected_index is -1:
+        if selected_text=="" or selected_index==-1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return 
 
@@ -556,6 +559,9 @@ class nnUNetDatasetManager(BaseObject):
             req_response = nnunet_service.post_image_for_prediction(self.get_server_url(), dataset_id, image_path, requester_id, image_id, req_metadata)
             print(f"response_data={req_response}")
             self.log_message.emit("INFO",f"dateset_updated={req_response}")
+
+            # this is a rough way to refresh the prediction list (this will also update the train/terst image list as well)
+            self._on_dataset_selected(selected_index)
        
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -564,6 +570,37 @@ class nnUNetDatasetManager(BaseObject):
             print(f"Request failed: {e}")
             self.log_message.emit("ERROR", f"Request failed: {e}")
 
+
+    def delete_prediction(self, req_id):
+        selected_dataset_text = self.dataset_dropdown.currentText()
+        selected_dataset_index = self.dataset_dropdown.currentIndex()
+
+        if selected_dataset_text == "" or selected_dataset_index == -1:
+            self.log_message.emit("INFO", "Please select a dataset first!")
+            return 
+
+        dataset = self.datasets[selected_dataset_index]
+
+        """deleting the images and labels"""
+        try:
+            if "id" in dataset:
+                dataset_id = dataset["id"]
+            else:
+                dataset_id = selected_dataset_text
+
+            delete_info = nnunet_service.delete_prediction(self.get_server_url(), dataset_id, req_id)
+            print(f"response_data={delete_info}")
+            self.log_message.emit("INFO",f"delete_info={delete_info}")
+       
+            # update the list
+            self._on_dataset_selected(selected_dataset_index)  
+
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+            self.log_message.emit("ERROR", f"Server error: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            self.log_message.emit("ERROR", f"Request failed: {e}")
     def get_server_url(self):
         """Retrieve the current server URL from the input field."""
         return self.server_url_input.text()
@@ -609,18 +646,20 @@ class nnUNetDatasetManager(BaseObject):
     def get_selected_dataset(self):
         return self._current_datast
     
-    
-    def _on_dataset_selected(self, index):
+    def update_train_test_prediction_lists(self):
+        print("updating train/test/prediction lists")
+        selected_index = self.dataset_dropdown.currentIndex()
+        self._on_dataset_selected(selected_index)
+
+    def _on_dataset_selected(self, dataset_index):
         """Triggered when the user selects a dataset."""
-        if not self.datasets or index < 0 or index >= len(self.datasets):
+        if not self.datasets or dataset_index < 0 or dataset_index >= len(self.datasets):
             self.details_label.setText("<b>Error:</b> No dataset selected.")
             return
 
-        # Make a copy of the dataset and remove 'id'
-        dataset = self.datasets[index].copy()
-        #dataset.pop("id", None)  # Remove 'id' if it exists
+        # Make a copy of the dataset
+        dataset = self.datasets[dataset_index].copy()
         self._current_datast = dataset
-
 
         # Convert dataset dictionary to formatted JSON string
         details_json = json.dumps(dataset, indent=4)
@@ -647,8 +686,11 @@ class nnUNetDatasetManager(BaseObject):
 
             # get predictions list and polulate the list widget
             req_list = nnunet_service.get_prediction_list(self.get_server_url(), dataset_id)
-            if req_list and len(req_list) > 0:
+            if req_list is not None and isinstance(req_list, list):
+                print(f"response_data={req_list}")
                 self.predictions_list_widget.set_dataset(dataset_id, req_list)
+            else: 
+                self.predictions_list_widget.set_dataset(dataset_id, [])
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")

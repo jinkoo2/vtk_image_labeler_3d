@@ -1289,7 +1289,24 @@ matplotlib = ">=2.0.0"
 numpy = ["numpy (>=1.9)"]
 web = ["wslink (>=1.0.4)"]
 
+[[package]]
+name = "websocket-client"
+version = "1.8.0"
+description = "WebSocket client for Python with low level API options"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526"},
+    {file = "websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da"},
+]
+
+[package.extras]
+docs = ["Sphinx (>=6.0)", "myst-parser (>=2.0.0)", "sphinx-rtd-theme (>=1.1.0)"]
+optional = ["python-socks", "wsaccel"]
+test = ["websockets"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "4e31ec3f94d07c1c8f467cdb9d10d6d2c2a386ba8d44408086b852a65bd28f09"
+content-hash = "da7f500b8c12c4bc148093241a66c26c02033949af07ca13fa37e71363082ad0"

@@ -1,7 +1,9 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QListWidget, QApplication, QListWidgetItem
 import sys
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
-
+import uuid
+import os
+import zip_tools
 import nnunet_service 
 
 from config import get_config
@@ -14,6 +16,11 @@ def extract_image_number(filename):
         return int(match.group(1))
     raise ValueError(f"Could not extract number from filename: {filename}")
 
+def extract_req_id(listitem_text):
+    listitem_text_parts = listitem_text.split('/')
+    return listitem_text_parts[0]
+
+
 nnunet_server_url = conf['nnunet_server_url']
 
 from base_widget import BaseWidget
@@ -21,8 +28,7 @@ class nnUnetPredictionsListWidget(BaseWidget):
 
     images_downloaded = pyqtSignal(str, str, QObject) # 
     post_clicked = pyqtSignal(str, QObject) 
-    update_clicked = pyqtSignal(str, int, QObject) 
-    delete_clicked = pyqtSignal(str, int, QObject) 
+    delete_clicked = pyqtSignal(str, str, QObject) 
     
     def __init__(self):
         super().__init__()
@@ -44,14 +50,13 @@ class nnUnetPredictionsListWidget(BaseWidget):
         self.list_widget.itemDoubleClicked.connect(self.on_item_double_clicked)
         layout.addWidget(self.list_widget)
 
-        # add 4 command buttons in horizontal layout (get, post, update, delete)
+        # add 4 command buttons in horizontal layout (get, post, delete)
         button_layout = QHBoxLayout()
         self.get_button = QPushButton("Get")
         self.post_button = QPushButton("Post")
-        self.update_button = QPushButton("Update")
         self.delete_button = QPushButton("Delete")
 
-        for btn in [self.get_button, self.post_button, self.update_button, self.delete_button]:
+        for btn in [self.get_button, self.post_button, self.delete_button]:
             btn.clicked.connect(self.command_button_clicked)
             btn.setMinimumWidth(60)
             button_layout.addWidget(btn)
@@ -75,6 +80,8 @@ class nnUnetPredictionsListWidget(BaseWidget):
             label = f'{req_id}/{input_images}'
             if completed:
                 label += '/completed'
+            elif 'job_status' in item:
+                label += f"/{item['job_status']}"
 
             list_item = QListWidgetItem(label)
             list_item.setData(Qt.UserRole, item)  # Attach the full item object
@@ -83,13 +90,10 @@ class nnUnetPredictionsListWidget(BaseWidget):
     def command_button_clicked(self):
         sender = self.sender()
         if sender == self.get_button:
-            self.get_prediction_list()
+            self.download_prediction_images()
         
         elif sender == self.post_button:
             self.post_prediction()
-
-        elif sender == self.update_button:
-            self.update_prediction()
 
         elif sender == self.delete_button:
             self.delete_prediction()
@@ -128,9 +132,8 @@ class nnUnetPredictionsListWidget(BaseWidget):
             dataset_id = self._dataset_id
             selected_image_number = selected_image.split('_')[1]
 
-            from nnunet_service import download_prediction_images_and_labels
-            download_dir = "./_downloads"
-            result = download_prediction_images_and_labels(
+            download_dir = os.path.join("./_downloads", str(uuid.uuid4()))
+            result = nnunet_service.download_prediction_images_and_labels(
                 BASE_URL=nnunet_server_url,
                 dataset_id=dataset_id,
                 req_id=req_data['req_id'],
@@ -144,14 +147,12 @@ class nnUnetPredictionsListWidget(BaseWidget):
             zip_path = result['zip_path']
 
             # unzip to download dir
-            import zip_tools
             zip_tools.unzip_to_folder(zip_path, download_dir)
 
             if len(images)> 1:
                 self.show_msgbox_info(title="Multi-Channel Inputs", msg="there are more than 1 input images (multi-channel). Only the first image (ch=0) is used for rendering.", parent=self.main_widget)
 
             # notify image download (only use the first image)
-            import os
             image_path = os.path.join(download_dir, image_names[0])
             label_path = os.path.join(download_dir, label_name)
             self.images_downloaded.emit(image_path, label_path, self)
@@ -162,17 +163,6 @@ class nnUnetPredictionsListWidget(BaseWidget):
     def post_prediction(self):
         self.post_clicked.emit(self._dataset_id, self )
 
-    def update_prediction(self):
-        selected_item = self.list_widget.currentItem()
-        if not selected_item:
-            print("No image selected.")
-            return
-
-        # number
-        selected_text = selected_item.text()
-        number = extract_image_number(selected_text)  # crude way to extract number
-
-        self.update_clicked.emit(self._dataset_id, number, self)
     
     def delete_prediction(self):
         selected_item = self.list_widget.currentItem()
@@ -182,9 +172,10 @@ class nnUnetPredictionsListWidget(BaseWidget):
 
         # number
         selected_text = selected_item.text()
-        number = extract_image_number(selected_text)  # crude way to extract number
+        req_id = extract_req_id(selected_text)  # crude way to extract number
+        print(f"Deleting prediction with req_id={req_id}")
 
-        self.delete_clicked.emit(self._dataset_id, number, self)
+        self.delete_clicked.emit(self._dataset_id, req_id, self)
 
 
 

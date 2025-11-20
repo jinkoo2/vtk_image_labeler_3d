@@ -593,6 +593,10 @@ class MainWindow3D(QMainWindow):
         # load image
         self.load_image(image_path)
 
+        if os.path.exists(labels_path) is False:
+            print(f'Labels file does not exist: {labels_path}. Skipping label loading.')
+            return
+        
         # load label
         import itkvtk
         composit_labels_image = itkvtk.load_vtk_image_using_sitk(labels_path)

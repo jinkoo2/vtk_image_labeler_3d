@@ -182,7 +182,7 @@ def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_p
             print("Success:", reseponse_data)
             return reseponse_data
         else:
-            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            error_message = f"Failed posting image and label: {response.status_code}, {response.text}"
             print(error_message)
             raise ServerError(error_message)  # Raise a custom exception for server errors
     except requests.exceptions.RequestException as e:
@@ -219,7 +219,7 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
             print("Success:", reseponse_data)
             return reseponse_data
         else:
-            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            error_message = f"Failed updating image and label pair: {response.status_code}, {response.text}"
             print(error_message)
             raise ServerError(error_message)  # Raise a custom exception for server errors
     except requests.exceptions.RequestException as e:
@@ -250,7 +250,7 @@ def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
             print("Success:", reseponse_data)
             return reseponse_data
         else:
-            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            error_message = f"Failed deleting image and label pair: {response.status_code}, {response.text}"
             print(error_message)
             raise ServerError(error_message)  # Raise a custom exception for server errors
     except requests.exceptions.RequestException as e:
@@ -359,7 +359,7 @@ def get_prediction_list(BASE_URL, dataset_id):
 
 def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, image_id, req_metadata):
 
-    url = f"{BASE_URL}/dataset/predictions"
+    url = f"{BASE_URL}/predictions"
 
     try:
        with open(image_path, "rb") as image_file:
@@ -381,7 +381,7 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
             print("Success:", reseponse_data)
             return reseponse_data
         else:
-            error_message = f"Failed to ping server: {response.status_code}, {response.text}"
+            error_message = f"Failed to post image for prediction: {response.status_code}, {response.text}"
             print(error_message)
             raise ServerError(error_message)  # Raise a custom exception for server errors
     except requests.exceptions.RequestException as e:
@@ -389,10 +389,11 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
         print(f"An error occurred while pushing images to the server: {e}")
         raise  # Re-raise the exception to forward it
 
-def delete_prediction_request(BASE_URL, dataset_id, request_id):
-    url = f"{BASE_URL}/dataset/predictions"
-    params = {"dataset_id": dataset_id, "request_id": request_id}
-
+def delete_prediction(BASE_URL, dataset_id, req_id):
+    url = f"{BASE_URL}/predictions"
+    params = {"dataset_id": dataset_id, "req_id": req_id}
+    print(f"nnunet_service.delete_prediction: url={url}, params={params}")
+    
     try:
         response = requests.delete(url, params=params)
 
