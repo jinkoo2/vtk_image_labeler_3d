@@ -553,7 +553,7 @@ class nnUNetDatasetManager(BaseObject):
 
             req_metadata['dataset_id'] = dataset_id
 
-            requester_id = req_metadata["requester_id"]
+            #requester_id = req_metadata["requester_id"]
             image_id = req_metadata["image_id"]
 
             req_response = nnunet_service.post_image_for_prediction(self.get_server_url(), dataset_id, image_path, requester_id, image_id, req_metadata)

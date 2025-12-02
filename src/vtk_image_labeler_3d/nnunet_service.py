@@ -4,15 +4,25 @@ class ServerError(Exception):
     """Custom exception for server errors."""
     pass
 
+test_user = {
+  "email": "test@email.com",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGVtYWlsLmNvbSIsImV4cCI6MTc5NTg5ODc4M30.Zu_fZ4T1pq78vs-XkrYAJbUGpQPwWQjKL0bQMxDLrNo"
+}
+
 def get_ping(BASE_URL, timeout_seconds=10):
     """
     Ping the server and return the response with timeout handling.
     """
-    url = f"{BASE_URL}/ping"
+    url = f"{BASE_URL}/status/ping"
     print(f'Pinging the server at {url}')
     
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+
     try:
-        response = requests.get(url, timeout=timeout_seconds)
+        response = requests.get(url, headers=headers, timeout=timeout_seconds)
         
         if response.status_code == 200:
             return response.json()
@@ -32,8 +42,16 @@ def get_dataset_json_list(BASE_URL, timeout_seconds=10):
     List of datasets with timeout handling
     """
     print('Getting the list of dataset')
+    
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+
     try:
-        response = requests.get(f"{BASE_URL}/dataset_json/list", timeout=timeout_seconds)
+        response = requests.get(f"{BASE_URL}/datasets/list", 
+                                headers=headers,
+                                timeout=timeout_seconds)
         if response.status_code == 200:
             return response.json()
         else:
@@ -52,8 +70,16 @@ def get_dataset_json_id_list(BASE_URL, timeout_seconds=10):
     List of dataset IDs with timeout handling.
     """
     print('Getting the list of dataset IDs')
+
+     # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+
     try:
-        response = requests.get(f"{BASE_URL}/dataset_json/id-list", timeout=timeout_seconds)
+        response = requests.get(f"{BASE_URL}/datasets/id-list", 
+                                headers=headers,
+                                timeout=timeout_seconds)
         if response.status_code == 200:
             return response.json()
         else:
@@ -67,7 +93,6 @@ def get_dataset_json_id_list(BASE_URL, timeout_seconds=10):
         print(f"An error occurred while fetching dataset ID list: {e}")
         raise
 
-
 def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
     """
     Fetch the list of image and label file names for a given dataset with timeout handling.
@@ -75,8 +100,16 @@ def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
     print(f'Getting the image name list for dataset: {dataset_id}')
     params = {"dataset_id": dataset_id}
     
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+
     try:
-        response = requests.get(f"{BASE_URL}/dataset/image_name_list", params=params, timeout=timeout_seconds)
+        response = requests.get(f"{BASE_URL}/datasets/image_name_list", 
+                                params=params, 
+                                headers= headers,
+                                timeout=timeout_seconds)
         if response.status_code == 200:
             return response.json()
         else:
@@ -92,13 +125,21 @@ def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
         
 
 def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, out_dir):
-    url = f"{BASE_URL}/dataset/get_image_and_labels"
+    url = f"{BASE_URL}/datasets/get_image_and_labels"
     params = {
         "dataset_id": dataset_id,
         "images_for": images_for,
         "num": num
     }
-    response = requests.get(url, params=params)
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+
+    response = requests.get(url, 
+                            params=params,
+                            headers=headers
+                            )
 
     if response.status_code == 200:
         result = response.json()
@@ -113,7 +154,10 @@ def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, ou
 
         # Download base image
         base_image_path = os.path.join(out_dir, result['base_image_filename'])
-        img_response = requests.get(f"{BASE_URL}{result['base_image_url']}")
+        img_response = requests.get(f"{BASE_URL}{result['base_image_url']}", 
+                                    headers={
+                                    "Authorization": f"Bearer {test_user['token']}"
+                                })
         if img_response.status_code == 200:
             print(f"Saving base image to: {base_image_path}")
             with open(base_image_path, "wb") as f:
@@ -123,7 +167,10 @@ def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, ou
 
         # Download label image
         label_image_path = os.path.join(out_dir, result['labels_filename'])
-        lbl_response = requests.get(f"{BASE_URL}{result['labels_url']}")
+        lbl_response = requests.get(f"{BASE_URL}{result['labels_url']}",
+                                    headers={
+                                    "Authorization": f"Bearer {test_user['token']}"
+                                })
         if lbl_response.status_code == 200:
             print(f"Saving label image to: {label_image_path}")
             with open(label_image_path, "wb") as f:
@@ -145,9 +192,12 @@ def post_dataset_json(BASE_URL, data):
     post a dataset
     """
     response = requests.post(
-        f"{BASE_URL}/dataset_json/new",
+        f"{BASE_URL}/datasets/new",
         json=data,  # Task input as JSON payload
-        headers={"Content-Type": "application/json"}
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {test_user['token']}"
+            }
     )
     if response.status_code == 200:
         return response.json()
@@ -159,7 +209,7 @@ def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_p
     # Required metadata
     # dataset_id = "Dataset935_Test1"
     # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/dataset/add_image_and_labels"
+    url = f"{BASE_URL}/datasets/add_image_and_labels"
 
     try:
         # Open files safely using 'with' to avoid leaks
@@ -174,7 +224,12 @@ def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_p
                 "images_for": images_for,  # train or test
             }
                 
-            response = requests.post(url, files=files, data=data)
+            response = requests.post(url, 
+                                     files=files, 
+                                     headers={
+                                            "Authorization": f"Bearer {test_user['token']}"
+                                     },
+                                     data=data)
 
         # Print response with error handling
         if response.status_code == 200:
@@ -195,7 +250,7 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
     # Required metadata
     # dataset_id = "Dataset935_Test1"
     # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/dataset/update_image_and_labels"
+    url = f"{BASE_URL}/datasets/update_image_and_labels"
 
     try:
         # Open files safely using 'with' to avoid leaks
@@ -211,7 +266,12 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
                 "num": num
             }
                 
-            response = requests.put(url, files=files, data=data)
+            response = requests.put(url, 
+                                    files=files, 
+                                    headers={
+                                           "Authorization": f"Bearer {test_user['token']}"
+                                    },
+                                    data=data)
 
         # Print response with error handling
         if response.status_code == 200:
@@ -232,7 +292,7 @@ def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
     # Required metadata
     # dataset_id = "Dataset935_Test1"
     # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/dataset/delete_image_and_labels"
+    url = f"{BASE_URL}/datasets/delete_image_and_labels"
 
     try:
         # Use query parameters for DELETE
@@ -242,7 +302,11 @@ def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
             "num": num
         }
             
-        response = requests.delete(url, params=params)
+        response = requests.delete(url, 
+                                   headers={
+                                       "Authorization": f"Bearer {test_user['token']}"
+                                       },
+                                   params=params)
 
         # Print response with error handling
         if response.status_code == 200:
@@ -292,7 +356,9 @@ def test_post_predictions_zip():
             "images_zip": ("images.zip", zip_file, "application/zip")
         }
 
-        response = requests.post(url, data=form_data, files=files)
+        response = requests.post(url, data=form_data, files=files, headers={
+            "Authorization": f"Bearer {test_user['token']}"
+        }   )
 
     if response.status_code == 200:
         print("Request succeeded:", response.json())
@@ -328,7 +394,9 @@ def test_post_predictions():
             "image": image_file
         }
 
-        response = requests.post(url, data=form_data, files=files)
+        response = requests.post(url, data=form_data, files=files, headers={
+            "Authorization": f"Bearer {test_user['token']}"
+        })
 
     if response.status_code == 200:
         print("Request succeeded:", response.json())
@@ -338,11 +406,15 @@ def test_post_predictions():
 def get_prediction_list(BASE_URL, dataset_id):
     print(f'getting prediciont list for {dataset_id}')
 
-    url = f"{BASE_URL}/predictions"
+    url = f"{BASE_URL}/predictions/list"
     params = {"dataset_id": dataset_id}
 
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, 
+                                params=params,
+                                headers={
+                                    "Authorization": f"Bearer {test_user['token']}"
+                                })
 
         if response.status_code == 200:
             data = response.json()
@@ -359,13 +431,16 @@ def get_prediction_list(BASE_URL, dataset_id):
 
 def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, image_id, req_metadata):
 
-    url = f"{BASE_URL}/predictions"
+    url = f"{BASE_URL}/predictions/predict"
+
+    print("request metadata:", req_metadata)
+    
+    req_metadata['requester_id'] = requester_id
 
     try:
        with open(image_path, "rb") as image_file:
         form_data = {
             "dataset_id": dataset_id,
-            "requester_id": requester_id,
             "image_id": image_id,
             **req_metadata
         }
@@ -373,7 +448,12 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
             "image": image_file
         }
 
-        response = requests.post(url, data=form_data, files=files)
+        response = requests.post(url, 
+                                 data=form_data, 
+                                 files=files,
+                                 headers={
+                                     "Authorization": f"Bearer {test_user['token']}"
+                                 })
 
         # Print response with error handling
         if response.status_code == 200:
@@ -390,12 +470,14 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
         raise  # Re-raise the exception to forward it
 
 def delete_prediction(BASE_URL, dataset_id, req_id):
-    url = f"{BASE_URL}/predictions"
+    url = f"{BASE_URL}/predictions/delete"
     params = {"dataset_id": dataset_id, "req_id": req_id}
     print(f"nnunet_service.delete_prediction: url={url}, params={params}")
     
     try:
-        response = requests.delete(url, params=params)
+        response = requests.delete(url, 
+                                params=params,
+                                headers={"Authorization": f"Bearer {test_user['token']}"})
 
         if response.status_code == 200:
             print("Delete successful:", response.json())
@@ -417,7 +499,9 @@ def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_nu
         "req_id": req_id,
         "image_number": image_number
     }
-    meta_response = requests.get(meta_url, params=meta_params)
+    meta_response = requests.get(meta_url, params=meta_params, headers={
+        "Authorization": f"Bearer {test_user['token']}"
+    })
 
     if meta_response.status_code != 200:
         raise Exception(f"Failed to fetch metadata: {meta_response.status_code}, {meta_response.text}")
@@ -439,7 +523,10 @@ def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_nu
     zip_filename = f"{req_id}_image_{image_number}.zip"
     zip_path = os.path.join(out_dir, zip_filename)
 
-    zip_response = requests.get(download_url)
+    zip_response = requests.get(download_url,
+                                headers={
+                                    "Authorization": f"Bearer {test_user['token']}"
+                                })
     if zip_response.status_code == 200:
         print(f"Saving ZIP to: {zip_path}")
         with open(zip_path, "wb") as f:
