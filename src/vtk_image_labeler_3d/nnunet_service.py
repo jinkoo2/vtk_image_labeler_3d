@@ -539,3 +539,587 @@ def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_nu
         "label_name": label_name,
         "zip_path": zip_path
     }
+
+def post_plan_and_preprocess_run(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Submit a nnU-Net plan & preprocess job.
+    
+    This endpoint enqueues a job to plan and preprocess a dataset. The output directory
+    is automatically set to `nnUNet_preprocessed/{dataset_id}`.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing job_id, dataset_id, and number_of_jobs_ahead
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/run"
+    print(f'Submitting plan and preprocess job for dataset: {dataset_id}')
+    
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    # Form data for application/x-www-form-urlencoded
+    data = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.post(url, 
+                                data=data,
+                                headers=headers,
+                                timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Success:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to submit plan and preprocess job: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while submitting plan and preprocess job: {e}")
+        raise
+
+def get_plan_and_preprocess_job_status(BASE_URL, job_id, timeout_seconds=10):
+    """
+    Check the RQ job status and progress for plan & preprocess jobs.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        job_id: The RQ job ID returned from the `/run` endpoint
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing job status, progress, queue position, and result/error if available
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/job_status/{job_id}"
+    print(f'Checking plan and preprocess job status for job_id: {job_id}')
+    
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    try:
+        response = requests.get(url,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Job status:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get job status: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while checking job status: {e}")
+        raise
+
+def get_preprocessed_summary(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Get the preprocessed summary for a dataset.
+    
+    Loads and returns the `preprocess_summary.json` file from the preprocessed directory
+    for the given dataset. If the file is not found, returns an empty object.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing the preprocessed summary data
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/results/preprocess_summary"
+    print(f'Getting preprocessed summary for dataset: {dataset_id}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Preprocessed summary:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get preprocessed summary: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting preprocessed summary: {e}")
+        raise
+
+def get_preprocessed_files(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Get list of available preprocessed result files for a dataset.
+    
+    Returns the names of files that exist in the preprocessed directory:
+    - `preprocess_summary.json` - Preprocessing execution summary
+    - `nnUNetPlans.json` - nnU-Net planning configuration
+    - `dataset_fingerprint.json` - Dataset fingerprint information
+    - `preprocess.log` - Preprocessing log file
+    
+    Only files that exist will be included in the response.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset984_Test")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing a list of file names that are available
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/results/files"
+    print(f'Getting preprocessed files list for dataset: {dataset_id}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Preprocessed files:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get preprocessed files: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting preprocessed files: {e}")
+        raise
+
+def get_preprocessed_file_content(BASE_URL, dataset_id, file_name, timeout_seconds=10):
+    """
+    Get the content of a specific preprocessed result file for a dataset.
+    
+    Returns the contents of one of the allowed files:
+    - `preprocess_summary.json` - Preprocessing execution summary (returns JSON)
+    - `nnUNetPlans.json` - nnU-Net planning configuration (returns JSON)
+    - `dataset_fingerprint.json` - Dataset fingerprint information (returns JSON)
+    - `preprocess.log` - Preprocessing log file (returns text)
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset984_Test")
+        file_name: The name of the file to read (must be one of the allowed files)
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing the file content. JSON files are parsed and returned as objects,
+        log files are returned as strings.
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/results/file_content"
+    print(f'Getting preprocessed file content for dataset: {dataset_id}, file: {file_name}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id,
+        "file_name": file_name
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print(f"File content for {file_name}:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get file content: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting file content: {e}")
+        raise
+
+def get_preprocessed_results_details(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Get all preprocessed results files for a dataset.
+    
+    Reads and returns the contents of files from the preprocessed directory:
+    - `preprocess_summary.json` - Preprocessing execution summary
+    - `nnUNetPlans.json` - nnU-Net planning configuration
+    - `dataset_fingerprint.json` - Dataset fingerprint information
+    - `preprocess.log` - Preprocessing log file
+    
+    If any file is not found, that field will be omitted from the response.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset984_Test")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing all available files' contents
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/plan_and_preprocess/results/details"
+    print(f'Getting all preprocessed results details for dataset: {dataset_id}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Preprocessed results details:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get preprocessed results details: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting preprocessed results details: {e}")
+        raise
+
+def post_train_run(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Submit a nnU-Net training job.
+    
+    Enqueues a training job for the specified dataset. The dataset_id must follow
+    the pattern 'DatasetXYZ_Name' where XYZ is a 3-digit number.
+    
+    Training jobs cannot be started while there are prediction jobs in the queue.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing job_id, dataset_id, and number_of_jobs_ahead
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/train/run"
+    print(f'Submitting training job for dataset: {dataset_id}')
+    
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    # Form data for application/x-www-form-urlencoded
+    data = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.post(url, 
+                                data=data,
+                                headers=headers,
+                                timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Success:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to submit training job: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while submitting training job: {e}")
+        raise
+
+def get_train_job_status(BASE_URL, job_id, timeout_seconds=10):
+    """
+    Check the RQ job status and progress for training jobs.
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        job_id: The RQ job ID returned from the `/run` endpoint
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing job status, progress, queue position, and result/error if available
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/train/job_status/{job_id}"
+    print(f'Checking training job status for job_id: {job_id}')
+    
+    # The header must follow the format: Authorization: Bearer <TOKEN>
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    try:
+        response = requests.get(url,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Job status:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get training job status: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while checking training job status: {e}")
+        raise
+
+def get_training_log_files(BASE_URL, dataset_id, model_folder_name, timeout_seconds=10):
+    """
+    Get list of training log files for a dataset.
+    
+    Searches for training log files matching the pattern `fold{n}/training_log_*.txt`
+    in the model folder within the dataset's results directory, where `fold{n}` is like `fold0`, `fold1`, etc.
+    
+    The folder structure is: `{model_folder_name}/fold{n}/training_log_*.txt`
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        model_folder_name: The model folder name (e.g., "nnUNetTrainer__nnUNetPlans__3d_fullres")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing a list of file paths relative to the model folder
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/train/results/training_log_files"
+    print(f'Getting training log files list for dataset: {dataset_id}, model folder: {model_folder_name}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id,
+        "model_folder_name": model_folder_name
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Training log files:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get training log files: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting training log files: {e}")
+        raise
+
+def get_training_file_content(BASE_URL, dataset_id, model_folder_name, file_name, timeout_seconds=10):
+    """
+    Get the content of a specific training log file for a dataset.
+    
+    Reads and returns the content of a training log file. The file_name should be
+    a relative path from the model folder, matching the pattern `fold{n}/training_log_*.txt`.
+    
+    The folder structure is: `{model_folder_name}/fold{n}/training_log_*.txt`
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        model_folder_name: The model folder name (e.g., "nnUNetTrainer__nnUNetPlans__3d_fullres")
+        file_name: The relative path to the training log file from the model folder (e.g., "fold0/training_log_2025-01-01_12-00-00.txt")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing the file content as a text string
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/train/results/log_file_content"
+    print(f'Getting training file content for dataset: {dataset_id}, model folder: {model_folder_name}, file: {file_name}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id,
+        "model_folder_name": model_folder_name,
+        "file_name": file_name
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Training file content retrieved")
+            return response_data
+        else:
+            error_message = f"Failed to get training file content: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting training file content: {e}")
+        raise
+
+def get_training_model_folder_names(BASE_URL, dataset_id, timeout_seconds=10):
+    """
+    Get list of model folder names for a dataset.
+    
+    Searches for folders in the dataset's results directory that match the pattern
+    `*__*__*` (containing exactly two double underscores).
+    
+    These folders typically represent nnU-Net model configurations, such as:
+    - `nnUNetTrainer__nnUNetPlans__3d_fullres`
+    - `nnUNetTrainer__nnUNetPlans__2d`
+    - `nnUNetTrainer__nnUNetPlans__3d_lowres`
+    
+    Args:
+        BASE_URL: Base URL of the API server
+        dataset_id: The full dataset identifier (e.g., "Dataset015_CBCTBladder")
+        timeout_seconds: Request timeout in seconds (default: 10)
+    
+    Returns:
+        Response JSON containing a list of folder names matching the pattern
+    
+    Raises:
+        ServerError: If the request fails
+        requests.exceptions.RequestException: For network errors
+    """
+    url = f"{BASE_URL}/train/results/model_folders"
+    print(f'Getting model folders list for dataset: {dataset_id}')
+    
+    headers = {
+        "Authorization": f"Bearer {test_user['token']}"
+    }
+    
+    params = {
+        "dataset_id": dataset_id
+    }
+    
+    try:
+        response = requests.get(url,
+                               params=params,
+                               headers=headers,
+                               timeout=timeout_seconds)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print("Model folders:", response_data)
+            return response_data
+        else:
+            error_message = f"Failed to get model folders: {response.status_code}, {response.text}"
+            print(error_message)
+            raise ServerError(error_message)
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while getting model folders: {e}")
+        raise
