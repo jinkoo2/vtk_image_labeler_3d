@@ -1,0 +1,22 @@
+Priority,Structure Template,Aliases,Type,Prescription,Constraint Type,Constraint,Comment
+1,GTV,GTV.*,Target,Default: 3000cGy,DoseSpill,DSV105%<15%,SB Constraint
+2,GTV,GTV.*,Target,Default: 3000cGy,ConformityIndex,CI100%,ACR Recommendation
+3,Brainstem,,Oar,,Dose,D0.035cc<3100cGy,
+4,Brainstem,,Oar,,Dose,D0.5cc<2300cGy,
+5,Cochlea_L,,Oar,,Dose,D0.035cc<2500cGy,
+6,Cochlea_R,,Oar,,Dose,D0.035cc<2500cGy,
+7,Eye_L,,Oar,,Dose,D0.035cc<2500cGy,
+8,Eye_L,,Oar,,Dose,D0.2cc<2300cGy,
+9,Eye_R,,Oar,,Dose,D0.035cc<2500cGy,
+10,Eye_R,,Oar,,Dose,D0.2cc<2300cGy,
+11,OpticChiasm,,Oar,,Dose,D0.035cc<2500cGy,
+12,OpticChiasm,,Oar,,Dose,D0.2cc<2300cGy,
+13,OpticNrv_L,,Oar,,Dose,D0.035cc<2500cGy,
+14,OpticNrv_L,,Oar,,Dose,D0.2cc<2300cGy,
+15,OpticNrv_R,,Oar,,Dose,D0.035cc<2500cGy,
+16,OpticNrv_R,,Oar,,Dose,D0.2cc<2300cGy,
+17,Skin,,Oar,,Dose,D0.035cc<3950cGy,
+18,Skin,,Oar,,Dose,D10cc<3650cGy,
+19,SpinalCord,,Oar,,Dose,D0.035cc<3000cGy,
+20,SpinalCord,,Oar,,Dose,D0.35cc<2300cGy,
+21,SpinalCord,,Oar,,Dose,D1.2cc<1450cGy,

@@ -1,0 +1,26 @@
+{
+    "name": "Brain9",
+    "description": "Brain 9 organs",
+    "reference": "Stony Brook Univ Hospital",
+    "licence": "CC-BY-SA 4.0",
+    "tensorImageSize": "3D",
+    "labels": {
+        "Background": 0,
+        "Brainstem": 1,
+        "Cochlea_L": 2,
+        "Cochlea_R": 3,
+        "Eye_L": 4,
+        "Eye_R": 5,
+        "OpticChiasm": 6,
+        "OpticNrv_L": 7,
+        "OpticNrv_R": 8,
+        "SpinalCord": 9
+    },
+    "channel_names": {
+        "0": "CT"
+    },
+    "file_ending": ".mha",
+    "numTraining": 0,
+    "numTest": 0,
+    "id": "Dataset000_Brain9"
+}

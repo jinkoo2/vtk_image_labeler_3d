@@ -1,0 +1,18 @@
+{
+    "name": "Brain2",
+    "description": "TG101 Brain Structures including Brain",
+    "reference": "Stony Brook Univ Hospital",
+    "licence": "CC-BY-SA 4.0",
+    "tensorImageSize": "3D",
+    "labels": {
+        "Background": 0,
+        "Brain": 9
+    },
+    "channel_names": {
+        "0": "CT"
+    },
+    "file_ending": ".mha",
+    "numTraining": 0,
+    "numTest": 0,
+    "id": "Dataset000_TG101_Brain"
+}

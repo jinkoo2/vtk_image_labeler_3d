@@ -13,7 +13,7 @@ A 3D medical image annotation and segmentation labeling tool built with PyQt5, V
 poetry install
 
 # Run the application
-python src/vtk_image_labeler_3d/app.py
+poetry run app
 
 # Run tests
 pytest tests/
@@ -57,7 +57,7 @@ SimpleITK Image ↔ VTK Image ↔ NumPy Array
 - **Qt Signal-Slot**: Components communicate via PyQt5 signals (e.g., `layer_added`, `layer_image_modified`, `active_layer_changed`)
 - **Configuration**: `.env` file loaded via `python-dotenv` (see `config.py`); app state persisted in `_settings.conf` (INI format)
 - **Logging**: Centralized logger (`logger.py`) — DEBUG to daily log files in `_logs/`, INFO to console
-- **Imports are relative**: Modules in `src/vtk_image_labeler_3d/` import each other by name directly (e.g., `import mainwindow3d`), not as package imports
+- **Implicit relative imports**: The app runs with `src/vtk_image_labeler_3d/` as the working directory, so modules import each other by bare name (`import mainwindow3d`, `from config import get_config`) rather than using package-qualified paths. When adding new modules, follow this same convention — do not use `from vtk_image_labeler_3d.xxx import ...`
 
 ## Directories
 - `_logs/`, `_temp/`, `_downloads/`: Runtime directories (gitignored via `_*` pattern)
