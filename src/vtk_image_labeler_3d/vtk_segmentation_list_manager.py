@@ -773,6 +773,21 @@ class SegmentationListManager(QObject):
         self._closing_paint_tool = False
         self._brush_color_is_erase = None  # cache last brush color mode
 
+        self.pencil_active = False
+        self.pencil_erase_active = False
+        self.pencil_tool_dialog = None
+        self._pencil_target_layer_name = None
+        self._pencil_target_layer = None
+        self._closing_pencil_tool = False
+        self._pencil_points_ijk = []
+        self._pencil_points_world = []
+        self._pencil_viewer = None
+        self._pencil_axis = None
+        self._pencil_fixed_coord = None
+        self._pencil_cursor_world = None
+        self._pencil_left_button_down = False
+        self._pencil_min_drag_spacing_px = 2  # min image-index distance between drag samples
+
         self._modified = False
 
         logger.info("SegmentationListManager initialized")
@@ -818,6 +833,9 @@ class SegmentationListManager(QObject):
         self.paint_action, self.paint_button = self.create_checkable_button(
             "Paint Tool", self.paint_active, toolbar, self.toggle_paint_tool
         )
+        self.pencil_action, self.pencil_button = self.create_checkable_button(
+            "Pencil Tool", self.pencil_active, toolbar, self.toggle_pencil_tool
+        )
 
         return toolbar
     
@@ -854,6 +872,11 @@ class SegmentationListManager(QObject):
             "Paint Tool", self.paint_active, None, self.toggle_paint_tool
         )
         button_layout.addWidget(self.paint_button)
+
+        self.pencil_action, self.pencil_button = self.create_checkable_button(
+            "Pencil Tool", self.pencil_active, None, self.toggle_pencil_tool
+        )
+        button_layout.addWidget(self.pencil_button)
 
         boolean_tool_button = QPushButton("Boolean Tool")
         boolean_tool_button.clicked.connect(self.show_boolean_tool_clicked)
@@ -951,13 +974,14 @@ class SegmentationListManager(QObject):
                 v.paintbrush.set_brush_3d(self.paintbrush_3d)
 
     def get_exclusive_actions(self):
-        return [self.paint_action]
+        return [self.paint_action, self.pencil_action]
     
     def clear(self):       
         
         # deactivate editing
         self.toggle_erase_tool(False)
         self.toggle_paint_tool(False)
+        self.toggle_pencil_tool(False)
 
         # reset rgw color rotator
         color_rotator1.reset()
@@ -1363,6 +1387,9 @@ class SegmentationListManager(QObject):
         self.toggle_paint_tool(False)
 
     def open_paint_tool(self):
+        if self.pencil_active:
+            self.toggle_pencil_tool(False)
+
         dialog = self._ensure_paint_tool_dialog()
         active = self.get_active_layer()
         preferred = active.get_name() if active is not None else None
@@ -1454,6 +1481,585 @@ class SegmentationListManager(QObject):
             self.print_status("Paint mode activated")
 
         self.enable_paintbrush(self.paint_active or self.erase_active)
+
+    # ------------------------------------------------------------------
+    # Pencil Tool: click-to-draw polygon, right-click to close & fill
+    # ------------------------------------------------------------------
+
+    def get_pencil_target_layer(self):
+        """Layer currently targeted by the Pencil Tool dropdown."""
+        if self._pencil_target_layer is not None:
+            return self._pencil_target_layer
+        if self._pencil_target_layer_name:
+            layer = self.segmentation_layers.get_layer_by_name(self._pencil_target_layer_name)
+            if layer is not None:
+                self._pencil_target_layer = layer
+                return layer
+        return self.get_active_layer()
+
+    def _ensure_pencil_tool_dialog(self):
+        if self.pencil_tool_dialog is not None:
+            return self.pencil_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog, QComboBox, QFormLayout, QVBoxLayout, QLabel,
+        )
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Pencil Tool")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(320, 160)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.pencil_target_combo = QComboBox(dialog)
+        self.pencil_target_combo.setToolTip("Layer that pencil fill/erase will modify")
+        self.pencil_target_combo.currentTextChanged.connect(self._on_pencil_target_layer_changed)
+        form.addRow("Target Layer:", self.pencil_target_combo)
+
+        self.pencil_erase_checkbox = QCheckBox("Erase")
+        self.pencil_erase_checkbox.setToolTip(
+            "When checked, the closed area erases instead of painting"
+        )
+        self.pencil_erase_checkbox.setChecked(False)
+        self.pencil_erase_checkbox.stateChanged.connect(self._on_pencil_erase_checkbox_changed)
+        form.addRow("", self.pencil_erase_checkbox)
+
+        layout.addLayout(form)
+        hint = QLabel(
+            "Click or drag with left mouse to draw. Right-click to close and fill.\n"
+            "Close this window to leave pencil mode."
+        )
+        hint.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(hint)
+
+        dialog.finished.connect(self._on_pencil_tool_dialog_finished)
+        self.pencil_tool_dialog = dialog
+        return dialog
+
+    def _refresh_pencil_target_layers(self, preferred_name=None):
+        if not hasattr(self, "pencil_target_combo") or self.pencil_target_combo is None:
+            return
+
+        preferred = preferred_name or self._pencil_target_layer_name
+        if not preferred:
+            active = self.get_active_layer()
+            if active is not None:
+                preferred = active.get_name()
+
+        names = self.segmentation_layers.get_layer_names()
+        self.pencil_target_combo.blockSignals(True)
+        self.pencil_target_combo.clear()
+        self.pencil_target_combo.addItems(names)
+        if preferred and preferred in names:
+            self.pencil_target_combo.setCurrentText(preferred)
+            self._pencil_target_layer_name = preferred
+        elif names:
+            self.pencil_target_combo.setCurrentIndex(0)
+            self._pencil_target_layer_name = names[0]
+        else:
+            self._pencil_target_layer_name = None
+        self._pencil_target_layer = (
+            self.segmentation_layers.get_layer_by_name(self._pencil_target_layer_name)
+            if self._pencil_target_layer_name else None
+        )
+        self.pencil_target_combo.blockSignals(False)
+
+    def _on_pencil_target_layer_changed(self, name):
+        self._pencil_target_layer_name = name or None
+        self._pencil_target_layer = (
+            self.segmentation_layers.get_layer_by_name(self._pencil_target_layer_name)
+            if self._pencil_target_layer_name else None
+        )
+
+    def _on_pencil_erase_checkbox_changed(self, state):
+        self.pencil_erase_active = (state == Qt.Checked)
+        self._update_pencil_overlay_style()
+        if self.pencil_erase_active:
+            self.print_status("Pencil erase mode")
+        else:
+            self.print_status("Pencil paint mode")
+
+    def _on_pencil_tool_dialog_finished(self, result=0):
+        if self._closing_pencil_tool:
+            return
+        self.toggle_pencil_tool(False)
+
+    def open_pencil_tool(self):
+        if self.paint_active or self.erase_active:
+            self.toggle_paint_tool(False)
+
+        dialog = self._ensure_pencil_tool_dialog()
+        active = self.get_active_layer()
+        preferred = active.get_name() if active is not None else None
+        self._refresh_pencil_target_layers(preferred_name=preferred)
+
+        if hasattr(self, "pencil_erase_checkbox") and self.pencil_erase_checkbox is not None:
+            self.pencil_erase_checkbox.blockSignals(True)
+            self.pencil_erase_checkbox.setChecked(False)
+            self.pencil_erase_checkbox.blockSignals(False)
+
+        self.pencil_erase_active = False
+        self.pencil_active = True
+        self.pencil_action.blockSignals(True)
+        self.pencil_action.setChecked(True)
+        self.pencil_action.blockSignals(False)
+        if hasattr(self, "pencil_button") and self.pencil_button is not None:
+            self.pencil_button.blockSignals(True)
+            self.pencil_button.setChecked(True)
+            self.pencil_button.blockSignals(False)
+
+        dialog.show()
+        dialog.raise_()
+        self.enable_pencil_tool(True)
+        self.print_status("Pencil tool activated")
+
+    def close_pencil_tool(self):
+        self._closing_pencil_tool = True
+        try:
+            self.pencil_active = False
+            self.pencil_erase_active = False
+            self.pencil_action.blockSignals(True)
+            self.pencil_action.setChecked(False)
+            self.pencil_action.blockSignals(False)
+            if hasattr(self, "pencil_button") and self.pencil_button is not None:
+                self.pencil_button.blockSignals(True)
+                self.pencil_button.setChecked(False)
+                self.pencil_button.blockSignals(False)
+
+            if hasattr(self, "pencil_erase_checkbox") and self.pencil_erase_checkbox is not None:
+                self.pencil_erase_checkbox.blockSignals(True)
+                self.pencil_erase_checkbox.setChecked(False)
+                self.pencil_erase_checkbox.blockSignals(False)
+
+            if self.pencil_tool_dialog is not None and self.pencil_tool_dialog.isVisible():
+                self.pencil_tool_dialog.hide()
+
+            self.enable_pencil_tool(False)
+            self.print_status("Pencil tool deactivated")
+        finally:
+            self._closing_pencil_tool = False
+
+    def toggle_pencil_tool(self, checked):
+        dialog_visible = (
+            self.pencil_tool_dialog is not None and self.pencil_tool_dialog.isVisible()
+        )
+        if checked and self.pencil_active and dialog_visible:
+            return
+        if (not checked) and (not self.pencil_active) and (not dialog_visible):
+            return
+
+        if checked:
+            self.open_pencil_tool()
+        else:
+            self.close_pencil_tool()
+
+    def enable_pencil_tool(self, enabled=True):
+        for v in self.vtk_viewer.get_viewers_2d():
+            interactor = v.interactor
+            v.suppress_context_menu = bool(enabled)
+
+            if enabled:
+                if not hasattr(v, "pencil_overlay_actor") or v.pencil_overlay_actor is None:
+                    self._create_pencil_overlay(v)
+
+                v.pencil_left_press_observer = interactor.AddObserver(
+                    "LeftButtonPressEvent", self.on_pencil_left_button_press
+                )
+                v.pencil_left_release_observer = interactor.AddObserver(
+                    "LeftButtonReleaseEvent", self.on_pencil_left_button_release
+                )
+                v.pencil_right_press_observer = interactor.AddObserver(
+                    "RightButtonPressEvent", self.on_pencil_right_button_press
+                )
+                v.pencil_mouse_move_observer = interactor.AddObserver(
+                    "MouseMoveEvent", self.on_pencil_mouse_move
+                )
+            else:
+                for attr in (
+                    "pencil_left_press_observer",
+                    "pencil_left_release_observer",
+                    "pencil_right_press_observer",
+                    "pencil_mouse_move_observer",
+                ):
+                    tag = getattr(v, attr, None)
+                    if tag is not None:
+                        interactor.RemoveObserver(tag)
+                        setattr(v, attr, None)
+
+                self._clear_pencil_overlay(v)
+
+        self._reset_pencil_drawing()
+
+    def _create_pencil_overlay(self, v2d):
+        points = vtk.vtkPoints()
+        lines = vtk.vtkCellArray()
+        poly = vtk.vtkPolyData()
+        poly.SetPoints(points)
+        poly.SetLines(lines)
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputData(poly)
+        # Keep lines from losing the depth fight against the slice image.
+        mapper.SetResolveCoincidentTopologyToPolygonOffset()
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetLineWidth(3)
+        actor.GetProperty().SetColor(0.0, 1.0, 0.0)
+        actor.GetProperty().SetLighting(False)
+        actor.SetVisibility(False)
+
+        v2d.get_renderer().AddActor(actor)
+        v2d.pencil_overlay_points = points
+        v2d.pencil_overlay_lines = lines
+        v2d.pencil_overlay_poly = poly
+        v2d.pencil_overlay_actor = actor
+
+    def _pencil_overlay_color(self):
+        if self.pencil_erase_active:
+            return (0.0, 0.5, 1.0)
+        return (0.0, 1.0, 0.0)
+
+    def _update_pencil_overlay_style(self):
+        color = self._pencil_overlay_color()
+        for v in self.vtk_viewer.get_viewers_2d():
+            actor = getattr(v, "pencil_overlay_actor", None)
+            if actor is not None:
+                actor.GetProperty().SetColor(*color)
+                if self._pencil_viewer is v:
+                    v.render()
+
+    def _clear_pencil_overlay(self, v2d):
+        actor = getattr(v2d, "pencil_overlay_actor", None)
+        if actor is None:
+            return
+        points = v2d.pencil_overlay_points
+        lines = v2d.pencil_overlay_lines
+        points.Reset()
+        lines.Reset()
+        v2d.pencil_overlay_poly.Modified()
+        actor.SetVisibility(False)
+        v2d.render()
+
+    def _reset_pencil_drawing(self):
+        if self._pencil_viewer is not None:
+            self._clear_pencil_overlay(self._pencil_viewer)
+        self._pencil_points_ijk = []
+        self._pencil_points_world = []
+        self._pencil_viewer = None
+        self._pencil_axis = None
+        self._pencil_fixed_coord = None
+        self._pencil_cursor_world = None
+        self._pencil_left_button_down = False
+
+    def _fixed_coord_for_axis(self, image_index, axis):
+        import reslicer
+        if axis == reslicer.AXIAL:
+            return int(round(image_index[2]))
+        if axis == reslicer.CORONAL:
+            return int(round(image_index[1]))
+        if axis == reslicer.SAGITTAL:
+            return int(round(image_index[0]))
+        raise ValueError(f"Invalid axis: {axis}")
+
+    def _project_world_in_front_of_slice(self, v2d, world_pos):
+        """Shift a world point toward the camera so overlay lines draw above the slice."""
+        import numpy as np
+        import vtk_camera_wrapper
+
+        camera = v2d.get_renderer().GetActiveCamera()
+        cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
+        w_H_camo = cam.get_w_H_o()
+        camo_H_w = cam.get_o_H_w()
+
+        w_pt = np.append(np.array(world_pos, dtype=float), 1.0).reshape(4, 1)
+        camo_pt = camo_H_w @ w_pt
+        # Same trick as the paintbrush cursor: pull to just in front of the near plane.
+        z_near = cam.get_clip_range()[0]
+        camo_pt[2, 0] = z_near + 0.1
+        return (w_H_camo @ camo_pt).flatten()[:3]
+
+    def _refresh_pencil_overlay(self):
+        v2d = self._pencil_viewer
+        if v2d is None or not hasattr(v2d, "pencil_overlay_actor"):
+            return
+
+        points = v2d.pencil_overlay_points
+        lines = v2d.pencil_overlay_lines
+        points.Reset()
+        lines.Reset()
+
+        world_pts = list(self._pencil_points_world)
+        if self._pencil_cursor_world is not None and world_pts:
+            world_pts = world_pts + [self._pencil_cursor_world]
+
+        for wp in world_pts:
+            disp = self._project_world_in_front_of_slice(v2d, wp)
+            points.InsertNextPoint(float(disp[0]), float(disp[1]), float(disp[2]))
+
+        n = points.GetNumberOfPoints()
+        if n >= 2:
+            for i in range(n - 1):
+                line = vtk.vtkLine()
+                line.GetPointIds().SetId(0, i)
+                line.GetPointIds().SetId(1, i + 1)
+                lines.InsertNextCell(line)
+
+        points.Modified()
+        lines.Modified()
+        v2d.pencil_overlay_poly.Modified()
+        actor = v2d.pencil_overlay_actor
+        actor.GetProperty().SetColor(*self._pencil_overlay_color())
+        actor.SetVisibility(n > 0)
+        v2d.render()
+
+    def _try_add_pencil_point(self, v2d, image_index, world_point, require_spacing=False):
+        """Append a polyline vertex if view/slice/layer checks pass.
+
+        When require_spacing is True (drag sampling), skip points closer than
+        _pencil_min_drag_spacing_px in image-index space to avoid oversampling.
+        """
+        axis = v2d.reslicer.axis
+        fixed = self._fixed_coord_for_axis(image_index, axis)
+
+        if self._pencil_viewer is None:
+            self._pencil_viewer = v2d
+            self._pencil_axis = axis
+            self._pencil_fixed_coord = fixed
+        else:
+            if v2d is not self._pencil_viewer:
+                if not require_spacing:
+                    self.print_status("Pencil: finish or cancel on the same view")
+                return False
+            if fixed != self._pencil_fixed_coord:
+                if not require_spacing:
+                    self.print_status("Pencil: stay on the same slice while drawing")
+                return False
+
+        layer = self.get_pencil_target_layer()
+        if layer is None:
+            if not require_spacing:
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.warning(None, "Warning", "No target layer selected for the Pencil Tool.")
+            return False
+        if not layer.get_visible():
+            if not require_spacing:
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    None, "Warning", "The layer being edited is not visible. Please turn it on first."
+                )
+            return False
+
+        ijk = (
+            int(round(float(image_index[0]))),
+            int(round(float(image_index[1]))),
+            int(round(float(image_index[2]))),
+        )
+
+        if require_spacing and self._pencil_points_ijk:
+            last = self._pencil_points_ijk[-1]
+            import reslicer
+            if axis == reslicer.AXIAL:
+                dist = ((ijk[0] - last[0]) ** 2 + (ijk[1] - last[1]) ** 2) ** 0.5
+            elif axis == reslicer.CORONAL:
+                dist = ((ijk[0] - last[0]) ** 2 + (ijk[2] - last[2]) ** 2) ** 0.5
+            else:  # SAGITTAL
+                dist = ((ijk[1] - last[1]) ** 2 + (ijk[2] - last[2]) ** 2) ** 0.5
+            if dist < self._pencil_min_drag_spacing_px:
+                return False
+
+        self._pencil_points_ijk.append(ijk)
+        self._pencil_points_world.append(
+            (float(world_point[0]), float(world_point[1]), float(world_point[2]))
+        )
+        self._pencil_cursor_world = None
+        self._refresh_pencil_overlay()
+        return True
+
+    def on_pencil_left_button_press(self, obj, event):
+        if not self.pencil_active:
+            return
+
+        v2d = self._find_viewer_from_interactor(obj)
+        if not v2d:
+            return
+
+        if hasattr(self.vtk_viewer, "activate_viewer"):
+            self.vtk_viewer.activate_viewer(obj)
+
+        event_data = v2d.get_mouse_event_coordiantes()
+        if "image_index" not in event_data or "world_point" not in event_data:
+            return
+
+        self._pencil_left_button_down = True
+        added = self._try_add_pencil_point(
+            v2d, event_data["image_index"], event_data["world_point"], require_spacing=False
+        )
+        if added:
+            self.print_status(f"Pencil: point {len(self._pencil_points_ijk)}")
+
+    def on_pencil_left_button_release(self, obj, event):
+        if not self.pencil_active:
+            return
+        self._pencil_left_button_down = False
+
+    def on_pencil_mouse_move(self, obj, event):
+        if not self.pencil_active:
+            return
+
+        v2d = self._find_viewer_from_interactor(obj)
+        if not v2d:
+            return
+
+        # Hold-and-drag: append polyline samples while LMB is down.
+        if self._pencil_left_button_down:
+            event_data = v2d.get_mouse_event_coordiantes()
+            if "image_index" not in event_data or "world_point" not in event_data:
+                return
+            added = self._try_add_pencil_point(
+                v2d,
+                event_data["image_index"],
+                event_data["world_point"],
+                require_spacing=True,
+            )
+            if added:
+                self.print_status(f"Pencil: point {len(self._pencil_points_ijk)}")
+            return
+
+        # Rubber-band preview from last point to cursor when not dragging.
+        if self._pencil_viewer is None or not self._pencil_points_world:
+            return
+        if v2d is not self._pencil_viewer:
+            return
+
+        event_data = v2d.get_mouse_event_coordiantes()
+        if "world_point" not in event_data:
+            return
+
+        world_point = event_data["world_point"]
+        self._pencil_cursor_world = (
+            float(world_point[0]), float(world_point[1]), float(world_point[2])
+        )
+        self._refresh_pencil_overlay()
+
+    def on_pencil_right_button_press(self, obj, event):
+        if not self.pencil_active:
+            return
+
+        v2d = self._find_viewer_from_interactor(obj)
+        if not v2d:
+            return
+
+        # Closing with fewer than 3 points cancels the current polyline.
+        if len(self._pencil_points_ijk) < 3:
+            self._reset_pencil_drawing()
+            self.print_status("Pencil: drawing cancelled")
+            return
+
+        if self._pencil_viewer is not None and v2d is not self._pencil_viewer:
+            self.print_status("Pencil: right-click on the same view to close")
+            return
+
+        self._close_and_fill_pencil_polygon(v2d)
+
+    def _close_and_fill_pencil_polygon(self, v2d):
+        layer = self.get_pencil_target_layer()
+        if layer is None:
+            self._reset_pencil_drawing()
+            return
+        if not layer.get_visible():
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                None, "Warning", "The layer being edited is not visible. Please turn it on first."
+            )
+            self._reset_pencil_drawing()
+            return
+
+        value = 0 if self.pencil_erase_active else 1
+        self._fill_polygon_on_slice(
+            layer.get_image(),
+            self._pencil_points_ijk,
+            self._pencil_axis,
+            value,
+        )
+
+        layer.get_image().Modified()
+        self._modified = True
+        self.layer_image_modified.emit(layer, self)
+        v2d.render()
+
+        n = len(self._pencil_points_ijk)
+        self._reset_pencil_drawing()
+        mode = "erased" if value == 0 else "filled"
+        self.print_status(f"Pencil: {mode} polygon ({n} points)")
+
+    def _fill_polygon_on_slice(self, segmentation, points_ijk, axis, value):
+        """Fill the polygon on the slice plane defined by axis using OpenCV."""
+        import cv2
+        import numpy as np
+        import reslicer
+        from vtk.util import numpy_support
+
+        if len(points_ijk) < 3:
+            return
+
+        dims = segmentation.GetDimensions()
+        extent = segmentation.GetExtent()
+        scalars = segmentation.GetPointData().GetScalars()
+        arr = numpy_support.vtk_to_numpy(scalars)
+        # VTK layout matches paintbrush indexing: z, y, x
+        vol = arr.reshape((dims[2], dims[1], dims[0]))
+
+        if axis == reslicer.AXIAL:
+            z = int(round(points_ijk[0][2]))
+            zi = z - extent[4]
+            if not (0 <= zi < dims[2]):
+                return
+            pts = np.array(
+                [[[int(round(p[0] - extent[0])), int(round(p[1] - extent[2]))] for p in points_ijk]],
+                dtype=np.int32,
+            )
+            mask = np.zeros((dims[1], dims[0]), dtype=np.uint8)
+            cv2.fillPoly(mask, pts, 1)
+            vol[zi][mask > 0] = value
+
+        elif axis == reslicer.CORONAL:
+            y = int(round(points_ijk[0][1]))
+            yi = y - extent[2]
+            if not (0 <= yi < dims[1]):
+                return
+            pts = np.array(
+                [[[int(round(p[0] - extent[0])), int(round(p[2] - extent[4]))] for p in points_ijk]],
+                dtype=np.int32,
+            )
+            mask = np.zeros((dims[2], dims[0]), dtype=np.uint8)
+            cv2.fillPoly(mask, pts, 1)
+            slice2d = vol[:, yi, :]
+            slice2d[mask > 0] = value
+
+        elif axis == reslicer.SAGITTAL:
+            x = int(round(points_ijk[0][0]))
+            xi = x - extent[0]
+            if not (0 <= xi < dims[0]):
+                return
+            pts = np.array(
+                [[[int(round(p[1] - extent[2])), int(round(p[2] - extent[4]))] for p in points_ijk]],
+                dtype=np.int32,
+            )
+            mask = np.zeros((dims[2], dims[1]), dtype=np.uint8)
+            cv2.fillPoly(mask, pts, 1)
+            slice2d = vol[:, :, xi]
+            slice2d[mask > 0] = value
+        else:
+            raise ValueError(f"Invalid axis: {axis}")
+
+        scalars.Modified()
+
+
     def get_status_bar(self):
         return self._mainwindow.status_bar
     

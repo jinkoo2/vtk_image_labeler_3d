@@ -732,7 +732,9 @@ class VTKViewer2D(QWidget):
 
     def on_right_button_release(self, obj, event):
 
-        self.show_context_menu()
+        # Pencil Tool (and similar) use right-click to close a polygon.
+        if not getattr(self, "suppress_context_menu", False):
+            self.show_context_menu()
 
         self.mouse_event_obj = obj
         self.mouse_event = event 
