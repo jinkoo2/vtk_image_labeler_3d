@@ -767,8 +767,11 @@ class SegmentationListManager(QObject):
         self.erase_brush_color = [0, 0.5, 1.0]
 
         self.paintbrush_3d = False
-
-        
+        self.paint_tool_dialog = None
+        self._paint_target_layer_name = None
+        self._paint_target_layer = None
+        self._closing_paint_tool = False
+        self._brush_color_is_erase = None  # cache last brush color mode
 
         self._modified = False
 
@@ -807,22 +810,14 @@ class SegmentationListManager(QObject):
 
     def create_toolbar(self):
         
-        from labeled_slider import LabeledSlider
-
         # Create a toolbar
         toolbar = QToolBar("PaintBrush Toolbar")
      
 
-        # Add Paint Tool button
-        self.paint_action, self.paint_button = self.create_checkable_button("Paint", self.paint_active, toolbar, self.toggle_paint_tool)
-        self.erase_action, self.erase_button = self.create_checkable_button("Erase", self.erase_active, toolbar, self.toggle_erase_tool)
-
-        # paintbrush size slider
-        self.brush_size_slider = LabeledSlider("Brush Size:", initial_value=20)
-        self.brush_size_slider.slider.setMinimum(3)
-        self.brush_size_slider.slider.setMaximum(100)
-        self.brush_size_slider.slider.valueChanged.connect(self.update_brush_size)
-        toolbar.addWidget(self.brush_size_slider)
+        # Add Paint Tool button (controls live in the floating Paint Tool window)
+        self.paint_action, self.paint_button = self.create_checkable_button(
+            "Paint Tool", self.paint_active, toolbar, self.toggle_paint_tool
+        )
 
         return toolbar
     
@@ -854,35 +849,19 @@ class SegmentationListManager(QObject):
         add_layer_button.clicked.connect(self.add_layer_clicked)
         button_layout.addWidget(add_layer_button)
         
-        # Add Paint Tool button
-        self.paint_action, self.paint_button = self.create_checkable_button("Paint", self.paint_active, None, self.toggle_paint_tool)
+        # Add Paint Tool button (opens floating tool window)
+        self.paint_action, self.paint_button = self.create_checkable_button(
+            "Paint Tool", self.paint_active, None, self.toggle_paint_tool
+        )
         button_layout.addWidget(self.paint_button)
 
-        self.erase_action, self.erase_button = self.create_checkable_button("Erase", self.erase_active, None, self.toggle_erase_tool)
-        button_layout.addWidget(self.erase_button)
-
-        
         boolean_tool_button = QPushButton("Boolean Tool")
         boolean_tool_button.clicked.connect(self.show_boolean_tool_clicked)
         button_layout.addWidget(boolean_tool_button)
 
         # Add the button layout 
         main_layout.addLayout(button_layout)
-        
-        from labeled_slider import LabeledSlider
-        brush_size_slider = LabeledSlider("Brush Size:", initial_value=20)
-        brush_size_slider.slider.setMinimum(3)
-        brush_size_slider.slider.setMaximum(100)
-        brush_size_slider.slider.valueChanged.connect(self.update_brush_size)
-        main_layout.addWidget(brush_size_slider)
 
-        # 3d or 2d brush
-        # Add a checkbox for 3D Brush option
-        self.brush_3d_checkbox = QCheckBox("3D Brush")
-        self.brush_3d_checkbox.setChecked(False)  # Default: unchecked
-        self.brush_3d_checkbox.stateChanged.connect(self.on_brush_3d_toggled)
-        main_layout.addWidget(self.brush_3d_checkbox)
-        
         # Set layout for the layer manager
         main_widget.setLayout(main_layout)
         
@@ -972,7 +951,7 @@ class SegmentationListManager(QObject):
                 v.paintbrush.set_brush_3d(self.paintbrush_3d)
 
     def get_exclusive_actions(self):
-        return [self.paint_action, self.erase_action]
+        return [self.paint_action]
     
     def clear(self):       
         
@@ -1097,54 +1076,36 @@ class SegmentationListManager(QObject):
         print(f"Painbrush mode: {'enabled' if enabled else 'disabled'}")
 
     def paint_at_mouse_position(self, v2d):
-        
         event_data = v2d.get_mouse_event_coordiantes()
-
-        if 'mouse_point' in event_data:
-            mouse_pos = event_data['mouse_point']
-            print(f"Mouse position: ({mouse_pos[0]:.2f}, {mouse_pos[1]:.2f})")
-        else:
-            return    
-        
-        if 'world_point' in event_data:
-            world_pos = event_data['world_point']
-            print(f"World position: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
-        else:
+        if 'image_index' not in event_data:
             return
 
-        if 'image_index' in event_data:
-            image_index = event_data['image_index']
-            print(f"Index: ({image_index[0]:.2f}, {image_index[1]:.2f}, {image_index[2]:.2f})")
-        else:
-            return
-
-        layer = self.get_active_layer()
+        image_index = event_data['image_index']
+        layer = self.get_paint_target_layer()
         if layer is None:
-            print("No active layer selected.")
             return
 
         if not layer.get_visible():
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(None, "Warning", "The layer being editted is not visible. Please turn it on first.")
-            return 
-            
-        # paint or erase
-        if self.paint_active:
-            value = 1
-        else:
-            value = 0
+            return
 
-        # paint
+        value = 0 if self.erase_active else 1
         v2d.paintbrush.paint(layer.get_image(), image_index[0], image_index[1], image_index[2], value)
 
         # flag vtkImageData as Modified to update the pipeline.
-        layer.get_image().Modified() 
-    
+        layer.get_image().Modified()
+
         # flag manager data has been modified (for saving)
         self._modified = True
 
-        # emit event
-        self.layer_image_modified.emit(self._active_layer, self)
+        # emit event (other views update; painted view renders immediately below)
+        self.layer_image_modified.emit(layer, self)
+
+        # Always refresh the view under the cursor right away. Opening the Paint
+        # Tool window can leave VTK views "inactive", which otherwise uses a
+        # 1000ms delayed render and feels very laggy while dragging.
+        v2d.render()
         
     def _find_viewer_from_interactor(self, interactor):
         for v in self.vtk_viewer.get_viewers():
@@ -1162,12 +1123,17 @@ class SegmentationListManager(QObject):
         
         if not hasattr(v2d, 'paintbrush') or not v2d.paintbrush.enabled:
             return
+
+        # Mark this view active immediately so slice updates render without delay.
+        if hasattr(self.vtk_viewer, 'activate_viewer'):
+            self.vtk_viewer.activate_viewer(obj)
         
         self.left_button_is_pressed = True
         self.last_mouse_position = v2d.get_interactor().GetEventPosition()
         
-        if self.left_button_is_pressed and v2d.paintbrush.enabled and self._active_layer is not None:
-            if self._active_layer.get_visible():
+        target_layer = self.get_paint_target_layer()
+        if self.left_button_is_pressed and v2d.paintbrush.enabled and target_layer is not None:
+            if target_layer.get_visible():
                 self.paint_at_mouse_position(v2d)
             else:
                 from PyQt5.QtWidgets import QMessageBox
@@ -1204,17 +1170,10 @@ class SegmentationListManager(QObject):
             cam = vtk_camera_wrapper.vtk_camera_wrapper(camera)
             w_H_camo = cam.get_w_H_o()
             camo_H_w = cam.get_o_H_w()
-            print(f'world_pos={world_pos}')
-            print(f'axis={v2d.reslicer.axis}')
-            print(f'w_H_camo={w_H_camo}')
-            print(f'camo_H_w={camo_H_w}')
 
             # interaction point in camo
             w_pt_interaction = np.append(np.array(world_pos), 1.0).reshape(4,1)
             camo_pt_interaction = camo_H_w @ w_pt_interaction
-
-            print(f'w_pt_interaction={w_pt_interaction}')
-            print(f'camo_pt_interaction={camo_pt_interaction}')
 
             # project to the camera near plane
             clip_range = cam.get_clip_range()
@@ -1224,20 +1183,22 @@ class SegmentationListManager(QObject):
             # projected interaction point in w
             w_pt_on_near_plane =  (w_H_camo @ camo_pt_interaction).flatten()[:3]
 
-            print(f'w_pt_on_near_plane={w_pt_on_near_plane}')
-
             # Update the brush position (ensure Z remains on the image plane + 0.1 to show on top of the image)
             paintbrush.get_actor().SetPosition(w_pt_on_near_plane[0], w_pt_on_near_plane[1], w_pt_on_near_plane[2])
             paintbrush.get_actor().SetVisibility(True)  # Make the brush visible
-        
-            if self.paint_active:
-                paintbrush.set_color(self.paint_brush_color)
-            else:
-                paintbrush.set_color(self.erase_brush_color)
+
+            # Only update brush color when erase mode changes.
+            if self._brush_color_is_erase != self.erase_active:
+                if self.erase_active:
+                    paintbrush.set_color(self.erase_brush_color)
+                else:
+                    paintbrush.set_color(self.paint_brush_color)
+                self._brush_color_is_erase = self.erase_active
 
             # Paint 
-            if self.left_button_is_pressed and paintbrush.enabled and self._active_layer is not None:
-                if self._active_layer.get_visible():
+            target_layer = self.get_paint_target_layer()
+            if self.left_button_is_pressed and paintbrush.enabled and target_layer is not None:
+                if target_layer.get_visible():
                     self.paint_at_mouse_position(v2d)
         else:
             paintbrush.get_actor().SetVisibility(False)  # Hide the brush when not painting
@@ -1295,47 +1256,204 @@ class SegmentationListManager(QObject):
             if item_widget and isinstance(item_widget, SegmentationListItemWidget):
                 self.set_active_layer(item_widget.layer)
 
-    def toggle_paint_tool(self, checked):
-        
-        # no change, just return
-        if self.paint_active == checked:
-            return 
-        
-        # turn off both
-        self.erase_action.setChecked(False)
-        self.paint_action.setChecked(False)
+    def get_paint_target_layer(self):
+        """Layer currently targeted by the Paint Tool dropdown."""
+        if self._paint_target_layer is not None:
+            return self._paint_target_layer
+        if self._paint_target_layer_name:
+            layer = self.segmentation_layers.get_layer_by_name(self._paint_target_layer_name)
+            if layer is not None:
+                self._paint_target_layer = layer
+                return layer
+        return self.get_active_layer()
 
-        # activate paint
-        self.paint_active = checked
-        self.paint_action.setChecked(checked)
-        
-        if self.paint_active:
-            self.print_status("Paint tool activated")
+    def _ensure_paint_tool_dialog(self):
+        if self.paint_tool_dialog is not None:
+            return self.paint_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog, QComboBox, QFormLayout, QVBoxLayout, QHBoxLayout, QLabel,
+        )
+        from labeled_slider import LabeledSlider
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Paint Tool")
+        dialog.setModal(False)
+        # Tool + stay-on-top, but do not activate on show so VTK keeps focus/active view.
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(320, 180)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.paint_target_combo = QComboBox(dialog)
+        self.paint_target_combo.setToolTip("Layer that painting/erasing will modify")
+        self.paint_target_combo.currentTextChanged.connect(self._on_paint_target_layer_changed)
+        form.addRow("Target Layer:", self.paint_target_combo)
+
+        self.brush_size_slider = LabeledSlider("Brush Size:", initial_value=20)
+        self.brush_size_slider.slider.setMinimum(3)
+        self.brush_size_slider.slider.setMaximum(100)
+        self.brush_size_slider.slider.valueChanged.connect(self.update_brush_size)
+        form.addRow(self.brush_size_slider)
+
+        self.brush_3d_checkbox = QCheckBox("3D Brush")
+        self.brush_3d_checkbox.setChecked(bool(self.paintbrush_3d))
+        self.brush_3d_checkbox.stateChanged.connect(self.on_brush_3d_toggled)
+        form.addRow("", self.brush_3d_checkbox)
+
+        self.erase_checkbox = QCheckBox("Erase")
+        self.erase_checkbox.setToolTip("When checked, brush strokes erase instead of paint")
+        self.erase_checkbox.setChecked(False)
+        self.erase_checkbox.stateChanged.connect(self._on_erase_checkbox_changed)
+        form.addRow("", self.erase_checkbox)
+
+        layout.addLayout(form)
+        hint = QLabel("Close this window to leave paint/erase mode.")
+        hint.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(hint)
+
+        dialog.finished.connect(self._on_paint_tool_dialog_finished)
+        self.paint_tool_dialog = dialog
+        return dialog
+
+    def _refresh_paint_target_layers(self, preferred_name=None):
+        if not hasattr(self, 'paint_target_combo') or self.paint_target_combo is None:
+            return
+
+        preferred = preferred_name or self._paint_target_layer_name
+        if not preferred:
+            active = self.get_active_layer()
+            if active is not None:
+                preferred = active.get_name()
+
+        names = self.segmentation_layers.get_layer_names()
+        self.paint_target_combo.blockSignals(True)
+        self.paint_target_combo.clear()
+        self.paint_target_combo.addItems(names)
+        if preferred and preferred in names:
+            self.paint_target_combo.setCurrentText(preferred)
+            self._paint_target_layer_name = preferred
+        elif names:
+            self.paint_target_combo.setCurrentIndex(0)
+            self._paint_target_layer_name = names[0]
         else:
-            self.print_status("Paint tool deactivated")
+            self._paint_target_layer_name = None
+        self._paint_target_layer = (
+            self.segmentation_layers.get_layer_by_name(self._paint_target_layer_name)
+            if self._paint_target_layer_name else None
+        )
+        self.paint_target_combo.blockSignals(False)
 
-        self.enable_paintbrush(self.paint_active or self.erase_active)
+    def _on_paint_target_layer_changed(self, name):
+        self._paint_target_layer_name = name or None
+        self._paint_target_layer = (
+            self.segmentation_layers.get_layer_by_name(self._paint_target_layer_name)
+            if self._paint_target_layer_name else None
+        )
+
+    def _on_erase_checkbox_changed(self, state):
+        self.toggle_erase_tool(state == Qt.Checked)
+
+    def _on_paint_tool_dialog_finished(self, result=0):
+        if self._closing_paint_tool:
+            return
+        # Closing the floating window ends paint/erase mode.
+        self.toggle_paint_tool(False)
+
+    def open_paint_tool(self):
+        dialog = self._ensure_paint_tool_dialog()
+        active = self.get_active_layer()
+        preferred = active.get_name() if active is not None else None
+        self._refresh_paint_target_layers(preferred_name=preferred)
+
+        if hasattr(self, 'erase_checkbox') and self.erase_checkbox is not None:
+            self.erase_checkbox.blockSignals(True)
+            self.erase_checkbox.setChecked(False)
+            self.erase_checkbox.blockSignals(False)
+
+        self.erase_active = False
+        self.paint_active = True
+        self.paint_action.blockSignals(True)
+        self.paint_action.setChecked(True)
+        self.paint_action.blockSignals(False)
+        if hasattr(self, 'paint_button') and self.paint_button is not None:
+            self.paint_button.blockSignals(True)
+            self.paint_button.setChecked(True)
+            self.paint_button.blockSignals(False)
+
+        dialog.show()
+        dialog.raise_()
+        # Intentionally do not activateWindow(): keep VTK view focus/active for responsive painting.
+        self.enable_paintbrush(True)
+        self.print_status("Paint tool activated")
+
+    def close_paint_tool(self):
+        self._closing_paint_tool = True
+        try:
+            self.paint_active = False
+            self.erase_active = False
+            self.paint_action.blockSignals(True)
+            self.paint_action.setChecked(False)
+            self.paint_action.blockSignals(False)
+            if hasattr(self, 'paint_button') and self.paint_button is not None:
+                self.paint_button.blockSignals(True)
+                self.paint_button.setChecked(False)
+                self.paint_button.blockSignals(False)
+
+            if hasattr(self, 'erase_checkbox') and self.erase_checkbox is not None:
+                self.erase_checkbox.blockSignals(True)
+                self.erase_checkbox.setChecked(False)
+                self.erase_checkbox.blockSignals(False)
+
+            if self.paint_tool_dialog is not None and self.paint_tool_dialog.isVisible():
+                self.paint_tool_dialog.hide()
+
+            self.enable_paintbrush(False)
+            self.print_status("Paint tool deactivated")
+        finally:
+            self._closing_paint_tool = False
+
+    def toggle_paint_tool(self, checked):
+        # Ignore no-op toggles, but still open if action is checked while dialog hidden.
+        dialog_visible = (
+            self.paint_tool_dialog is not None and self.paint_tool_dialog.isVisible()
+        )
+        if checked and self.paint_active and dialog_visible:
+            return
+        if (not checked) and (not self.paint_active) and (not self.erase_active) and (not dialog_visible):
+            return
+
+        if checked:
+            self.open_paint_tool()
+        else:
+            self.close_paint_tool()
 
     def toggle_erase_tool(self, checked):
-        
-        # no change, just return
+        """Enable/disable erase mode while the Paint Tool session is open."""
+        checked = bool(checked)
         if self.erase_active == checked:
-            return 
-
-        # turn off both
-        self.erase_action.setChecked(False)
-        self.paint_action.setChecked(False)
+            return
 
         self.erase_active = checked
-        self.erase_action.setChecked(checked)
+        self._brush_color_is_erase = None  # force brush color refresh on next move
+        # Keep paint session flagged while erasing so brush stays enabled.
+        if checked:
+            self.paint_active = True
 
-        if self.erase_active:
-            self.print_status("Erase tool activated")
+        if hasattr(self, 'erase_checkbox') and self.erase_checkbox is not None:
+            if self.erase_checkbox.isChecked() != checked:
+                self.erase_checkbox.blockSignals(True)
+                self.erase_checkbox.setChecked(checked)
+                self.erase_checkbox.blockSignals(False)
+
+        if checked:
+            self.print_status("Erase mode activated")
         else:
-            self.print_status("Erase tool deactivated")    
+            self.print_status("Paint mode activated")
 
         self.enable_paintbrush(self.paint_active or self.erase_active)
-
     def get_status_bar(self):
         return self._mainwindow.status_bar
     
@@ -1429,6 +1547,7 @@ class SegmentationListManager(QObject):
 
         # Select the last item in the list widget (to activate it)
         self.select_the_last_item_on_the_list()
+        self._refresh_paint_target_layers()
 
     def segmentation_layer_removed(self, layer, segmentation_layers):
         
@@ -1443,6 +1562,10 @@ class SegmentationListManager(QObject):
         # Select the last item in the list widget (to activate it)
         if layer is self._active_layer:
                 self.select_the_last_item_on_the_list()
+
+        if self._paint_target_layer_name == layer_name:
+            self._paint_target_layer_name = None
+        self._refresh_paint_target_layers()
 
         self._modified = True
 

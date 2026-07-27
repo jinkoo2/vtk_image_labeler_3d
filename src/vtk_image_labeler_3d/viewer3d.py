@@ -601,7 +601,6 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
                 self.render_delayed(1000)
         
     def on_segmentation_image_modified(self, layer, sender):
-        print(f'VTKViewer2DWithReslicer.on_segmentation_layer_modified({layer})')
         self.update_slice_and_render(layer)
 
     def on_layer_image_changed(self, sender):
