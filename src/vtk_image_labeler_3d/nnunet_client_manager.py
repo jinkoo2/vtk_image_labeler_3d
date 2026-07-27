@@ -11,7 +11,8 @@ from PyQt5.QtCore import Qt, pyqtSignal, QObject
 
 from logger import logger
 from color_rotator import ColorRotator
-import nnunet_service 
+import nnunet_service
+import qt_tools 
 import requests
 
 from config import get_config
@@ -248,6 +249,7 @@ class nnUNetDatasetManager(BaseObject):
 
     log_message = pyqtSignal(str, str)  # For emitting log messages
     image_dataset_downloaded = pyqtSignal(str, str, QObject) # 
+    label_dataset_downloaded = pyqtSignal(str, QObject)
 
     def __init__(self, segmentation_list_manager, name):
         super().__init__()
@@ -308,7 +310,9 @@ class nnUNetDatasetManager(BaseObject):
 
         # Dropdown (ComboBox)
         self.dataset_dropdown = QComboBox()
-        self.dataset_dropdown.currentIndexChanged.connect(self._on_dataset_selected)
+        self._active_dataset_index = -1
+        self.before_dataset_change = None  # optional callback: () -> bool
+        self.dataset_dropdown.currentIndexChanged.connect(self._on_dataset_dropdown_changed)
         layout.addWidget(self.dataset_dropdown)
 
         # Main tab widget to replace all CollapsibleGroupBoxes
@@ -333,10 +337,12 @@ class nnUNetDatasetManager(BaseObject):
         import nnunet_image_dataset_listwidget
         train_image_list_widget = nnunet_image_dataset_listwidget.nnUnetImageDataSetListWidget('train')
         train_image_list_widget.image_dataset_downloaded.connect(self.handle_image_dataset_downloaded)
+        train_image_list_widget.label_dataset_downloaded.connect(self.handle_label_dataset_downloaded)
         train_image_list_widget.post_dataset_clicked.connect(self.handle_image_dataset_listwidget_post_dataset_clicked)
         train_image_list_widget.update_dataset_clicked.connect(self.handle_image_dataset_listwidget_update_dataset_clicked)
         train_image_list_widget.delete_dataset_clicked.connect(self.handle_image_dataset_listwidget_delete_dataset_clicked)
-        train_image_list_widget.setMinimumWidth(200)
+        train_image_list_widget.renumber_dataset_clicked.connect(self.handle_image_dataset_listwidget_renumber_dataset_clicked)
+        train_image_list_widget.setMinimumWidth(420)
         train_image_list_widget.setToolTip("Training Images")
         inner_tab_widget.addTab(train_image_list_widget, "Train")
         self.train_image_list_widget = train_image_list_widget
@@ -344,10 +350,12 @@ class nnUNetDatasetManager(BaseObject):
         # Test Image lists
         test_image_list_widget = nnunet_image_dataset_listwidget.nnUnetImageDataSetListWidget('test')
         test_image_list_widget.image_dataset_downloaded.connect(self.handle_image_dataset_downloaded)
+        test_image_list_widget.label_dataset_downloaded.connect(self.handle_label_dataset_downloaded)
         test_image_list_widget.post_dataset_clicked.connect(self.handle_image_dataset_listwidget_post_dataset_clicked)
         test_image_list_widget.update_dataset_clicked.connect(self.handle_image_dataset_listwidget_update_dataset_clicked)
         test_image_list_widget.delete_dataset_clicked.connect(self.handle_image_dataset_listwidget_delete_dataset_clicked)
-        test_image_list_widget.setMinimumWidth(200)
+        test_image_list_widget.renumber_dataset_clicked.connect(self.handle_image_dataset_listwidget_renumber_dataset_clicked)
+        test_image_list_widget.setMinimumWidth(420)
         test_image_list_widget.setToolTip("Test Images")
         inner_tab_widget.addTab(test_image_list_widget, "Test")
         self.test_image_list_widget = test_image_list_widget
@@ -1083,8 +1091,42 @@ class nnUNetDatasetManager(BaseObject):
     # def on_test_listwidget_item_double_clicked(self,item):
     #     self.pull_seleted_image_dataset('test')
 
+    def _persist_window_level(self, dataset_id, images_for, num):
+        get_wl = getattr(self, "get_window_level", None)
+        if not callable(get_wl):
+            return
+        wl = get_wl()
+        if not wl:
+            return
+        window = wl.get("window")
+        level = wl.get("level")
+        if window is None or level is None:
+            return
+        try:
+            response = nnunet_service.get_image_meta(
+                self.get_server_url(), dataset_id, images_for, num
+            )
+            meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
+            meta = dict(meta)
+            meta["window_level"] = {"window": float(window), "level": float(level)}
+            nnunet_service.update_image_meta(
+                self.get_server_url(), dataset_id, images_for, num, meta
+            )
+            self.log_message.emit(
+                "INFO",
+                f"Saved window/level for case {num}: window={window}, level={level}",
+            )
+        except Exception as e:
+            print(f"Failed to persist window/level: {e}")
+            self.log_message.emit("ERROR", f"Failed to persist window/level: {e}")
+
     def handle_image_dataset_downloaded(self, image_path, labels_path, list_widget):
-        self.image_dataset_downloaded.emit(image_path, labels_path, self)  
+        self._pending_load_window_level = getattr(list_widget, "_pending_load_window_level", None)
+        self._pending_load_case = getattr(list_widget, "_pending_load_case", None)
+        self.image_dataset_downloaded.emit(image_path, labels_path, self)
+
+    def handle_label_dataset_downloaded(self, labels_path, list_widget):
+        self.label_dataset_downloaded.emit(labels_path, self)
 
     def handle_image_dataset_listwidget_post_dataset_clicked(self, dataset_id, images_for, sender):
         self.post_image_and_labels(images_for)
@@ -1094,6 +1136,9 @@ class nnUNetDatasetManager(BaseObject):
 
     def handle_image_dataset_listwidget_delete_dataset_clicked(self, dataset_id, images_for, num, sender):
         self.delete_image_and_labels(images_for, num)
+
+    def handle_image_dataset_listwidget_renumber_dataset_clicked(self, dataset_id, images_for, sender):
+        self.renumber_image_sets(images_for)
 
     def handle_predictions_listwidget_post_dataset_clicked(self, dataset_id, sender):
         print('posting a prediction request')
@@ -1107,29 +1152,47 @@ class nnUNetDatasetManager(BaseObject):
         selected_text = self.dataset_dropdown.currentText()
         selected_index = self.dataset_dropdown.currentIndex()
 
-        if selected_text=="" or selected_index==-1:
+        if selected_text == "" or selected_index == -1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
-            return 
+            return
 
         dataset = self.datasets[selected_index]
 
-        """posting the images and labels"""
         try:
             if "id" in dataset:
                 dataset_id = dataset["id"]
             else:
                 dataset_id = selected_text
 
-            image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Appending Image Set",
+                label="Preparing image and label files...",
+            ):
+                image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
+                qt_tools.update_busy_progress(label="Uploading new image set...")
+                dataset_updated = nnunet_service.post_image_and_labels(
+                    self.get_server_url(), dataset_id, images_for, image_path, labels_path
+                )
+                print(f"response_data={dataset_updated}")
+                self.log_message.emit("INFO", f"dateset_updated={dataset_updated}")
 
-            dataset_updated = nnunet_service.post_image_and_labels(self.get_server_url(), dataset_id, images_for, image_path, labels_path)
-            print(f"response_data={dataset_updated}")
-            self.log_message.emit("INFO",f"dateset_updated={dataset_updated}")
+                new_num = None
+                dataset_json = {}
+                if isinstance(dataset_updated, dict):
+                    new_num = dataset_updated.get("num")
+                    dataset_json = dataset_updated.get("dataset_json") or {
+                        k: v for k, v in dataset_updated.items()
+                        if k not in ("num", "dataset_json")
+                    }
+                if new_num is not None:
+                    self._persist_window_level(dataset_id, images_for, int(new_num))
 
-            # update the data & the view
-            self.datasets[selected_index] = dataset_updated
-            self._on_dataset_selected(selected_index)
-        
+                merged = dict(dataset)
+                merged.update(dataset_json or {})
+                self.datasets[selected_index] = merged
+                self._on_dataset_selected(selected_index)
+
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
             self.log_message.emit("ERROR", f"Server error: {e}")
@@ -1198,35 +1261,86 @@ class nnUNetDatasetManager(BaseObject):
         
         return image_path
 
-    def update_image_and_labels(self, images_for, num):
+    def update_image_and_labels(self, images_for, num, quiet=False):
         selected_text = self.dataset_dropdown.currentText()
         selected_index = self.dataset_dropdown.currentIndex()
 
         if selected_text == "" or selected_index == -1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
-            return 
+            return False
 
         dataset = self.datasets[selected_index]
 
-        """updating the images and labels"""
         try:
             if "id" in dataset:
                 dataset_id = dataset["id"]
             else:
                 dataset_id = selected_text
 
-            image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Saving Label",
+                label=f"Saving image/label for case {num}...",
+            ):
+                qt_tools.update_busy_progress(label="Preparing image and label files...")
+                image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
+                qt_tools.update_busy_progress(label=f"Uploading image/label for case {num}...")
+                dataset_updated = nnunet_service.update_image_and_labels(
+                    self.get_server_url(), dataset_id, images_for, num, image_path, labels_path
+                )
 
-            dataset_updated = nnunet_service.update_image_and_labels(self.get_server_url(), dataset_id, images_for, num, image_path, labels_path)
             print(f"response_data={dataset_updated}")
-            self.log_message.emit("INFO",f"dateset_updated={dataset_updated}")
-       
+            self.log_message.emit("INFO", f"dateset_updated={dataset_updated}")
+
+            label_result = (dataset_updated or {}).get("label") or {}
+            meta = label_result.get("meta") or {}
+
+            self._persist_window_level(dataset_id, images_for, num)
+
+            list_widget = (
+                self.train_image_list_widget
+                if images_for == "train"
+                else self.test_image_list_widget
+            )
+            list_widget.mark_label_exists(num)
+            if hasattr(list_widget, "update_label_meta_row"):
+                list_widget.update_label_meta_row(num, meta)
+
+            if not quiet:
+                modified_by = meta.get("modified_by") or ""
+                modified_at = meta.get("modified_at") or ""
+                msg = (
+                    "Image/label updated for case %s.%sModified by: %s%sModified at: %s"
+                    % (num, chr(10), modified_by, chr(10), modified_at)
+                )
+                self.show_msgbox_info(
+                    title="Update Complete",
+                    msg=msg,
+                    parent=self.dock_widget,
+                )
+
+            try:
+                self.segmentation_list_manager.reset_modified()
+            except Exception:
+                pass
+            on_saved = getattr(self, "on_case_saved", None)
+            if callable(on_saved):
+                try:
+                    on_saved()
+                except Exception:
+                    pass
+            return True
+
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
             self.log_message.emit("ERROR", f"Server error: {e}")
+            self.show_msgbox_error(title="Update Failed", msg=str(e), parent=self.dock_widget)
+            return False
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
             self.log_message.emit("ERROR", f"Request failed: {e}")
+            self.show_msgbox_error(title="Update Failed", msg=str(e), parent=self.dock_widget)
+            return False
 
 
     def delete_image_and_labels(self, images_for, num):
@@ -1235,26 +1349,32 @@ class nnUNetDatasetManager(BaseObject):
 
         if selected_text == "" or selected_index == -1:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
-            return 
+            return
 
         dataset = self.datasets[selected_index]
 
-        """deleting the images and labels"""
         try:
             if "id" in dataset:
                 dataset_id = dataset["id"]
             else:
                 dataset_id = selected_text
 
-            delete_info = nnunet_service.delete_image_and_labels(self.get_server_url(), dataset_id, images_for, num)
-            print(f"response_data={delete_info}")
-            self.log_message.emit("INFO",f"dateset_updated={delete_info}")
-       
-            dataset_updated = delete_info['dataset_json']
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Deleting",
+                label=f"Deleting image/label for case {num}...",
+            ):
+                delete_info = nnunet_service.delete_image_and_labels(
+                    self.get_server_url(), dataset_id, images_for, num
+                )
+                print(f"response_data={delete_info}")
+                self.log_message.emit("INFO", f"dateset_updated={delete_info}")
 
-            # update the data & the view
-            self.datasets[selected_index] = dataset_updated
-            self._on_dataset_selected(selected_index)  
+                dataset_updated = delete_info["dataset_json"]
+                merged = dict(dataset)
+                merged.update(dataset_updated or {})
+                self.datasets[selected_index] = merged
+                self._on_dataset_selected(selected_index)
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -1262,6 +1382,68 @@ class nnUNetDatasetManager(BaseObject):
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
             self.log_message.emit("ERROR", f"Request failed: {e}")
+
+    def renumber_image_sets(self, images_for):
+        selected_text = self.dataset_dropdown.currentText()
+        selected_index = self.dataset_dropdown.currentIndex()
+
+        if selected_text == "" or selected_index == -1:
+            self.log_message.emit("INFO", "Please select a dataset first")
+            return
+
+        dataset = self.datasets[selected_index]
+        dataset_id = dataset.get("id") or selected_text
+
+        confirm_msg = (
+            "Renumber %s cases in '%s' to sequential 0..N-1?%s%s"
+            "Case numbers will change to close gaps (required by nnU-Net). "
+            "Relative order is preserved."
+        ) % (images_for, dataset_id, chr(10), chr(10))
+        confirmed = qt_tools.show_msgbox_yes_no(
+            title="Renumber Images",
+            msg=confirm_msg,
+            parent=self.dock_widget,
+        )
+        if not confirmed:
+            return
+
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Renumbering",
+                label=f"Renumbering {images_for} image sets...",
+            ):
+                result = nnunet_service.renumber_image_sets(
+                    self.get_server_url(), dataset_id, images_for
+                )
+                print(f"response_data={result}")
+                self.log_message.emit("INFO", f"renumber_result={result}")
+
+                dataset_updated = (result or {}).get("dataset_json") or {}
+                merged = dict(dataset)
+                merged.update(dataset_updated)
+                self.datasets[selected_index] = merged
+                self._on_dataset_selected(selected_index)
+
+            mapping = (result or {}).get("mapping") or []
+            if mapping:
+                lines = ["%s -> %s" % (m.get("old_num"), m.get("new_num")) for m in mapping]
+                detail = chr(10).join(lines[:20])
+                if len(lines) > 20:
+                    detail += chr(10) + ("... and %s more" % (len(lines) - 20))
+                msg = "Renumbered %s case(s) in %s:%s%s" % (len(mapping), images_for, chr(10), detail)
+            else:
+                msg = "No renumbering needed for %s; cases were already sequential." % images_for
+            self.show_msgbox_info(title="Renumber Complete", msg=msg, parent=self.dock_widget)
+
+        except nnunet_service.ServerError as e:
+            print(f"Server error: {e}")
+            self.log_message.emit("ERROR", f"Server error: {e}")
+            self.show_msgbox_error(title="Renumber Failed", msg=str(e), parent=self.dock_widget)
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            self.log_message.emit("ERROR", f"Request failed: {e}")
+            self.show_msgbox_error(title="Renumber Failed", msg=str(e), parent=self.dock_widget)
 
     def post_image_for_prediction(self):
         selected_text = self.dataset_dropdown.currentText()
@@ -1359,30 +1541,40 @@ class nnUNetDatasetManager(BaseObject):
         return self.server_url_input.text()
 
     def connect_to_server_clicked(self):
-        """Fetch datasets and populate dropdown list."""
-        self.dataset_dropdown.clear()  # Clear existing items
-        
+        """Fetch datasets and populate dropdown list without auto-selecting one."""
+        self.dataset_dropdown.blockSignals(True)
         try:
-            self.datasets = nnunet_service.get_dataset_json_list(self.get_server_url(), 5)
-    
+            self.dataset_dropdown.clear()
+
+            with qt_tools.busy_progress(
+                self.main_widget,
+                title="Connecting",
+                label="Connecting to server and fetching dataset list...",
+            ):
+                self.datasets = nnunet_service.get_dataset_json_list(self.get_server_url(), 5)
+
             if not self.datasets:
                 self.dataset_dropdown.addItem("No datasets available")
                 self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
+                self._current_datast = None
+                self._clear_dataset_views()
                 return
 
-            dataset_ids = [dataset['id'] for dataset in self.datasets]
+            dataset_ids = [dataset["id"] for dataset in self.datasets]
             self.dataset_dropdown.addItems(dataset_ids)
 
-            # Set first dataset as default and show its details
-            if dataset_ids:
-                self.dataset_dropdown.setCurrentIndex(0)
-                self._on_dataset_selected(0)
+            self.dataset_dropdown.setCurrentIndex(-1)
+            self._active_dataset_index = -1
+            self._current_datast = None
+            self.details_label.setText("<b>Select a dataset.</b>")
+            self._clear_dataset_views()
 
         except nnunet_service.ServerError as e:
             self.show_msgbox_error(title="Error", msg=f"Server error: {e}", parent=self.main_widget)
         except requests.exceptions.RequestException as e:
             self.show_msgbox_error(title="Error", msg=f"Request failed: {e}", parent=self.main_widget)
-        return []  # Return an empty list in case of failure
+        finally:
+            self.dataset_dropdown.blockSignals(False)
 
     def get_dataset_image_list(self, dataset_id):
         """Fetch dataset list from nnUNet server."""
@@ -1404,84 +1596,119 @@ class nnUNetDatasetManager(BaseObject):
         selected_index = self.dataset_dropdown.currentIndex()
         self._on_dataset_selected(selected_index)
 
-    def _on_dataset_selected(self, dataset_index):
-        """Triggered when the user selects a dataset."""
-        if not self.datasets or dataset_index < 0 or dataset_index >= len(self.datasets):
-            self.details_label.setText("<b>Error:</b> No dataset selected.")
+
+    def _clear_dataset_views(self):
+        try:
+            self.train_image_list_widget.set_dataset("", [])
+            self.test_image_list_widget.set_dataset("", [])
+            if hasattr(self, "predictions_list_widget"):
+                self.predictions_list_widget.set_dataset("", [])
+        except Exception as e:
+            print(f"_clear_dataset_views: {e}")
+
+    def _on_dataset_dropdown_changed(self, dataset_index):
+        """User changed the dataset dropdown; confirm unsaved work first."""
+        if dataset_index == getattr(self, "_active_dataset_index", -1):
             return
 
-        # Make a copy of the dataset
+        callback = getattr(self, "before_dataset_change", None)
+        if callable(callback):
+            try:
+                allowed = callback()
+            except Exception as e:
+                print(f"before_dataset_change failed: {e}")
+                allowed = False
+            if not allowed:
+                self.dataset_dropdown.blockSignals(True)
+                self.dataset_dropdown.setCurrentIndex(self._active_dataset_index)
+                self.dataset_dropdown.blockSignals(False)
+                return
+
+        self._active_dataset_index = dataset_index
+        self._on_dataset_selected(dataset_index)
+
+    def _on_dataset_selected(self, dataset_index):
+        """Triggered when the user selects a dataset."""
+        self._active_dataset_index = dataset_index
+        if not self.datasets or dataset_index < 0 or dataset_index >= len(self.datasets):
+            self._current_datast = None
+            self.details_label.setText("<b>Select a dataset.</b>")
+            self._clear_dataset_views()
+            return
+
         dataset = self.datasets[dataset_index].copy()
         self._current_datast = dataset
 
-        # Convert dataset dictionary to formatted JSON string
         details_json = json.dumps(dataset, indent=4)
+        self.details_label.setHtml(f"<pre>{details_json}</pre>")
 
-        # Set formatted JSON text with monospace font
-        details_text = f"<pre>{details_json}</pre>"
-
-        self.details_label.setHtml(details_text)  # Use HTML to render formatted JSON
-       
         try:
-            dataset_id = dataset.get('id')
+            dataset_id = dataset.get("id")
             if not dataset_id:
                 print("Missing dataset ID")
                 return
 
-            req_list = nnunet_service.get_dataset_image_name_list(self.get_server_url(), dataset_id)
-            print(f"response_data={req_list}")
-
-            # --- Populate training image list ---
-            self.train_image_list_widget.set_dataset(dataset_id, req_list['train_images'])
-
-            # --- Populate testing image list ---
-            self.test_image_list_widget.set_dataset(dataset_id, req_list['test_images'])
-
-            # get predictions list and polulate the list widget
-            req_list = nnunet_service.get_prediction_list(self.get_server_url(), dataset_id)
-            if req_list is not None and isinstance(req_list, list):
+            with qt_tools.busy_progress(
+                self.main_widget,
+                title="Loading Dataset",
+                label=f"Fetching image list for {dataset_id}...",
+            ):
+                req_list = nnunet_service.get_dataset_image_name_list(self.get_server_url(), dataset_id)
                 print(f"response_data={req_list}")
-                self.predictions_list_widget.set_dataset(dataset_id, req_list)
-            else: 
-                self.predictions_list_widget.set_dataset(dataset_id, [])
 
-            # Refresh Plan and Preprocess tab data status
-            try:
-                self.refresh_preprocessed_files_list()
-            except Exception as e:
-                print(f"Error refreshing preprocessed files list: {e}")
+                qt_tools.update_busy_progress(label="Loading train image list...")
+                self.train_image_list_widget.set_dataset(
+                    dataset_id,
+                    req_list["train_images"],
+                    self.get_server_url(),
+                    label_list=req_list.get("train_labels") or [],
+                )
 
-            # Refresh Train tab model folders and log files
-            try:
-                self.refresh_training_model_folders()
-                # After model folders are refreshed, select first folder and refresh log files if available
-                if (hasattr(self, 'training_model_folder_combo') and 
-                    self.training_model_folder_combo.count() > 0 and
-                    self.training_model_folder_combo.isEnabled()):
-                    current_text = self.training_model_folder_combo.currentText()
-                    # If no valid selection or if it's an error/empty message, select first item
-                    if (not current_text or 
-                        current_text.startswith("Error:") or 
-                        current_text.startswith("No model") or 
-                        current_text.startswith("Request failed")):
-                        if self.training_model_folder_combo.count() > 0:
+                qt_tools.update_busy_progress(label="Loading test image list...")
+                self.test_image_list_widget.set_dataset(
+                    dataset_id,
+                    req_list["test_images"],
+                    self.get_server_url(),
+                    label_list=req_list.get("test_labels") or [],
+                )
+
+                qt_tools.update_busy_progress(label="Loading predictions list...")
+                pred_list = nnunet_service.get_prediction_list(self.get_server_url(), dataset_id)
+                if pred_list is not None and isinstance(pred_list, list):
+                    print(f"response_data={pred_list}")
+                    self.predictions_list_widget.set_dataset(dataset_id, pred_list)
+                else:
+                    self.predictions_list_widget.set_dataset(dataset_id, [])
+
+                try:
+                    self.refresh_preprocessed_files_list()
+                except Exception as e:
+                    print(f"Error refreshing preprocessed files list: {e}")
+
+                try:
+                    self.refresh_training_model_folders()
+                    if (hasattr(self, 'training_model_folder_combo') and
+                            self.training_model_folder_combo.count() > 0 and
+                            self.training_model_folder_combo.isEnabled()):
+                        current_text = self.training_model_folder_combo.currentText()
+                        if (not current_text or
+                                current_text.startswith("Error:") or
+                                current_text.startswith("No model") or
+                                current_text.startswith("Request failed")):
                             self.training_model_folder_combo.setCurrentIndex(0)
                             current_text = self.training_model_folder_combo.currentText()
-                    # Refresh log files if we have a valid folder selected
-                    if (current_text and 
-                        not current_text.startswith("Error:") and 
-                        not current_text.startswith("No model") and 
-                        not current_text.startswith("Request failed")):
-                        self.refresh_training_log_files_list()
-            except Exception as e:
-                print(f"Error refreshing training model folders/log files: {e}")
+                        if (current_text and
+                                not current_text.startswith("Error:") and
+                                not current_text.startswith("No model") and
+                                not current_text.startswith("Request failed")):
+                            self.refresh_training_log_files_list()
+                except Exception as e:
+                    print(f"Error refreshing training model folders/log files: {e}")
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
-        # return []  # Return an empty list in case of failure
-
     def load_state(self, data_dict, data_dir, aux_data):
         pass
 

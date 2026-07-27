@@ -1,6 +1,6 @@
 import vtk
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSlider, QLabel, QHBoxLayout, QGridLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSlider, QLabel, QHBoxLayout, QGridLayout, QToolButton
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from PyQt5.QtWidgets import (
@@ -740,6 +740,86 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             world_pos = event_data['world_point']
             self.print_status(f"Point - World: ({world_pos[0]:.2f}, {world_pos[1]:.2f}, {world_pos[2]:.2f})")
 
+
+class ViewPane(QWidget):
+    """Wraps a viewer with a title bar and maximize/restore control."""
+
+    maximize_clicked = pyqtSignal(object)
+
+    def __init__(self, title, content_widget, parent=None):
+        super().__init__(parent)
+        self.content_widget = content_widget
+        self._maximized = False
+        self.setObjectName("viewPane")
+        self.setStyleSheet(
+            "#viewPane {"
+            "  border: 1px solid #9a9a9a;"
+            "  background-color: #1e1e1e;"
+            "}"
+        )
+
+        self.title_label = QLabel(title)
+        self.title_label.setStyleSheet(
+            "color: #e8e8e8; font-weight: 600; font-size: 11px; padding-left: 4px;"
+        )
+
+        self.max_button = QToolButton(self)
+        self.max_button.setAutoRaise(False)
+        self.max_button.setCursor(Qt.PointingHandCursor)
+        self.max_button.clicked.connect(lambda: self.maximize_clicked.emit(self))
+        self.max_button.setStyleSheet(
+            "QToolButton {"
+            "  color: #111111;"
+            "  background-color: #d0d0d0;"
+            "  border: 1px solid #f0f0f0;"
+            "  border-radius: 3px;"
+            "  padding: 0px 6px;"
+            "  font-size: 11px;"
+            "  font-weight: 600;"
+            "}"
+            "QToolButton:hover {"
+            "  background-color: #ffffff;"
+            "  border: 1px solid #ffffff;"
+            "}"
+            "QToolButton:pressed {"
+            "  background-color: #b8b8b8;"
+            "}"
+        )
+        self.set_maximized_state(False)
+
+        header = QWidget(self)
+        header.setObjectName("viewPaneHeader")
+        header.setFixedHeight(24)
+        header.setStyleSheet(
+            "#viewPaneHeader { background-color: #2f2f2f; border-bottom: 1px solid #1a1a1a; }"
+        )
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(2, 0, 2, 0)
+        header_layout.setSpacing(2)
+        header_layout.addWidget(self.title_label, 1)
+        header_layout.addWidget(self.max_button, 0)
+        header.mouseDoubleClickEvent = self._header_double_clicked
+        self.title_label.mouseDoubleClickEvent = self._header_double_clicked
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(header, 0)
+        layout.addWidget(content_widget, 1)
+
+    def _header_double_clicked(self, event):
+        self.maximize_clicked.emit(self)
+
+    def set_maximized_state(self, maximized):
+        self._maximized = bool(maximized)
+        if self._maximized:
+            self.max_button.setText("Restore")
+            self.max_button.setToolTip("Restore four-view layout")
+            self.max_button.setFixedSize(58, 18)
+        else:
+            self.max_button.setText("Max")
+            self.max_button.setToolTip("Maximize this view")
+            self.max_button.setFixedSize(40, 18)
 class VTKViewer3D(QWidget):
     
     status_message = pyqtSignal(str, QObject)
@@ -788,16 +868,79 @@ class VTKViewer3D(QWidget):
         for v in self.viewers:
             v.status_message.connect(self.on_status_message_from_viewer)
 
-        # Grid Layout for viewers
-        layout = QGridLayout()
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.viewer_ax, 0, 0)
-        layout.addWidget(self.viewer_cr, 1, 0)
-        layout.addWidget(self.viewer_sg, 1, 1)
-        layout.addWidget(self.viewer_surf, 0, 1)
-        self.setLayout(layout)
+        # Grid Layout for viewers (each wrapped in a maximize-able pane)
+        self._maximized_pane = None
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setSpacing(1)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
 
+        self.pane_ax = ViewPane("Axial", self.viewer_ax, parent=self)
+        self.pane_cr = ViewPane("Coronal", self.viewer_cr, parent=self)
+        self.pane_sg = ViewPane("Sagittal", self.viewer_sg, parent=self)
+        self.pane_surf = ViewPane("3D", self.viewer_surf, parent=self)
+        self.view_panes = [self.pane_ax, self.pane_cr, self.pane_sg, self.pane_surf]
+        self.pane_positions = {
+            self.pane_ax: (0, 0),
+            self.pane_surf: (0, 1),
+            self.pane_cr: (1, 0),
+            self.pane_sg: (1, 1),
+        }
+        for pane, (row, col) in self.pane_positions.items():
+            self.grid_layout.addWidget(pane, row, col)
+            pane.maximize_clicked.connect(self.toggle_maximize_pane)
+
+        self.setLayout(self.grid_layout)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def toggle_maximize_pane(self, pane):
+        """Maximize a view pane, or restore the four-view layout if already maximized."""
+        if self._maximized_pane is pane:
+            self.restore_view_panes()
+        else:
+            self.maximize_view_pane(pane)
+
+    def maximize_view_pane(self, pane):
+        if pane not in self.view_panes:
+            return
+        self._maximized_pane = pane
+        for p in self.view_panes:
+            if p is pane:
+                self.grid_layout.removeWidget(p)
+                self.grid_layout.addWidget(p, 0, 0, 2, 2)
+                p.show()
+                p.set_maximized_state(True)
+            else:
+                p.hide()
+                p.set_maximized_state(False)
+        QTimer.singleShot(0, self._refresh_viewers_after_layout)
+
+    def restore_view_panes(self):
+        self._maximized_pane = None
+        for p, (row, col) in self.pane_positions.items():
+            self.grid_layout.removeWidget(p)
+            self.grid_layout.addWidget(p, row, col)
+            p.show()
+            p.set_maximized_state(False)
+        QTimer.singleShot(0, self._refresh_viewers_after_layout)
+
+    def _refresh_viewers_after_layout(self):
+        for viewer in self.viewers:
+            try:
+                if hasattr(viewer, "render"):
+                    viewer.render()
+                elif hasattr(viewer, "get_render_window"):
+                    viewer.get_render_window().Render()
+                elif hasattr(viewer, "vtk_widget"):
+                    viewer.vtk_widget.GetRenderWindow().Render()
+            except Exception as e:
+                print(f"Viewer refresh after maximize/restore failed: {e}")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape and self._maximized_pane is not None:
+            self.restore_view_panes()
+            event.accept()
+            return
+        super().keyPressEvent(event)
     def on_left_button_double_pressed_on_2d_viewer(self, sender):
         source_viewer: VTKViewer2DWithReslicer = sender
         print(f'double clicked on {source_viewer.name} view')

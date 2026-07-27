@@ -396,6 +396,8 @@ class VTKViewer2D(QWidget):
 
         # Layout for embedding the VTK widget
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addWidget(self.vtk_widget)
         self.setLayout(layout)
 

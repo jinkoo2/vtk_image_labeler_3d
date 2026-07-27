@@ -9,6 +9,28 @@ test_user = {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGVtYWlsLmNvbSIsImV4cCI6MTc5NTg5ODc4M30.Zu_fZ4T1pq78vs-XkrYAJbUGpQPwWQjKL0bQMxDLrNo"
 }
 
+def _auth_headers():
+    return {"Authorization": f"Bearer {test_user['token']}"}
+
+
+def _filename_from_content_disposition(response, fallback):
+    content_disposition = response.headers.get("Content-Disposition", "")
+    match = re.search(r'filename="([^"]+)"', content_disposition, flags=re.IGNORECASE)
+    if not match:
+        match = re.search(r'filename=([^;]+)', content_disposition, flags=re.IGNORECASE)
+    if match:
+        return os.path.basename(match.group(1).strip().strip('"'))
+    return fallback
+
+
+def _raise_for_status(response, action):
+    if response.status_code == 200:
+        return
+    error_message = f"Failed {action}: {response.status_code}, {response.text}"
+    print(error_message)
+    raise ServerError(error_message)
+
+
 def get_ping(BASE_URL, timeout_seconds=10):
     """
     Ping the server and return the response with timeout handling.
@@ -124,69 +146,245 @@ def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
         raise
         
 
-def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, out_dir):
-    url = f"{BASE_URL}/datasets/get_image_and_labels"
+def get_image_meta(BASE_URL, dataset_id, images_for, num, timeout_seconds=10):
+    """
+    Fetch optional image-set metadata for a case.
+    Never 404s for a missing meta file; response includes exists/meta/error.
+    """
+    headers = _auth_headers()
     params = {
         "dataset_id": dataset_id,
         "images_for": images_for,
-        "num": num
+        "num": num,
     }
-    # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
+    try:
+        response = requests.get(
+            f"{BASE_URL}/datasets/get_image_meta",
+            params=params,
+            headers=headers,
+            timeout=timeout_seconds,
+        )
+        _raise_for_status(response, "fetching image meta")
+        return response.json()
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while fetching image meta: {e}")
+        raise
+
+
+def get_label_meta(BASE_URL, dataset_id, images_for, num, timeout_seconds=10):
+    """
+    Fetch optional label metadata for a case (status, modified_by, etc.).
+    Never 404s for a missing meta file; response includes exists/meta/error.
+    """
+    headers = _auth_headers()
+    params = {
+        "dataset_id": dataset_id,
+        "images_for": images_for,
+        "num": num,
+    }
+    try:
+        response = requests.get(
+            f"{BASE_URL}/datasets/get_label_meta",
+            params=params,
+            headers=headers,
+            timeout=timeout_seconds,
+        )
+        _raise_for_status(response, "fetching label meta")
+        return response.json()
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while fetching label meta: {e}")
+        raise
+
+
+def update_image_meta(BASE_URL, dataset_id, images_for, num, meta, timeout_seconds=10):
+    """
+    Create or replace image-set metadata for a case.
+    Full-replace semantics: send the complete merged meta object.
+    """
+    headers = _auth_headers()
+    params = {
+        "dataset_id": dataset_id,
+        "images_for": images_for,
+        "num": num,
+    }
+    try:
+        response = requests.put(
+            f"{BASE_URL}/datasets/update_image_meta",
+            params=params,
+            headers=headers,
+            json=meta,
+            timeout=timeout_seconds,
+        )
+        _raise_for_status(response, "updating image meta")
+        return response.json()
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while updating image meta: {e}")
+        raise
+
+
+def update_label_meta(BASE_URL, dataset_id, images_for, num, meta, timeout_seconds=10):
+    """
+    Create or replace label metadata for a case (status, modified_by, label_stats, ...).
+    """
+    headers = _auth_headers()
+    params = {
+        "dataset_id": dataset_id,
+        "images_for": images_for,
+        "num": num,
+    }
+    try:
+        response = requests.put(
+            f"{BASE_URL}/datasets/update_label_meta",
+            params=params,
+            headers=headers,
+            json=meta,
+            timeout=timeout_seconds,
+        )
+        _raise_for_status(response, "updating label meta")
+        return response.json()
+    except requests.exceptions.Timeout:
+        print(f"Request timed out after {timeout_seconds} seconds.")
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while updating label meta: {e}")
+        raise
+
+
+def download_dataset_image(BASE_URL, dataset_id, images_for, num, out_dir, ch_number=0):
+    """Download one channel image using the v3 download_image endpoint."""
+    headers = _auth_headers()
+
+    if not os.path.exists(out_dir):
+        print(f"Creating out_dir: {out_dir}")
+        os.makedirs(out_dir)
+
+    image_params = {
+        "dataset_id": dataset_id,
+        "images_for": images_for,
+        "num": num,
+        "ch_number": ch_number,
+    }
+    image_response = requests.get(
+        f"{BASE_URL}/datasets/download_image",
+        params=image_params,
+        headers=headers,
+    )
+    _raise_for_status(image_response, "downloading base image")
+
+    base_image_filename = _filename_from_content_disposition(
+        image_response, f"image_{num}_{ch_number:04d}.mha"
+    )
+    base_image_path = os.path.join(out_dir, base_image_filename)
+    print(f"Saving base image to: {base_image_path}")
+    with open(base_image_path, "wb") as f:
+        f.write(image_response.content)
+
+    return {
+        "base_image_filename": base_image_filename,
+        "base_image_url": (
+            f"/datasets/download_image?dataset_id={dataset_id}"
+            f"&images_for={images_for}&num={num}&ch_number={ch_number}"
+        ),
+        "downloaded_base_image_path": base_image_path,
     }
 
-    response = requests.get(url, 
-                            params=params,
-                            headers=headers
-                            )
 
-    if response.status_code == 200:
-        result = response.json()
-        print("Image filename:", result["base_image_filename"])
-        print("Label filename:", result["labels_filename"])
-        print("Image download URL:", result["base_image_url"])
-        print("Label download URL:", result["labels_url"])
+def download_dataset_label(BASE_URL, dataset_id, images_for, num, out_dir):
+    """Download a case label using the v3 download_label endpoint."""
+    headers = _auth_headers()
 
-        if not os.path.exists(out_dir):
-            print(f"Creating out_dir: {out_dir}")
-            os.makedirs(out_dir)
+    if not os.path.exists(out_dir):
+        print(f"Creating out_dir: {out_dir}")
+        os.makedirs(out_dir)
 
-        # Download base image
-        base_image_path = os.path.join(out_dir, result['base_image_filename'])
-        img_response = requests.get(f"{BASE_URL}{result['base_image_url']}", 
-                                    headers={
-                                    "Authorization": f"Bearer {test_user['token']}"
-                                })
-        if img_response.status_code == 200:
-            print(f"Saving base image to: {base_image_path}")
-            with open(base_image_path, "wb") as f:
-                f.write(img_response.content)
+    label_params = {
+        "dataset_id": dataset_id,
+        "images_for": images_for,
+        "num": num,
+    }
+    label_response = requests.get(
+        f"{BASE_URL}/datasets/download_label",
+        params=label_params,
+        headers=headers,
+    )
+    if label_response.status_code == 404:
+        raise ServerError(
+            f"Label file not found for dataset_id={dataset_id}, "
+            f"images_for={images_for}, num={num}"
+        )
+    _raise_for_status(label_response, "downloading label image")
+
+    labels_filename = _filename_from_content_disposition(
+        label_response, f"image_{num}.mha"
+    )
+    label_image_path = os.path.join(out_dir, labels_filename)
+    print(f"Saving label image to: {label_image_path}")
+    with open(label_image_path, "wb") as f:
+        f.write(label_response.content)
+
+    return {
+        "labels_filename": labels_filename,
+        "labels_url": (
+            f"/datasets/download_label?dataset_id={dataset_id}"
+            f"&images_for={images_for}&num={num}"
+        ),
+        "downloaded_labels_image_path": label_image_path,
+    }
+
+
+def download_dataset_images_and_labels(BASE_URL, dataset_id, images_for, num, out_dir, ch_number=0):
+    """
+    Download one channel image and its label using the v3 download endpoints.
+    """
+    image_result = download_dataset_image(
+        BASE_URL, dataset_id, images_for, num, out_dir, ch_number=ch_number
+    )
+
+    labels_filename = None
+    label_image_path = None
+    try:
+        label_result = download_dataset_label(
+            BASE_URL, dataset_id, images_for, num, out_dir
+        )
+        labels_filename = label_result["labels_filename"]
+        label_image_path = label_result["downloaded_labels_image_path"]
+    except ServerError as e:
+        if "Label file not found" in str(e):
+            print(
+                f"Label file not found for dataset_id={dataset_id}, "
+                f"images_for={images_for}, num={num}. Continuing without labels."
+            )
         else:
-            raise Exception(f"Failed to download base image: {img_response.status_code}")
+            raise
 
-        # Download label image
-        label_image_path = os.path.join(out_dir, result['labels_filename'])
-        lbl_response = requests.get(f"{BASE_URL}{result['labels_url']}",
-                                    headers={
-                                    "Authorization": f"Bearer {test_user['token']}"
-                                })
-        if lbl_response.status_code == 200:
-            print(f"Saving label image to: {label_image_path}")
-            with open(label_image_path, "wb") as f:
-                f.write(lbl_response.content)
-        else:
-            raise Exception(f"Failed to download label image: {lbl_response.status_code}")
+    result = {
+        "base_image_filename": image_result["base_image_filename"],
+        "labels_filename": labels_filename,
+        "base_image_url": image_result["base_image_url"],
+        "labels_url": (
+            f"/datasets/download_label?dataset_id={dataset_id}"
+            f"&images_for={images_for}&num={num}"
+        ),
+    }
+    print("Image filename:", result["base_image_filename"])
+    print("Label filename:", result["labels_filename"])
 
-        return {
-            'image_and_labels': result,
-            'downloaded_base_image_path': base_image_path,
-            'downloaded_labels_image_path': label_image_path,
-        }
+    return {
+        "image_and_labels": result,
+        "downloaded_base_image_path": image_result["downloaded_base_image_path"],
+        "downloaded_labels_image_path": label_image_path,
+    }
 
-    else:
-        raise Exception(f"Failed to fetch metadata: {response.status_code}, {response.text}")
-    
+
 def post_dataset_json(BASE_URL, data):
     """
     post a dataset
@@ -205,123 +403,190 @@ def post_dataset_json(BASE_URL, data):
         print(f"Failed to add a dataset: {response.status_code}, {response.text}")
         return None
 
-def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_path):
-    # Required metadata
-    # dataset_id = "Dataset935_Test1"
-    # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/datasets/add_image_and_labels"
+def post_image_and_labels(BASE_URL, dataset_id, images_for, image_path, labels_path, ch_number=0):
+    """
+    v3 workflow: reserve a case with add_image_set, then upload channel image and label.
+    Returns the updated dataset_json counters for compatibility with existing callers.
+    """
+    headers = _auth_headers()
 
     try:
-        # Open files safely using 'with' to avoid leaks
-        with open(image_path, "rb") as img_file, open(labels_path, "rb") as lbl_file:
-            files = {
-                "base_image": img_file,
-                "labels": lbl_file,
-            }
-            
-            data = {
+        set_response = requests.post(
+            f"{BASE_URL}/datasets/add_image_set",
+            headers=headers,
+            data={
                 "dataset_id": dataset_id,
-                "images_for": images_for,  # train or test
-            }
-                
-            response = requests.post(url, 
-                                     files=files, 
-                                     headers={
-                                            "Authorization": f"Bearer {test_user['token']}"
-                                     },
-                                     data=data)
+                "images_for": images_for,
+            },
+        )
+        _raise_for_status(set_response, "reserving image set")
+        set_data = set_response.json()
+        num = set_data["num"]
+        dataset_json = set_data["dataset_json"]
+        print(f"Reserved image set num={num}")
 
-        # Print response with error handling
-        if response.status_code == 200:
-            reseponse_data = response.json()
-            print("Success:", reseponse_data)
-            return reseponse_data
-        else:
-            error_message = f"Failed posting image and label: {response.status_code}, {response.text}"
-            print(error_message)
-            raise ServerError(error_message)  # Raise a custom exception for server errors
+        with open(image_path, "rb") as img_file:
+            image_response = requests.post(
+                f"{BASE_URL}/datasets/add_image",
+                headers=headers,
+                data={
+                    "dataset_id": dataset_id,
+                    "images_for": images_for,
+                    "num": num,
+                    "ch_number": ch_number,
+                },
+                files={"image": img_file},
+            )
+        _raise_for_status(image_response, "posting image")
+        print("Success:", image_response.json())
+
+        with open(labels_path, "rb") as lbl_file:
+            label_response = requests.post(
+                f"{BASE_URL}/datasets/add_label",
+                headers=headers,
+                data={
+                    "dataset_id": dataset_id,
+                    "images_for": images_for,
+                    "num": num,
+                },
+                files={"label": lbl_file},
+            )
+        _raise_for_status(label_response, "posting label")
+        print("Success:", label_response.json())
+
+        return {"num": num, "dataset_json": dataset_json}
     except requests.exceptions.RequestException as e:
-        # Handle network-related errors (e.g., connection issues)
         print(f"An error occurred while pushing images to the server: {e}")
-        raise  # Re-raise the exception to forward it
+        raise
 
 
-def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, labels_path):
-    # Required metadata
-    # dataset_id = "Dataset935_Test1"
-    # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/datasets/update_image_and_labels"
+def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, labels_path, ch_number=0):
+    """
+    v3 workflow: upsert one channel image and the label for an existing case.
+
+    Uses PUT update_* when the file already exists. If the server returns 404
+    (common when an image was opened with no label yet), falls back to POST add_*.
+    """
+    headers = _auth_headers()
 
     try:
-        # Open files safely using 'with' to avoid leaks
-        with open(image_path, "rb") as img_file, open(labels_path, "rb") as lbl_file:
-            files = {
-                "base_image": img_file,
-                "labels": lbl_file,
-            }
-            
-            data = {
-                "dataset_id": dataset_id,
-                "images_for": images_for,  # train or test
-                "num": num
-            }
-                
-            response = requests.put(url, 
-                                    files=files, 
-                                    headers={
-                                           "Authorization": f"Bearer {test_user['token']}"
-                                    },
-                                    data=data)
+        image_data = {
+            "dataset_id": dataset_id,
+            "images_for": images_for,
+            "num": num,
+            "ch_number": ch_number,
+        }
+        with open(image_path, "rb") as img_file:
+            image_response = requests.put(
+                f"{BASE_URL}/datasets/update_image",
+                headers=headers,
+                data=image_data,
+                files={"image": img_file},
+            )
+            if image_response.status_code == 404:
+                print(
+                    f"No existing image for num={num}, ch_number={ch_number}. "
+                    "Falling back to POST /add_image."
+                )
+                img_file.seek(0)
+                image_response = requests.post(
+                    f"{BASE_URL}/datasets/add_image",
+                    headers=headers,
+                    data=image_data,
+                    files={"image": img_file},
+                )
+        _raise_for_status(image_response, "updating image")
+        image_result = image_response.json()
+        print("Success:", image_result)
 
-        # Print response with error handling
-        if response.status_code == 200:
-            reseponse_data = response.json()
-            print("Success:", reseponse_data)
-            return reseponse_data
-        else:
-            error_message = f"Failed updating image and label pair: {response.status_code}, {response.text}"
-            print(error_message)
-            raise ServerError(error_message)  # Raise a custom exception for server errors
+        label_data = {
+            "dataset_id": dataset_id,
+            "images_for": images_for,
+            "num": num,
+        }
+        with open(labels_path, "rb") as lbl_file:
+            label_response = requests.put(
+                f"{BASE_URL}/datasets/update_label",
+                headers=headers,
+                data=label_data,
+                files={"label": lbl_file},
+            )
+            if label_response.status_code == 404:
+                print(
+                    f"No existing label for num={num}. "
+                    "Falling back to POST /add_label."
+                )
+                lbl_file.seek(0)
+                label_response = requests.post(
+                    f"{BASE_URL}/datasets/add_label",
+                    headers=headers,
+                    data=label_data,
+                    files={"label": lbl_file},
+                )
+        _raise_for_status(label_response, "updating label")
+        label_result = label_response.json()
+        print("Success:", label_result)
+
+        return {
+            "image": image_result,
+            "label": label_result,
+            "message": "Image and label updated successfully.",
+        }
     except requests.exceptions.RequestException as e:
-        # Handle network-related errors (e.g., connection issues)
         print(f"An error occurred while pushing images to the server: {e}")
-        raise  # Re-raise the exception to forward it
+        raise
 
-    
+
 def delete_image_and_labels(BASE_URL, dataset_id, images_for, num):
-    # Required metadata
-    # dataset_id = "Dataset935_Test1"
-    # images_for = "train"  # Must be "train" or "test"
-    url = f"{BASE_URL}/datasets/delete_image_and_labels"
+    """
+    v3 workflow: delete an entire case (all channels + label) via delete_image_set.
+    """
+    headers = _auth_headers()
 
     try:
-        # Use query parameters for DELETE
         params = {
             "dataset_id": dataset_id,
             "images_for": images_for,
-            "num": num
+            "num": num,
         }
-            
-        response = requests.delete(url, 
-                                   headers={
-                                       "Authorization": f"Bearer {test_user['token']}"
-                                       },
-                                   params=params)
-
-        # Print response with error handling
-        if response.status_code == 200:
-            reseponse_data = response.json()
-            print("Success:", reseponse_data)
-            return reseponse_data
-        else:
-            error_message = f"Failed deleting image and label pair: {response.status_code}, {response.text}"
-            print(error_message)
-            raise ServerError(error_message)  # Raise a custom exception for server errors
+        response = requests.delete(
+            f"{BASE_URL}/datasets/delete_image_set",
+            headers=headers,
+            params=params,
+        )
+        _raise_for_status(response, "deleting image and label pair")
+        response_data = response.json()
+        print("Success:", response_data)
+        return response_data
     except requests.exceptions.RequestException as e:
-        # Handle network-related errors (e.g., connection issues)
         print(f"An error occurred while pushing images to the server: {e}")
-        raise  # Re-raise the exception to forward it
+        raise
 
+
+
+def renumber_image_sets(BASE_URL, dataset_id, images_for):
+    """
+    v3: renumber train or test cases to contiguous 0..N-1 via POST /datasets/renumber_image_sets.
+    """
+    headers = _auth_headers()
+
+    try:
+        params = {
+            "dataset_id": dataset_id,
+            "images_for": images_for,
+        }
+        response = requests.post(
+            f"{BASE_URL}/datasets/renumber_image_sets",
+            headers=headers,
+            params=params,
+        )
+        _raise_for_status(response, "renumbering image sets")
+        response_data = response.json()
+        print("Success:", response_data)
+        return response_data
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while renumbering image sets: {e}")
+        raise
 
 
 def test_post_predictions_zip():

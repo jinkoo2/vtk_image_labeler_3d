@@ -8,6 +8,8 @@ class RangeSlider(QWidget):
 
     # Signal emitted when the range values change
     rangeChanged = pyqtSignal(int, int)
+    # Signal emitted when the user finishes dragging
+    rangeReleased = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,9 +106,12 @@ class RangeSlider(QWidget):
 
 
     def mouseReleaseEvent(self, event):
+        was_interacting = self.active_handle is not None or self.bar_dragging
         self.active_handle = None
         self.bar_dragging = False
         self.last_mouse_position = None
+        if was_interacting:
+            self.rangeReleased.emit()
 
     def value_to_pos(self, value):
         return (value - self.range_min) / (self.range_max - self.range_min) * self.width()

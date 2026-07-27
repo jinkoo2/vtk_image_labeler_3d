@@ -50,6 +50,8 @@ from vtk_line_list_manager import LineListManager
 from vtk_rect_list_manager import RectListManager
 
 from nnunet_client_manager import nnUNetDatasetManager
+import qt_tools
+import nnunet_service
 
 class MainWindow3D(QMainWindow):
     
@@ -61,6 +63,7 @@ class MainWindow3D(QMainWindow):
         self.managers = []
         self.vtk_image = None
         self._modified = False
+        self._nnunet_image_ref = None
 
         ### init ui ###    
         self.setWindowTitle("Image Labeler 3D")
@@ -166,6 +169,10 @@ class MainWindow3D(QMainWindow):
         self.add_exclusive_actions(self.nnunet_client_manager.get_exclusive_actions())
         self.nnunet_client_manager.log_message.connect(self.handle_log_message) # Connect log messages to a handler
         self.nnunet_client_manager.image_dataset_downloaded.connect(self.nnunet_client_manager_image_dataset_downloaded)
+        self.nnunet_client_manager.label_dataset_downloaded.connect(self.nnunet_client_manager_label_dataset_downloaded)
+        self.nnunet_client_manager.get_window_level = self.get_window_level_settings
+        self.nnunet_client_manager.before_dataset_change = self.before_nnunet_dataset_change
+        self.nnunet_client_manager.on_case_saved = self.reset_modified
         self.managers.append(self.nnunet_client_manager)
         self.nnunet_client_manager_widget = dock
         self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, True)
@@ -215,10 +222,13 @@ class MainWindow3D(QMainWindow):
         """
         Override the closeEvent to log application or window close.
         """
+        if not self.ensure_changes_saved():
+            event.ignore()
+            return
+
         _info("MainWindow is closing.")
-
+        self._clear_workspace_without_prompt()
         self.vtk_viewer.cleanup_vtk(event)  # explicitly clean VTK resources
-
         super().closeEvent(event)  # Call the base class method to ensure proper behavior
         
 
@@ -395,6 +405,7 @@ class MainWindow3D(QMainWindow):
         self.range_slider = RangeSlider(self)
         self.range_slider.setFixedWidth(200)  # Adjust size for the toolbar
         self.range_slider.rangeChanged.connect(self.update_window_level)
+        self.range_slider.rangeReleased.connect(self.persist_window_level_settings)
         toolbar.addWidget(self.range_slider)
         
         # zoom in action
@@ -576,7 +587,89 @@ class MainWindow3D(QMainWindow):
 
             self.vtk_viewer.set_window_level(window, level)
 
+            if self._nnunet_image_ref is not None:
+                self._modified = True
+
             self.print_status(f"Window: {window}, Level: {level}")
+
+    def get_window_level_settings(self):
+        if self.vtk_image is None:
+            return None
+        return {
+            "window": float(self.range_slider.get_width()),
+            "level": float(self.range_slider.get_center()),
+        }
+
+    def apply_window_level_settings(self, window_level):
+        """Apply saved image meta window/level to the viewer slider."""
+        if self.vtk_image is None or not isinstance(window_level, dict):
+            return
+
+        window = window_level.get("window", window_level.get("width"))
+        level = window_level.get("level")
+        if window is None or level is None:
+            return
+
+        window = float(window)
+        level = float(level)
+        if window <= 0:
+            return
+
+        half = window / 2.0
+        low = level - half
+        high = level + half
+        # Keep within current image scalar range when possible.
+        low = max(self.range_slider.range_min, min(self.range_slider.range_max, low))
+        high = max(self.range_slider.range_min, min(self.range_slider.range_max, high))
+        if high <= low:
+            high = min(self.range_slider.range_max, low + max(window, 1.0))
+
+        self.range_slider.low_value = low
+        self.range_slider.high_value = high
+        self.range_slider.update()
+        self.vtk_viewer.set_window_level(
+            self.range_slider.get_width(),
+            self.range_slider.get_center(),
+        )
+        self.print_status(
+            f"Restored Window: {self.range_slider.get_width()}, Level: {self.range_slider.get_center()}"
+        )
+
+    def persist_window_level_settings(self):
+        """Write current window/level into image meta for the loaded nnU-Net case."""
+        ref = self._nnunet_image_ref
+        if not ref or self.vtk_image is None:
+            return
+        wl = self.get_window_level_settings()
+        if not wl:
+            return
+        try:
+            response = nnunet_service.get_image_meta(
+                ref["base_url"], ref["dataset_id"], ref["images_for"], ref["num"]
+            )
+            meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
+            meta = dict(meta)
+            meta["window_level"] = {
+                "window": float(wl["window"]),
+                "level": float(wl["level"]),
+            }
+            nnunet_service.update_image_meta(
+                ref["base_url"],
+                ref["dataset_id"],
+                ref["images_for"],
+                ref["num"],
+                meta,
+            )
+            self.print_status(
+                f"Saved Window/Level for case {ref['num']}: "
+                f"{wl['window']}, {wl['level']}"
+            )
+            # Clear window/level dirty bit if labels/managers are clean.
+            managers_dirty = any(m.modified() for m in self.managers)
+            if not managers_dirty:
+                self._modified = False
+        except Exception as e:
+            _err(f"Failed to save window/level: {e}")
 
     def get_last_dir(self):
         if settings.contains('last_directory'):
@@ -584,40 +677,101 @@ class MainWindow3D(QMainWindow):
         else:
             return '.'
 
-    def nnunet_client_manager_image_dataset_downloaded(self, image_path, labels_path, sender):
+    def _clear_segmentation_layers_keep_image(self):
+        """Remove all segmentation layers/UI items without unloading the base image."""
+        layer_list = self.segmentation_list_manager.get_segmentation_layer_list()
+        for name in list(layer_list.get_layer_names()):
+            layer_list.remove_layer_by_name(name)
 
-        # close workspace before loading a new image
-        if self.vtk_image is not None:
-            self.close_workspace()
+    def _load_label_layers_from_path_or_empty(self, labels_path):
+        """Create dataset-configured layers from a label file, or empty layers if missing."""
+        ds = self.nnunet_client_manager.get_selected_dataset() or {}
+        labels = ds.get('labels') or {}
 
-        # load image
-        self.load_image(image_path)
+        has_labels_file = bool(labels_path) and os.path.exists(labels_path)
+        composit_labels_image = None
+        if has_labels_file:
+            import itkvtk
+            composit_labels_image = itkvtk.load_vtk_image_using_sitk(labels_path)
 
-        if os.path.exists(labels_path) is False:
-            print(f'Labels file does not exist: {labels_path}. Skipping label loading.')
-            return
-        
-        # load label
-        import itkvtk
-        composit_labels_image = itkvtk.load_vtk_image_using_sitk(labels_path)
+            import vtk_tools
+            vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, composit_labels_image)
+        else:
+            print(
+                f'Labels file does not exist: {labels_path!r}. '
+                'Creating empty label layers from dataset config.'
+            )
 
-        import vtk_tools
-        vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, composit_labels_image)
-        
-        ds = self.nnunet_client_manager.get_selected_dataset()
-        labels = ds['labels']
-        for label_name in labels.keys():
-            label_value = labels.get(label_name)
+        for label_name, label_value in labels.items():
             print(f'{label_name}={label_value}')
+            if not label_value or label_value <= 0:
+                continue
 
-            if label_value > 0:
+            if composit_labels_image is not None:
+                import itkvtk
+                label_image = itkvtk.extract_binary_label_image_from_composit_labels_image(
+                    composit_labels_image, label_value
+                )
+            else:
+                label_image = self.segmentation_list_manager.create_empty_segmentation_image()
 
-                label_image = itkvtk.extract_binary_label_image_from_composit_labels_image(composit_labels_image, label_value)
+            self.segmentation_list_manager.add_layer(label_image, label_name)
 
-                # add layer
-                self.segmentation_list_manager.add_layer(label_image, label_name)
+    def nnunet_client_manager_image_dataset_downloaded(self, image_path, labels_path, sender):
+        with qt_tools.busy_progress(
+            self,
+            title="Loading Image",
+            label="Opening image in viewer...",
+        ):
+            # close workspace before loading a new image
+            if self.vtk_image is not None:
+                if not self.close_workspace():
+                    return
+
+            # load image
+            self.load_image(image_path)
+            self._load_label_layers_from_path_or_empty(labels_path)
+
+            self._nnunet_image_ref = getattr(sender, "_pending_load_case", None)
+            wl = getattr(sender, "_pending_load_window_level", None)
+            if isinstance(wl, dict):
+                self.apply_window_level_settings(wl)
+
+            # Creating layers on load flags managers dirty; restoring W/L is not an edit.
+            self.reset_modified()
+
+    def nnunet_client_manager_label_dataset_downloaded(self, labels_path, sender):
+        if self.modified():
+            if not self.ensure_changes_saved():
+                return
+
+        if self.vtk_image is None:
+            self.show_popup(
+                "Load Label",
+                "Please download/open the image first before downloading its label.",
+                QMessageBox.Warning,
+            )
+            return
+
+        if not labels_path or not os.path.exists(labels_path):
+            self.show_popup(
+                "Load Label",
+                f"Label file not found: {labels_path!r}",
+                QMessageBox.Warning,
+            )
+            return
+
+        with qt_tools.busy_progress(
+            self,
+            title="Loading Label",
+            label="Applying label layers...",
+        ):
+            self._clear_segmentation_layers_keep_image()
+            self._load_label_layers_from_path_or_empty(labels_path)
+            self.reset_modified()
 
     def load_image(self, file_path):
+        self._nnunet_image_ref = None
 
         # save to last_directory
         settings.setValue("last_directory", os.path.dirname(file_path))
@@ -682,7 +836,8 @@ class MainWindow3D(QMainWindow):
 
         # close workspace before loading a new image
         if self.vtk_image is not None:
-            self.close_workspace()
+            if not self.close_workspace():
+                return
 
         self.load_image(file_path)
 
@@ -699,7 +854,15 @@ class MainWindow3D(QMainWindow):
             if manager.modified():
                 return True
         return False
-    
+
+    def reset_modified(self):
+        self._modified = False
+        for manager in self.managers:
+            try:
+                manager.reset_modified()
+            except Exception:
+                pass
+
     def show_yes_no_question_dialog(self, title, msg):
         # Create a message box
         msg_box = QMessageBox(self)
@@ -718,18 +881,86 @@ class MainWindow3D(QMainWindow):
             return True
         elif response == QMessageBox.No:
             return False
-            
-    def close_workspace(self):
 
-        if self.vtk_image is None:
-            return 
+    def show_yes_no_cancel_question_dialog(self, title, msg):
+        """Return 'yes', 'no', or 'cancel'."""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Question)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(msg)
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        msg_box.setDefaultButton(QMessageBox.Yes)
+        response = msg_box.exec_()
+        if response == QMessageBox.Yes:
+            return "yes"
+        if response == QMessageBox.No:
+            return "no"
+        return "cancel"
 
+    def ensure_changes_saved(self):
+        """Prompt to save dirty image/label/meta changes.
+
+        Returns True if it is safe to proceed, False if the user cancelled.
+        """
+        if not self.modified():
+            return True
+
+        if self._nnunet_image_ref:
+            title = "Save Changes"
+            msg = (
+                "The current image/label (or display settings) has unsaved changes.\n\n"
+                "Do you want to save them to the server before continuing?"
+            )
+        else:
+            title = "Save Workspace"
+            msg = (
+                "There are modified objects.\n\n"
+                "Do you want to save the workspace before continuing?"
+            )
+
+        choice = self.show_yes_no_cancel_question_dialog(title, msg)
+        if choice == "cancel":
+            return False
+        if choice == "no":
+            self.reset_modified()
+            return True
+
+        # choice == yes
+        if self._nnunet_image_ref:
+            ref = self._nnunet_image_ref
+            ok = self.nnunet_client_manager.update_image_and_labels(
+                ref["images_for"], ref["num"], quiet=True
+            )
+            if not ok:
+                return False
+            try:
+                self.persist_window_level_settings()
+            except Exception as e:
+                _err(f"Failed to persist window/level during save prompt: {e}")
+            self.reset_modified()
+            return True
+
+        self.save_workspace()
+        # User may cancel the file dialog; only proceed if no longer dirty.
         if self.modified():
-            yes = self.show_yes_no_question_dialog("Save Workspace", "There are modified objects. Do you want to save the workspace?")
+            return False
+        self.reset_modified()
+        return True
 
-            if yes:
-                self.save_workspace()
-        
+    def before_nnunet_dataset_change(self):
+        """Called before switching datasets in the nnU-Net panel."""
+        if not self.ensure_changes_saved():
+            return False
+        # Drop the open case so the UI does not keep another dataset's image.
+        if self.vtk_image is not None:
+            self._clear_workspace_without_prompt()
+        return True
+
+    def _clear_workspace_without_prompt(self):
+        if self.vtk_image is None and self.image_path is None:
+            self._nnunet_image_ref = None
+            return
+
         for manager in self.managers:
             manager.clear()
 
@@ -738,6 +969,19 @@ class MainWindow3D(QMainWindow):
         self.image_path = None
         self.vtk_image = None
         self.image_type = None
+        self._nnunet_image_ref = None
+        self.reset_modified()
+
+    def close_workspace(self):
+        """Close the current image/workspace. Returns False if the user cancelled."""
+        if self.vtk_image is None:
+            return True
+
+        if not self.ensure_changes_saved():
+            return False
+
+        self._clear_workspace_without_prompt()
+        return True
 
     def save_workspace(self):
         import json
@@ -791,8 +1035,7 @@ class MainWindow3D(QMainWindow):
                 json.dump(workspace_data, f, indent=4)
             
             # clear the modifed flags of managers
-            for manager in self.managers:
-                manager.reset_modified()
+            self.reset_modified()
             
             _info(f"Workspace metadata saved to {workspace_json_path}.")
             self.print_status(f"Workspace saved to {workspace_json_path}.")
@@ -805,7 +1048,8 @@ class MainWindow3D(QMainWindow):
     def open_workspace(self):
 
         if self.vtk_image is not None:
-            self.close_workspace()
+            if not self.close_workspace():
+                return
 
         import json
         import os
