@@ -2,7 +2,8 @@ import json
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QWidget, 
                              QDockWidget, QHBoxLayout, QLineEdit, QComboBox, 
-                             QTextEdit, QSizePolicy, QDialog, QListWidget, QListWidgetItem)
+                             QTextEdit, QSizePolicy, QDialog, QListWidget, QListWidgetItem,
+                             QToolButton)
 
 from PyQt5.QtWidgets import QTabWidget
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QTextEdit, QHBoxLayout, QDialog, QMessageBox
@@ -326,11 +327,25 @@ class nnUNetDatasetManager(BaseObject):
         # Inner Tab Widget for Train/Test (moved from Raw tab)
         inner_tab_widget = QTabWidget()
         
-        # Dataset details text area
+        # Collapsible dataset.json details (collapsed by default)
+        self.details_toggle = QToolButton()
+        self.details_toggle.setText("dataset.json")
+        self.details_toggle.setCheckable(True)
+        self.details_toggle.setChecked(False)
+        self.details_toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.details_toggle.setArrowType(Qt.RightArrow)
+        self.details_toggle.setAutoRaise(True)
+        self.details_toggle.setToolTip("Show or hide the selected dataset.json contents")
+        self.details_toggle.toggled.connect(self._on_dataset_details_toggled)
+        dataset_tab_layout.addWidget(self.details_toggle)
+
         self.details_label = QTextEdit("Dataset details will appear here.")
-        self.details_label.setReadOnly(True)  # Make it read-only
-        self.details_label.setTextInteractionFlags(Qt.TextSelectableByMouse)  # Allow copy-paste
-        self.details_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Make it expand
+        self.details_label.setReadOnly(True)
+        self.details_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.details_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.details_label.setMinimumHeight(0)
+        self.details_label.setMaximumHeight(0)
+        self.details_label.setVisible(False)
         dataset_tab_layout.addWidget(self.details_label)
 
         # Train Image lists
@@ -1200,29 +1215,120 @@ class nnUNetDatasetManager(BaseObject):
             print(f"Request failed: {e}")
             self.log_message.emit("ERROR", f"Request failed: {e}")
 
-    def save_image_and_combined_label_to_temp_folder(self, dataset):
-         # get vtk image and label list
-        vtk_image = self.segmentation_list_manager.get_base_vtk_image()
-        vtk_label_image_list = []
-        label_list = []
-        for name, pixel_value in dataset['labels'].items():
-            #skip background
-            if pixel_value == 0:
+    def _normalize_label_name(self, name):
+        """Case-insensitive label name with leading/trailing whitespace removed."""
+        return str(name or "").strip().lower()
+
+    def _dataset_label_name_to_value(self, dataset):
+        """Return {normalized_label_name: int_value} from dataset.json (skip background 0)."""
+        labels = dataset.get("labels") or {}
+        mapping = {}
+        for name, pixel_value in labels.items():
+            try:
+                value = int(pixel_value)
+            except (TypeError, ValueError):
                 continue
+            if value <= 0:
+                continue
+            key = self._normalize_label_name(name)
+            if not key:
+                continue
+            if key in mapping and mapping[key] != value:
+                print(
+                    f"Warning: dataset.json has duplicate label name '{name}' "
+                    f"after normalize; keeping value {mapping[key]}, ignoring {value}."
+                )
+                continue
+            mapping[key] = value
+        return mapping
 
-            layer = self.segmentation_list_manager.get_segmentation_layer_list().get_layer_by_name(name)
-            if layer:
-                vtk_label = layer.get_image()
-                vtk_label_image_list.append(vtk_label)
-                label_list.append(pixel_value)
-            else:
-                print(f'Warning segmentation layer not found for name={name}')
+    def _find_layer_by_label_name(self, label_name):
+        """Find a segmentation layer by normalized label name."""
+        target = self._normalize_label_name(label_name)
+        if not target:
+            return None
+        for layer in self.segmentation_list_manager.get_segmentation_layer_list().get_layers():
+            if self._normalize_label_name(layer.get_name()) == target:
+                return layer
+        return None
 
-        # combine the labels 
+    def _find_unmatched_layers_for_nnunet(self, dataset):
+        """Layers present in the UI whose names are not in dataset.json labels."""
+        expected = set(self._dataset_label_name_to_value(dataset).keys())
+        unmatched = []
+        for layer in self.segmentation_list_manager.get_segmentation_layer_list().get_layers():
+            name = layer.get_name()
+            if self._normalize_label_name(name) not in expected:
+                unmatched.append(name)
+        return unmatched
+
+    def _warn_unmatched_layers_not_saved_to_server(self, unmatched):
+        if not unmatched:
+            return
+        nl = chr(10)
+        names = nl.join(f"  - {name}" for name in unmatched)
+        msg = (
+            "The following segmentation layer(s) are not listed in dataset.json "
+            "labels, so they will NOT be packed into the label image sent to the "
+            "nnU-Net server:"
+            + nl + nl
+            + names
+            + nl + nl
+            + "Only layers whose names match dataset.json (case-insensitive, "
+            "trimmed; e.g. 'bladder' -> 1) are uploaded. Unmatched layers remain "
+            "in the app and are still included when you use Save Workspace (local)."
+        )
+        QMessageBox.warning(
+            self.dock_widget,
+            "Layers not saved to nnU-Net",
+            msg,
+        )
+        self.log_message.emit(
+            "WARNING",
+            "nnU-Net save skipped unmatched layers: " + ", ".join(unmatched),
+        )
+
+    def save_image_and_combined_label_to_temp_folder(self, dataset, warn_unmatched=True):
+        """Pack the base image + multi-class label for nnU-Net upload.
+
+        Label packing rules:
+        - dataset.json 'labels' maps name -> integer class id (e.g. bladder -> 1).
+        - Each matching segmentation layer (binary mask) is written with that
+          integer as the pixel value in the combined label image.
+        - Layers whose names are not in dataset.json are omitted from the
+          server upload (Save Workspace still stores them locally).
+        """
+        vtk_image = self.segmentation_list_manager.get_base_vtk_image()
+        if vtk_image is None:
+            raise ValueError("No base image is loaded.")
+
+        label_name_to_value = self._dataset_label_name_to_value(dataset)
+        unmatched = self._find_unmatched_layers_for_nnunet(dataset)
+        if warn_unmatched:
+            self._warn_unmatched_layers_not_saved_to_server(unmatched)
+
+        vtk_label_image_list = []
+        label_values = []
+        for name, pixel_value in label_name_to_value.items():
+            layer = self._find_layer_by_label_name(name)
+            if layer is None:
+                print(
+                    f"Warning: dataset.json label '{name}'={pixel_value} has no matching layer; treated as empty."
+                )
+                continue
+            vtk_label_image_list.append(layer.get_image())
+            label_values.append(pixel_value)
+
         from itkvtk import vtk_to_sitk
-        sitk_label_list = [vtk_to_sitk(vtk_label) for vtk_label in vtk_label_image_list]
         from itk_tools import combine_sitk_labels, save_sitk_image
-        sitk_labels = combine_sitk_labels(sitk_label_list, label_list)
+
+        if vtk_label_image_list:
+            sitk_label_list = [vtk_to_sitk(vtk_label) for vtk_label in vtk_label_image_list]
+            sitk_labels = combine_sitk_labels(sitk_label_list, label_values)
+        else:
+            # No matching layers: upload an empty label volume with image geometry.
+            empty_vtk = self.segmentation_list_manager.create_empty_segmentation_image()
+            sitk_labels = vtk_to_sitk(empty_vtk)
 
         # save the files to a temporary folders
         temp_dir = conf['temp_dir']
@@ -1279,8 +1385,8 @@ class nnUNetDatasetManager(BaseObject):
 
             with qt_tools.busy_progress(
                 self.dock_widget,
-                title="Saving Label",
-                label=f"Saving image/label for case {num}...",
+                title="Saving",
+                label=f"Saving image/label/meta for case {num}...",
             ):
                 qt_tools.update_busy_progress(label="Preparing image and label files...")
                 image_path, labels_path = self.save_image_and_combined_label_to_temp_folder(dataset)
@@ -1626,6 +1732,17 @@ class nnUNetDatasetManager(BaseObject):
 
         self._active_dataset_index = dataset_index
         self._on_dataset_selected(dataset_index)
+
+    def _on_dataset_details_toggled(self, expanded):
+        """Expand/collapse the dataset.json text box."""
+        self.details_toggle.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
+        self.details_label.setVisible(expanded)
+        if expanded:
+            self.details_label.setMaximumHeight(220)
+            self.details_label.setMinimumHeight(120)
+        else:
+            self.details_label.setMinimumHeight(0)
+            self.details_label.setMaximumHeight(0)
 
     def _on_dataset_selected(self, dataset_index):
         """Triggered when the user selects a dataset."""

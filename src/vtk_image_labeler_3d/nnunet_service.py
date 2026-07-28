@@ -734,6 +734,129 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
         print(f"An error occurred while pushing images to the server: {e}")
         raise  # Re-raise the exception to forward it
 
+
+def get_approved_models(BASE_URL, timeout_seconds=30):
+    """GET /models/list/approved — list models marked approved for inference."""
+    url = f"{BASE_URL}/models/list/approved"
+    print(f"Fetching approved models: {url}")
+    try:
+        response = requests.get(url, headers=_auth_headers(), timeout=timeout_seconds)
+        _raise_for_status(response, "fetching approved models")
+        data = response.json()
+        print(f"Approved models: {data}")
+        return data if isinstance(data, list) else []
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while fetching approved models: {e}")
+        raise
+
+
+def get_model_detail(BASE_URL, dataset_id, trainer, plans, configuration, timeout_seconds=30):
+    """GET /models/model_detail — plans.json + dataset.json for a trained model."""
+    url = f"{BASE_URL}/models/model_detail"
+    params = {
+        "dataset_id": dataset_id,
+        "trainer": trainer,
+        "plans": plans,
+        "configuration": configuration,
+    }
+    print(f"Fetching model detail: {url} params={params}")
+    try:
+        response = requests.get(url, params=params, headers=_auth_headers(), timeout=timeout_seconds)
+        _raise_for_status(response, "fetching model detail")
+        data = response.json()
+        print(f"Model detail keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+        return data
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while fetching model detail: {e}")
+        raise
+
+
+def post_prediction(
+    BASE_URL,
+    model_dataset_id,
+    image_id,
+    channel_image_paths,
+    trainer="nnUNetTrainer",
+    plans="nnUNetPlans",
+    configuration="3d_lowres",
+    timeout_seconds=120,
+):
+    """
+    POST /predictions/predict
+
+    channel_image_paths: ordered list of local file paths (channel 0, 1, ...).
+    Channel 0 is sent as form field `image` (current API). Additional channels are
+    also attached as `channel_{i}` for forward compatibility with multi-channel servers.
+    """
+    if not channel_image_paths:
+        raise ValueError("At least one channel image path is required.")
+
+    url = f"{BASE_URL}/predictions/predict"
+    form_data = {
+        "dataset_id": model_dataset_id,
+        "image_id": image_id,
+        "trainer": trainer,
+        "plans": plans,
+        "configuration": configuration,
+        "num_channels": str(len(channel_image_paths)),
+    }
+
+    opened = []
+    try:
+        files = []
+        for i, path in enumerate(channel_image_paths):
+            basename = os.path.basename(path)
+            if i == 0:
+                fh_image = open(path, "rb")
+                opened.append(fh_image)
+                files.append(("image", (basename, fh_image, "application/octet-stream")))
+            fh = open(path, "rb")
+            opened.append(fh)
+            files.append((f"channel_{i}", (basename, fh, "application/octet-stream")))
+
+        print(f"Posting prediction to {url} dataset_id={model_dataset_id} channels={len(channel_image_paths)}")
+        response = requests.post(
+            url,
+            data=form_data,
+            files=files,
+            headers=_auth_headers(),
+            timeout=timeout_seconds,
+        )
+        _raise_for_status(response, "posting prediction")
+        data = response.json()
+        print(f"Prediction submit response: {data}")
+        return data
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while posting prediction: {e}")
+        raise
+    finally:
+        for fh in opened:
+            try:
+                fh.close()
+            except Exception:
+                pass
+
+
+def get_prediction_job_status(BASE_URL, job_id, timeout_seconds=30):
+    """GET /predictions/status/{job_id}"""
+    url = f"{BASE_URL}/predictions/status/{job_id}"
+    try:
+        response = requests.get(url, headers=_auth_headers(), timeout=timeout_seconds)
+        _raise_for_status(response, "fetching prediction job status")
+        return response.json()
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while fetching prediction job status: {e}")
+        raise
+
+
 def delete_prediction(BASE_URL, dataset_id, req_id):
     url = f"{BASE_URL}/predictions/delete"
     params = {"dataset_id": dataset_id, "req_id": req_id}

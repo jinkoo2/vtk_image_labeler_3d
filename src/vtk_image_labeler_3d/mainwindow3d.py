@@ -62,6 +62,8 @@ class MainWindow3D(QMainWindow):
         self.exclusive_actions = []
         self.managers = []
         self.vtk_image = None
+        self.image_path = None
+        self.image_type = None
         self._modified = False
         self._nnunet_image_ref = None
 
@@ -88,6 +90,7 @@ class MainWindow3D(QMainWindow):
         ##########################
         # Segmentation List Manager
         self.segmentation_list_manager = SegmentationListManager(self.vtk_viewer, "Segmentations")
+        self.segmentation_list_manager.get_nnunet_prediction_context = self.get_nnunet_prediction_context
         toolbar, dock = self.segmentation_list_manager.setup_ui()
         if toolbar is not None:
             self.addToolBar(Qt.TopToolBarArea, toolbar)
@@ -720,7 +723,7 @@ class MainWindow3D(QMainWindow):
     def nnunet_client_manager_image_dataset_downloaded(self, image_path, labels_path, sender):
         with qt_tools.busy_progress(
             self,
-            title="Loading Image",
+            title="Loading",
             label="Opening image in viewer...",
         ):
             # close workspace before loading a new image
@@ -822,6 +825,7 @@ class MainWindow3D(QMainWindow):
         self.setWindowTitle(f"Image Labeler 3D - {os.path.basename(file_path)}")
         
         _info("Image loaded successfully")
+        self.segmentation_list_manager.update_nnunet_prediction_tool_button_state()
         #except Exception as e:
         #    _err(f"Failed to load image:{e}") 
         #    self.show_popup("Load Image", f"Error: Load Image Failed, {str(e)}", QMessageBox.Critical)
@@ -957,8 +961,9 @@ class MainWindow3D(QMainWindow):
         return True
 
     def _clear_workspace_without_prompt(self):
-        if self.vtk_image is None and self.image_path is None:
+        if self.vtk_image is None and getattr(self, "image_path", None) is None:
             self._nnunet_image_ref = None
+            self.segmentation_list_manager.update_nnunet_prediction_tool_button_state()
             return
 
         for manager in self.managers:
@@ -971,6 +976,21 @@ class MainWindow3D(QMainWindow):
         self.image_type = None
         self._nnunet_image_ref = None
         self.reset_modified()
+        self.segmentation_list_manager.update_nnunet_prediction_tool_button_state()
+
+    def get_nnunet_prediction_context(self):
+        """Context for the nnUNet Prediction Tool dialog."""
+        case = dict(self._nnunet_image_ref) if isinstance(self._nnunet_image_ref, dict) else {}
+        dataset = self.nnunet_client_manager.get_selected_dataset() or {}
+        server_url = (
+            case.get("base_url")
+            or self.nnunet_client_manager.get_server_url()
+        )
+        return {
+            "server_url": server_url,
+            "case": case,
+            "dataset": dataset,
+        }
 
     def close_workspace(self):
         """Close the current image/workspace. Returns False if the user cancelled."""

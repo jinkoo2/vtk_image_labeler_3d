@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QDialogButtonBox,
     QGroupBox,
     QMessageBox,
+    QTabWidget,
 )
 import sys
 import json
@@ -54,8 +55,8 @@ LABEL_STATUS_OPTIONS = [
 ]
 
 
-class MetaPropertiesDialog(QDialog):
-    """Show image/label metadata and allow editing of client-owned fields."""
+class MetaPropertiesPanel(QWidget):
+    """Editable image or label metadata panel (used inside the Properties tabs)."""
 
     def __init__(
         self,
@@ -73,19 +74,10 @@ class MetaPropertiesDialog(QDialog):
         self.num = num
         self.base_url = base_url
         self._original_meta = {}
-
-        title = "Image Properties" if meta_kind == "image" else "Label Properties"
-        self.setWindowTitle(f"{title} ? case {num}")
-        self.resize(620, 560)
+        self._exists = False
 
         layout = QVBoxLayout(self)
-
-        info = QLabel(
-            f"<b>Dataset:</b> {dataset_id}<br>"
-            f"<b>Split:</b> {images_for}<br>"
-            f"<b>Case:</b> {num}"
-        )
-        layout.addWidget(info)
+        layout.setContentsMargins(0, 8, 0, 0)
 
         edit_group = QGroupBox("Editable Fields")
         edit_form = QFormLayout(edit_group)
@@ -94,10 +86,11 @@ class MetaPropertiesDialog(QDialog):
         self.status_combo.setEditable(True)
         self.status_combo.addItems(LABEL_STATUS_OPTIONS)
         self.status_combo.setEnabled(meta_kind == "label")
-        edit_form.addRow("Status:", self.status_combo)
+        if meta_kind == "label":
+            edit_form.addRow("Status:", self.status_combo)
 
         self.notes_edit = QTextEdit()
-        self.notes_edit.setPlaceholderText("Optional notes?")
+        self.notes_edit.setPlaceholderText("Optional notes")
         self.notes_edit.setMaximumHeight(100)
         edit_form.addRow("Notes:", self.notes_edit)
 
@@ -112,10 +105,7 @@ class MetaPropertiesDialog(QDialog):
         self.level_spin.setDecimals(2)
         self.level_spin.setRange(-1e7, 1e7)
         self.level_spin.setSingleStep(10.0)
-        wl_enabled = meta_kind == "image"
-        self.window_spin.setEnabled(wl_enabled)
-        self.level_spin.setEnabled(wl_enabled)
-        if wl_enabled:
+        if meta_kind == "image":
             edit_form.addRow("Window:", self.window_spin)
             edit_form.addRow("Level:", self.level_spin)
 
@@ -141,15 +131,6 @@ class MetaPropertiesDialog(QDialog):
         self.error_label.setWordWrap(True)
         layout.addWidget(self.error_label)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close
-        )
-        buttons.accepted.connect(self.save_meta)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-        self._load_meta()
-
     def _auto_fields(self):
         return IMAGE_AUTO_FIELDS if self.meta_kind == "image" else LABEL_AUTO_FIELDS
 
@@ -171,17 +152,13 @@ class MetaPropertiesDialog(QDialog):
             self.base_url, self.dataset_id, self.images_for, self.num, meta
         )
 
-    def _load_meta(self):
+    def load_meta(self):
         try:
-            with qt_tools.busy_progress(
-                self,
-                title="Loading Properties",
-                label=f"Fetching {self.meta_kind} metadata for case {self.num}...",
-            ):
-                response = self._fetch()
+            response = self._fetch()
         except Exception as e:
             self.error_label.setText(f"Failed to load metadata: {e}")
             self._original_meta = {}
+            self._exists = False
             self.auto_view.setPlainText("{}")
             return
 
@@ -189,7 +166,10 @@ class MetaPropertiesDialog(QDialog):
             self.error_label.setText(
                 f"Metadata file exists but could not be parsed/validated:\n{response.get('error')}"
             )
+        else:
+            self.error_label.setText("")
 
+        self._exists = bool(response.get("exists"))
         meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
         self._original_meta = dict(meta)
 
@@ -199,18 +179,12 @@ class MetaPropertiesDialog(QDialog):
         self.status_combo.setCurrentText(status)
         self.notes_edit.setPlainText(str(meta.get("notes") or ""))
 
-        if self.meta_kind == "image" and hasattr(self, "window_spin"):
+        if self.meta_kind == "image":
             wl = meta.get("window_level") if isinstance(meta.get("window_level"), dict) else {}
             window = wl.get("window", wl.get("width"))
             level = wl.get("level")
-            if window is None:
-                self.window_spin.setValue(0.0)
-            else:
-                self.window_spin.setValue(float(window))
-            if level is None:
-                self.level_spin.setValue(0.0)
-            else:
-                self.level_spin.setValue(float(level))
+            self.window_spin.setValue(0.0 if window is None else float(window))
+            self.level_spin.setValue(0.0 if level is None else float(level))
 
         auto_keys = self._auto_fields()
         reserved_editable = {"status", "notes", "window_level"}
@@ -218,17 +192,15 @@ class MetaPropertiesDialog(QDialog):
             k: v for k, v in meta.items()
             if k not in auto_keys and k not in reserved_editable
         }
-        self.extra_edit.setPlainText(
-            json.dumps(extras, indent=2) if extras else ""
-        )
+        self.extra_edit.setPlainText(json.dumps(extras, indent=2) if extras else "")
 
         auto_only = {k: v for k, v in meta.items() if k in auto_keys}
-        if not auto_only and not response.get("exists"):
+        if not auto_only and not self._exists:
             self.auto_view.setPlainText("(no metadata file yet)")
         else:
             self.auto_view.setPlainText(json.dumps(auto_only, indent=2))
 
-    def _build_updated_meta(self):
+    def build_updated_meta(self):
         meta = dict(self._original_meta)
 
         notes = self.notes_edit.toPlainText().strip()
@@ -244,7 +216,7 @@ class MetaPropertiesDialog(QDialog):
             else:
                 meta.pop("status", None)
 
-        if self.meta_kind == "image" and hasattr(self, "window_spin"):
+        if self.meta_kind == "image":
             window = float(self.window_spin.value())
             level = float(self.level_spin.value())
             if window > 0:
@@ -278,29 +250,162 @@ class MetaPropertiesDialog(QDialog):
 
         return meta
 
-    def save_meta(self):
+    def is_modified(self):
         try:
-            meta = self._build_updated_meta()
+            return self.build_updated_meta() != self._original_meta
+        except Exception:
+            # Invalid edits count as pending changes that need attention on Save.
+            return True
+
+    def save_if_modified(self):
+        """Save this panel's meta when changed. Returns (saved, meta_or_none)."""
+        if not self.is_modified():
+            return False, None
+
+        meta = self.build_updated_meta()
+        result = self._save(meta)
+        saved = result.get("meta") if isinstance(result, dict) else meta
+        if isinstance(saved, dict):
+            self._original_meta = dict(saved)
+            self._exists = True
+            # Refresh auto fields view after save.
+            auto_keys = self._auto_fields()
+            auto_only = {k: v for k, v in self._original_meta.items() if k in auto_keys}
+            self.auto_view.setPlainText(
+                json.dumps(auto_only, indent=2) if auto_only else "(no auto fields)"
+            )
+        self.error_label.setText("")
+        return True, saved if isinstance(saved, dict) else meta
+
+
+class CasePropertiesDialog(QDialog):
+    """Combined Properties dialog with Label and Image tabs."""
+
+    def __init__(
+        self,
+        dataset_id,
+        images_for,
+        num,
+        base_url,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.dataset_id = dataset_id
+        self.images_for = images_for
+        self.num = num
+        self.base_url = base_url
+        self.saved_label_meta = None
+        self.saved_image_meta = None
+
+        self.setWindowTitle(f"Properties - case {num}")
+        self.resize(640, 600)
+
+        layout = QVBoxLayout(self)
+
+        info = QLabel(
+            f"<b>Dataset:</b> {dataset_id}<br>"
+            f"<b>Split:</b> {images_for}<br>"
+            f"<b>Case:</b> {num}"
+        )
+        layout.addWidget(info)
+
+        self.tabs = QTabWidget()
+        self.label_panel = MetaPropertiesPanel(
+            "label", dataset_id, images_for, num, base_url, parent=self
+        )
+        self.image_panel = MetaPropertiesPanel(
+            "image", dataset_id, images_for, num, base_url, parent=self
+        )
+        self.tabs.addTab(self.label_panel, "Label")
+        self.tabs.addTab(self.image_panel, "Image")
+        layout.addWidget(self.tabs)
+
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: #b00020;")
+        self.error_label.setWordWrap(True)
+        layout.addWidget(self.error_label)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Close)
+        buttons.button(QDialogButtonBox.Save).clicked.connect(self.save_all)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self._load_all()
+
+    def _load_all(self):
+        try:
+            with qt_tools.busy_progress(
+                self,
+                title="Loading Properties",
+                label=f"Fetching metadata for case {self.num}...",
+            ):
+                self.label_panel.load_meta()
+                self.image_panel.load_meta()
+        except Exception as e:
+            self.error_label.setText(f"Failed to load metadata: {e}")
+
+    def save_all(self):
+        try:
+            label_dirty = self.label_panel.is_modified()
+            image_dirty = self.image_panel.is_modified()
+            if not label_dirty and not image_dirty:
+                QMessageBox.information(
+                    self,
+                    "No Changes",
+                    "There are no modified properties to save.",
+                )
+                return
+
             with qt_tools.busy_progress(
                 self,
                 title="Saving Properties",
-                label=f"Saving {self.meta_kind} metadata for case {self.num}...",
+                label=f"Saving metadata for case {self.num}...",
             ):
-                result = self._save(meta)
-            saved = result.get("meta") if isinstance(result, dict) else meta
-            if isinstance(saved, dict):
-                self._original_meta = dict(saved)
+                saved_parts = []
+                if label_dirty:
+                    qt_tools.update_busy_progress(label="Saving label metadata...")
+                    saved, meta = self.label_panel.save_if_modified()
+                    if saved:
+                        self.saved_label_meta = meta
+                        saved_parts.append("Label")
+                if image_dirty:
+                    qt_tools.update_busy_progress(label="Saving image metadata...")
+                    saved, meta = self.image_panel.save_if_modified()
+                    if saved:
+                        self.saved_image_meta = meta
+                        saved_parts.append("Image")
+
             self.error_label.setText("")
             QMessageBox.information(
                 self,
                 "Saved",
-                f"{self.meta_kind.capitalize()} metadata saved for case {self.num}.",
+                f"Saved {' and '.join(saved_parts)} metadata for case {self.num}.",
             )
-            self.accept()
         except Exception as e:
             self.error_label.setText(str(e))
             QMessageBox.critical(self, "Save Failed", str(e))
 
+
+# Backward-compatible alias used by older call sites.
+class MetaPropertiesDialog(CasePropertiesDialog):
+    def __init__(
+        self,
+        meta_kind=None,
+        dataset_id=None,
+        images_for=None,
+        num=None,
+        base_url=None,
+        parent=None,
+        **kwargs,
+    ):
+        # Older callers passed meta_kind; ignore it and show both tabs.
+        super().__init__(
+            dataset_id=dataset_id,
+            images_for=images_for,
+            num=num,
+            base_url=base_url,
+            parent=parent,
+        )
 
 from base_widget import BaseWidget
 class nnUnetImageDataSetListWidget(BaseWidget):
@@ -344,7 +449,8 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         self.table_widget.setAlternatingRowColors(True)
         header = self.table_widget.horizontalHeader()
         header.setSectionResizeMode(self.COLUMN_IMAGE, QHeaderView.Stretch)
-        header.setSectionResizeMode(self.COLUMN_STATUS, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.COLUMN_STATUS, QHeaderView.Fixed)
+        self.table_widget.setColumnWidth(self.COLUMN_STATUS, 160)
         self.table_widget.cellDoubleClicked.connect(self.on_cell_double_clicked)
         self.table_widget.itemSelectionChanged.connect(self._update_action_buttons)
         layout.addWidget(self.table_widget)
@@ -353,13 +459,24 @@ class nnUnetImageDataSetListWidget(BaseWidget):
 
         import flowlayout
         button_layout = flowlayout.FlowLayout()
-        self.download_image_button = QPushButton("Load Image")
-        self.download_label_button = QPushButton("Load Label")
+        self.download_image_button = QPushButton("Load")
+        self.download_image_button.setToolTip(
+            "Load the selected case image and its label (if available)."
+        )
+        # Kept for backward compatibility; not shown in the UI.
+        self.download_label_button = None
         self.append_button = QPushButton("Append As New Image Set")
-        self.save_label_button = QPushButton("Save Label")
+        self.save_label_button = QPushButton("Save")
+        self.save_label_button.setToolTip(
+            "Save modified label data and related metadata (e.g. window/level) for the selected case."
+        )
         self.delete_button = QPushButton("Delete")
-        self.image_properties_button = QPushButton("Image Properties")
-        self.label_properties_button = QPushButton("Label Properties")
+        self.properties_button = QPushButton("Properties")
+        self.properties_button.setToolTip(
+            "View and edit image and label metadata for the selected case."
+        )
+        self.image_properties_button = self.properties_button
+        self.label_properties_button = self.properties_button
         self.renumber_button = QPushButton("Renumber Images")
         self.renumber_button.setToolTip(
             "Renumber cases to sequential 0..N-1 (required by nnU-Net after deletes)."
@@ -371,14 +488,12 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         self.update_button = self.save_label_button
 
         for btn in [
-            self.download_image_button,
-            self.download_label_button,
-            self.append_button,
-            self.save_label_button,
-            self.delete_button,
-            self.image_properties_button,
-            self.label_properties_button,
-            self.renumber_button,
+            self.download_image_button,  # Load
+            self.save_label_button,      # Save
+            self.delete_button,          # Delete
+            self.properties_button,      # Properties
+            self.append_button,          # Append As New Image Set
+            self.renumber_button,        # Renumber Images
         ]:
             btn.clicked.connect(self.command_button_clicked)
             button_layout.addWidget(btn)
@@ -390,10 +505,12 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         self._update_action_buttons()
 
     def on_cell_double_clicked(self, row, column):
-        self.download_image_dataset()
+        if column == self.COLUMN_IMAGE:
+            self.table_widget.selectRow(row)
+            self.load_selected_case()
 
     def on_item_double_clicked(self, item):
-        self.download_image_dataset()
+        self.load_selected_case()
 
     @staticmethod
     def _derive_status(meta):
@@ -441,18 +558,14 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         has_dataset = bool(self._dataset_id)
 
         self.download_image_button.setEnabled(has_selection and has_dataset)
-        self.download_label_button.setEnabled(
-            has_selection and has_dataset and self._selected_case_has_label()
-        )
         self.save_label_button.setEnabled(has_selection and has_dataset)
         self.delete_button.setEnabled(has_selection and has_dataset)
-        self.image_properties_button.setEnabled(has_selection and has_dataset)
-        self.label_properties_button.setEnabled(has_selection and has_dataset)
+        self.properties_button.setEnabled(has_selection and has_dataset)
         self.append_button.setEnabled(has_dataset)
         self.renumber_button.setEnabled(has_dataset and self.table_widget.rowCount() > 0)
 
-    def _open_meta_dialog(self, meta_kind):
-        number = self._selected_image_number()
+    def _open_meta_dialog(self, meta_kind=None, num=None):
+        number = num if num is not None else self._selected_image_number()
         if number is None:
             QMessageBox.warning(self, "No Selection", "Please select an image first.")
             return
@@ -460,16 +573,16 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             QMessageBox.warning(self, "No Dataset", "Please select a dataset first.")
             return
 
-        dialog = MetaPropertiesDialog(
-            meta_kind=meta_kind,
+        dialog = CasePropertiesDialog(
             dataset_id=self._dataset_id,
             images_for=self.images_for,
             num=number,
             base_url=self._base_url or nnunet_server_url,
             parent=self,
         )
-        if dialog.exec_() == QDialog.Accepted and meta_kind == "label":
-            self.update_label_meta_row(number, dialog._original_meta)
+        dialog.exec_()
+        if dialog.saved_label_meta is not None:
+            self.update_label_meta_row(number, dialog.saved_label_meta)
 
     def set_dataset(self, dataset_id, image_list, base_url=None, label_list=None):
         self.table_widget.setRowCount(0)
@@ -507,9 +620,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             image_item.setFlags(image_item.flags() & ~Qt.ItemIsEditable)
             self.table_widget.setItem(row, self.COLUMN_IMAGE, image_item)
 
-            status_item = QTableWidgetItem(self._derive_status(meta))
-            status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
-            self.table_widget.setItem(row, self.COLUMN_STATUS, status_item)
+            self._set_row_status_combo(row, num, self._derive_status(meta))
 
         self._update_action_buttons()
 
@@ -528,6 +639,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
     def update_label_meta_row(self, num, meta):
         """Update the Status column for a case number."""
         meta = meta or {}
+        status = self._derive_status(meta)
         for row in range(self.table_widget.rowCount()):
             item = self.table_widget.item(row, self.COLUMN_IMAGE)
             if item is None:
@@ -535,9 +647,16 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             row_num = item.data(Qt.UserRole)
             if row_num is None or int(row_num) != int(num):
                 continue
-            status_item = self.table_widget.item(row, self.COLUMN_STATUS)
-            if status_item is not None:
-                status_item.setText(self._derive_status(meta))
+            combo = self.table_widget.cellWidget(row, self.COLUMN_STATUS)
+            if isinstance(combo, QComboBox):
+                combo.blockSignals(True)
+                if status and combo.findText(status) < 0:
+                    combo.addItem(status)
+                combo.setCurrentText(status)
+                combo.setProperty("last_saved_status", status)
+                combo.blockSignals(False)
+            else:
+                self._set_row_status_combo(row, int(num), status)
 
     def currentItem(self):
         row = self.table_widget.currentRow()
@@ -557,23 +676,20 @@ class nnUnetImageDataSetListWidget(BaseWidget):
     def command_button_clicked(self):
         sender = self.sender()
         if sender == self.download_image_button:
-            self.download_image_dataset()
-        elif sender == self.download_label_button:
-            self.download_label_dataset()
+            self.load_selected_case()
         elif sender == self.append_button:
             self.post_image_dataset()
         elif sender == self.save_label_button:
             self.update_image_dataset()
         elif sender == self.delete_button:
             self.delete_image_dataset()
-        elif sender == self.image_properties_button:
-            self._open_meta_dialog("image")
-        elif sender == self.label_properties_button:
-            self._open_meta_dialog("label")
+        elif sender == self.properties_button:
+            self._open_meta_dialog()
         elif sender == self.renumber_button:
             self.renumber_image_dataset()
 
-    def download_image_dataset(self):
+    def load_selected_case(self):
+        """Load selected case image and label (when available)."""
         number = self._selected_image_number()
         if number is None:
             print("No image selected.")
@@ -582,18 +698,42 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         try:
             with qt_tools.busy_progress(
                 self,
-                title="Loading Image",
+                title="Loading",
                 label=f"Downloading image for case {number}...",
             ):
+                out_dir = os.path.join("./_downloads", str(uuid.uuid4()))
                 result = nnunet_service.download_dataset_image(
                     BASE_URL=self._base_url or nnunet_server_url,
                     dataset_id=self._dataset_id,
                     images_for=self.images_for,
                     num=number,
-                    out_dir=os.path.join("./_downloads", str(uuid.uuid4())),
+                    out_dir=out_dir,
                 )
                 print("Image download complete:", result)
                 image_path = result["downloaded_base_image_path"]
+                labels_path = ""
+
+                if self._selected_case_has_label():
+                    try:
+                        qt_tools.update_busy_progress(
+                            label=f"Downloading label for case {number}..."
+                        )
+                        label_result = nnunet_service.download_dataset_label(
+                            BASE_URL=self._base_url or nnunet_server_url,
+                            dataset_id=self._dataset_id,
+                            images_for=self.images_for,
+                            num=number,
+                            out_dir=out_dir,
+                        )
+                        print("Label download complete:", label_result)
+                        labels_path = label_result.get("downloaded_labels_image_path") or ""
+                    except Exception as label_err:
+                        print(f"Error downloading label for case {number}: {label_err}")
+                        QMessageBox.warning(
+                            self,
+                            "Load Label Failed",
+                            f"Image will still load, but label download failed:\n{label_err}",
+                        )
 
                 self._pending_load_window_level = None
                 self._pending_load_case = {
@@ -618,48 +758,22 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                     print(f"Could not fetch image meta for window/level: {meta_err}")
 
                 qt_tools.update_busy_progress(label="Opening image in viewer...")
-                self.image_dataset_downloaded.emit(image_path, "", self)
+                self.image_dataset_downloaded.emit(image_path, labels_path, self)
         except Exception as e:
-            print("Error downloading image:", str(e))
-            QMessageBox.critical(self, "Load Image Failed", str(e))
+            print("Error loading case:", str(e))
+            QMessageBox.critical(self, "Load Failed", str(e))
+
+    def download_image_dataset(self):
+        """Backward-compatible alias for Load. """
+        self.load_selected_case()
 
     def download_label_dataset(self):
-        number = self._selected_image_number()
-        if number is None:
-            print("No image selected.")
-            return
-        if not self._selected_case_has_label():
-            QMessageBox.warning(
-                self,
-                "No Label",
-                f"Case {number} does not have a label file on the server.",
-            )
-            return
-
-        try:
-            with qt_tools.busy_progress(
-                self,
-                title="Loading Label",
-                label=f"Downloading label for case {number}...",
-            ):
-                result = nnunet_service.download_dataset_label(
-                    BASE_URL=self._base_url or nnunet_server_url,
-                    dataset_id=self._dataset_id,
-                    images_for=self.images_for,
-                    num=number,
-                    out_dir=os.path.join("./_downloads", str(uuid.uuid4())),
-                )
-                print("Label download complete:", result)
-                labels_path = result["downloaded_labels_image_path"]
-                qt_tools.update_busy_progress(label="Applying label layers...")
-                self.label_dataset_downloaded.emit(labels_path, self)
-        except Exception as e:
-            print("Error downloading label:", str(e))
-            QMessageBox.critical(self, "Load Label Failed", str(e))
+        """ Backward-compatible alias: Load now includes label when available. """
+        self.load_selected_case()
 
     def get_image_dataset(self):
-        """Backward-compatible alias for Download Image. """
-        self.download_image_dataset()
+        """ Backward-compatible alias for Load. """
+        self.load_selected_case()
 
     def post_image_dataset(self):
         self.post_dataset_clicked.emit(self._dataset_id, self.images_for, self)
@@ -671,11 +785,97 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             return
         self.update_dataset_clicked.emit(self._dataset_id, self.images_for, number, self)
 
-    def delete_image_dataset(self):
-        number = self._selected_image_number()
+    def _set_row_status_combo(self, row, num, status):
+        combo = QComboBox()
+        combo.setEditable(True)
+        combo.addItems(LABEL_STATUS_OPTIONS)
+        status = str(status or "")
+        if status and combo.findText(status) < 0:
+            combo.addItem(status)
+        combo.setCurrentText(status)
+        combo.setProperty("case_num", int(num))
+        combo.setProperty("last_saved_status", status)
+        combo.setToolTip("Change label status for this case")
+        # Save on dropdown choice or when finished editing custom text (not every keystroke).
+        combo.activated[str].connect(
+            lambda text, n=int(num), c=combo: self._on_row_status_changed(n, text, c)
+        )
+        if combo.lineEdit() is not None:
+            combo.lineEdit().editingFinished.connect(
+                lambda n=int(num), c=combo: self._on_row_status_changed(n, c.currentText(), c)
+            )
+        self.table_widget.setCellWidget(row, self.COLUMN_STATUS, combo)
+
+    def _on_row_status_changed(self, num, status_text, combo):
+        if not self._dataset_id:
+            return
+        new_status = (status_text or "").strip()
+        last_saved = str(combo.property("last_saved_status") or "")
+        if new_status == last_saved:
+            return
+        try:
+            with qt_tools.busy_progress(
+                self,
+                title="Saving Status",
+                label=f"Updating status for case {num}...",
+            ):
+                response = nnunet_service.get_label_meta(
+                    self._base_url or nnunet_server_url,
+                    self._dataset_id,
+                    self.images_for,
+                    num,
+                )
+                meta = response.get("meta") if isinstance(response.get("meta"), dict) else {}
+                meta = dict(meta)
+                if new_status:
+                    meta["status"] = new_status
+                else:
+                    meta.pop("status", None)
+                result = nnunet_service.update_label_meta(
+                    self._base_url or nnunet_server_url,
+                    self._dataset_id,
+                    self.images_for,
+                    num,
+                    meta,
+                )
+                saved = result.get("meta") if isinstance(result, dict) else meta
+                if isinstance(saved, dict):
+                    self.update_label_meta_row(num, saved)
+                combo.setProperty("last_saved_status", new_status)
+        except Exception as e:
+            QMessageBox.critical(self, "Status Update Failed", str(e))
+            try:
+                meta = self._fetch_label_meta(
+                    self._base_url or nnunet_server_url, self._dataset_id, num
+                )
+                self.update_label_meta_row(num, meta)
+            except Exception:
+                pass
+
+    def delete_image_dataset(self, num=None):
+        number = num if num is not None else self._selected_image_number()
         if number is None:
             print("No image selected.")
             return
+        if not self._dataset_id:
+            QMessageBox.warning(self, "No Dataset", "Please select a dataset first.")
+            return
+
+        nl = chr(10)
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            (
+                f"Delete case {number} from dataset '{self._dataset_id}' ({self.images_for})?"
+                + nl + nl
+                + "This cannot be undone."
+            ),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
         self.delete_dataset_clicked.emit(self._dataset_id, self.images_for, number, self)
 
     def renumber_image_dataset(self):

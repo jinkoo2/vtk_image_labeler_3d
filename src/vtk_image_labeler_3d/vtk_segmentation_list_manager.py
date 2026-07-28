@@ -790,6 +790,10 @@ class SegmentationListManager(QObject):
 
         self._modified = False
 
+        self.nnunet_prediction_tool_dialog = None
+        self.nnunet_prediction_tool_button = None
+        self.get_nnunet_prediction_context = None  # optional callback set by MainWindow
+
         logger.info("SegmentationListManager initialized")
 
     def get_segmentation_layer_list(self) -> SegmentationLayerList:
@@ -882,6 +886,16 @@ class SegmentationListManager(QObject):
         boolean_tool_button.clicked.connect(self.show_boolean_tool_clicked)
         button_layout.addWidget(boolean_tool_button)
 
+        self.nnunet_prediction_tool_button = QPushButton("nnUNet Prediction Tool")
+        self.nnunet_prediction_tool_button.setEnabled(False)
+        self.nnunet_prediction_tool_button.setToolTip(
+            "Run an approved nnU-Net model on the currently open image set"
+        )
+        self.nnunet_prediction_tool_button.clicked.connect(
+            self.show_nnunet_prediction_tool_clicked
+        )
+        button_layout.addWidget(self.nnunet_prediction_tool_button)
+
         # Add the button layout 
         main_layout.addLayout(button_layout)
 
@@ -893,75 +907,130 @@ class SegmentationListManager(QObject):
         return dock
 
 
-    def show_boolean_tool_clicked(self):
-        from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QFormLayout
-        from PyQt5.QtCore import Qt
-        
-        dialog = QDialog()
-        dialog.setWindowTitle("Boolean Operation Tool")
-        dialog.setModal(False)  # Modeless dialog
+    def update_nnunet_prediction_tool_button_state(self):
+        """Enable Prediction Tool when a base image is open in the viewer."""
+        btn = getattr(self, "nnunet_prediction_tool_button", None)
+        if btn is None:
+            return
+        btn.setEnabled(self.get_base_vtk_image() is not None)
 
-        layout = QVBoxLayout()
+    def show_nnunet_prediction_tool_clicked(self):
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "nnUNet Prediction Tool",
+                "Open an image in the viewer first.",
+            )
+            return
+
+        if (
+            self.nnunet_prediction_tool_dialog is not None
+            and self.nnunet_prediction_tool_dialog.isVisible()
+        ):
+            self.nnunet_prediction_tool_dialog.raise_()
+            self.nnunet_prediction_tool_dialog.activateWindow()
+            return
+
+        from nnunet_prediction_tool_dialog import NnUNetPredictionToolDialog
+
+        get_ctx = self.get_nnunet_prediction_context
+        dialog = NnUNetPredictionToolDialog(
+            segmentation_list_manager=self,
+            get_context_fn=get_ctx,
+            parent=self.dock_widget,
+        )
+        self.nnunet_prediction_tool_dialog = dialog
+        dialog.show()
+
+    def show_boolean_tool_clicked(self):
+        from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QVBoxLayout, QFormLayout
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Boolean Tool")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(320, 220)
+
+        layout = QVBoxLayout(dialog)
         form_layout = QFormLayout()
 
         layer_names = self.segmentation_layers.get_layer_names()
 
-        # Dropdowns for A and B
         comboA = QComboBox()
         comboA.addItems(layer_names)
 
         comboB = QComboBox()
         comboB.addItems(layer_names)
 
-        # Operation combo box
         operation_combo = QComboBox()
-        operation_combo.addItems(["AND", "OR", "SUB"])
+        # Display labels with math-style symbols; item data keeps API op codes.
+        for label, op_code in (
+            ("A ∩ B", "AND"),  # intersection
+            ("A ∪ B", "OR"),
+            ("A - B", "SUB"),
+        ):
+            operation_combo.addItem(label, op_code)
+
+        target_combo = QComboBox()
+        target_combo.addItems(layer_names)
+        target_combo.setToolTip("Layer that will receive the boolean result")
+
+        active = self.get_active_layer()
+        if active is not None:
+            active_name = active.get_name()
+            if active_name in layer_names:
+                target_combo.setCurrentText(active_name)
 
         form_layout.addRow("Image A:", comboA)
-        form_layout.addRow("Operation:", QLabel("Operation:"))
         form_layout.addRow("Operation:", operation_combo)
         form_layout.addRow("Image B:", comboB)
+        form_layout.addRow("Target Layer:", target_combo)
 
         layout.addLayout(form_layout)
 
-        # Run button
         run_button = QPushButton("Run")
         layout.addWidget(run_button, alignment=Qt.AlignRight)
-        dialog.setLayout(layout)
 
         def run_operation():
             nameA = comboA.currentText()
             nameB = comboB.currentText()
-            op = operation_combo.currentText()
+            op = operation_combo.currentData()
+            target_name = target_combo.currentText()
+
+            if not nameA or not nameB or not target_name:
+                self.print_status("Select Image A, Image B, and Target Layer.")
+                return
 
             if nameA == nameB:
                 self.print_status("Image A and B must be different.")
                 return
 
-            imageA = self.segmentation_layers.get_layer_by_name(nameA).get_image()
-            imageB = self.segmentation_layers.get_layer_by_name(nameB).get_image()
+            layerA = self.segmentation_layers.get_layer_by_name(nameA)
+            layerB = self.segmentation_layers.get_layer_by_name(nameB)
+            target_layer = self.segmentation_layers.get_layer_by_name(target_name)
+            if layerA is None or layerB is None or target_layer is None:
+                self.print_status("One or more selected layers no longer exist.")
+                return
 
             import vtk_tools
-            result = vtk_tools.perform_boolean_operation(imageA, imageB, op)
+            result = vtk_tools.perform_boolean_operation(layerA.get_image(), layerB.get_image(), op)
             if result is None:
                 self.print_status("Operation failed.")
                 return
 
-            new_name = f"{nameA}_{op}_{nameB}"
-            color = color_rotator1.next()
+            target_layer.set_image(result)
+            self._modified = True
+            self.layer_image_modified.emit(target_layer, self)
 
-            self.add_layer(
-                segmentation=result,
-                layer_name=new_name,
-                color_vtk=[c / 255 for c in color],
-                alpha=0.8
+            self.print_status(
+                f"Boolean {op} applied to target layer '{target_name}' ({nameA} {op} {nameB})"
             )
-
-            self.print_status(f"Boolean operation {op} applied. New layer: {new_name}")
-            dialog.close()
 
         run_button.clicked.connect(run_operation)
         dialog.show()
+        dialog.raise_()
 
 
     def on_brush_3d_toggled(self, state):
