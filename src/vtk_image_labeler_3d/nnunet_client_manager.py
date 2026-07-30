@@ -299,6 +299,10 @@ class nnUNetDatasetManager(BaseObject):
         self.ping_button = QPushButton("Ping")
         self.ping_button.clicked.connect(self.ping_clicked)
         layout.addWidget(self.ping_button)
+
+        self.auth_status_label = QLabel("Not signed in")
+        self.auth_status_label.setStyleSheet("color: #666;")
+        layout.addWidget(self.auth_status_label)
     
         return layout 
 
@@ -532,6 +536,9 @@ class nnUNetDatasetManager(BaseObject):
     
     def ping_clicked(self):
         """Ping the nnUNet server to check connectivity."""
+        if not nnunet_service.is_authenticated():
+            if not self._prompt_login():
+                return
         try:
             response_data = nnunet_service.get_ping(self.get_server_url())
             print(f"response_data={response_data}")
@@ -1646,8 +1653,68 @@ class nnUNetDatasetManager(BaseObject):
         """Retrieve the current server URL from the input field."""
         return self.server_url_input.text()
 
+    def _registration_url(self):
+        from nnunet_login_dialog import default_registration_url
+        override = (conf.get("keycloak_registration_url") or "").strip()
+        if override:
+            return override
+        return default_registration_url(
+            conf.get("keycloak_url") or "https://login.apps.myphysics.net",
+            conf.get("keycloak_realm") or "myphysics",
+        )
+
+    def _update_auth_status_label(self):
+        if not hasattr(self, "auth_status_label") or self.auth_status_label is None:
+            return
+        session = nnunet_service.get_auth_session()
+        email = session.get("email")
+        if session.get("token") and email:
+            role = "admin" if session.get("is_admin") else "user"
+            self.auth_status_label.setText(f"Signed in: {email} ({role})")
+            self.auth_status_label.setStyleSheet("color: #2e7d32;")
+        else:
+            self.auth_status_label.setText("Not signed in")
+            self.auth_status_label.setStyleSheet("color: #666;")
+
+    def _prompt_login(self):
+        """Show Keycloak login dialog. Returns True on success."""
+        from PyQt5.QtCore import QSettings
+        from PyQt5.QtWidgets import QMessageBox
+        from nnunet_login_dialog import NnUNetLoginDialog
+
+        server_url = self.get_server_url().strip()
+        if not server_url:
+            QMessageBox.warning(
+                self.main_widget,
+                "Connect",
+                "Enter the nnU-Net server URL first.",
+            )
+            return False
+
+        settings = QSettings("vtk_image_labeler_3d", "nnunet")
+        last_email = settings.value("last_login_email", "") or ""
+
+        dialog = NnUNetLoginDialog(
+            server_url=server_url,
+            registration_url=self._registration_url(),
+            parent=self.main_widget,
+            initial_email=last_email,
+        )
+        if dialog.exec_() != dialog.Accepted:
+            return False
+
+        self._update_auth_status_label()
+        self.log_message.emit(
+            "INFO",
+            f"Signed in as {nnunet_service.get_auth_session().get('email')}",
+        )
+        return True
+
     def connect_to_server_clicked(self):
-        """Fetch datasets and populate dropdown list without auto-selecting one."""
+        """Login (Keycloak), then fetch datasets and populate dropdown list."""
+        if not self._prompt_login():
+            return
+
         self.dataset_dropdown.blockSignals(True)
         try:
             self.dataset_dropdown.clear()

@@ -606,6 +606,12 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def on_layer_image_changed(self, sender):
         layer = sender
         print(f'VTKViewer2DWithReslicer.on_layer_image_changed({layer.get_name()})')
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer.get_name())
+        if seg_reslicer is not None:
+            # Rebind if set_image() replaced the vtkImageData object.
+            new_image = layer.get_image()
+            if new_image is not None and seg_reslicer.vtk_image is not new_image:
+                seg_reslicer.set_vtk_image(new_image)
         self.update_slice_and_render(layer)
 
     def on_segmentation_layer_removed(self, layer, sender):

@@ -215,6 +215,13 @@ class ModelViewer(QWidget):
         layer.name_changed.connect(self.on_layer_name_changed)
         layer.color_changed.connect(self.on_segmentation_layer_color_changed)
         layer.alpha_changed.connect(self.on_segmentation_layer_alpha_changed)
+        layer.image_changed.connect(self.on_layer_image_changed)
+
+    def on_layer_image_changed(self, sender):
+        # Full image replace/clear: update 3D surface promptly (paint still uses
+        # the debounced on_segmentation_image_modified path).
+        self.pending_layer = sender
+        self.surface_update_timer.start(0)
 
     def on_layer_visibility_changed(self, sender): 
         layer = sender

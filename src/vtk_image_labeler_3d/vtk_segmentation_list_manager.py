@@ -505,6 +505,12 @@ class SegmentationListItemWidget(QWidget):
         import flowlayout
         layout = flowlayout.FlowLayout()
 
+        # Clear layer contents (keep the layer)
+        self.clear_button = QPushButton("Clear")
+        self.clear_button.setToolTip("Clear this layer (set all voxels to empty)")
+        self.clear_button.clicked.connect(self.clear_layer_clicked)
+        layout.addWidget(self.clear_button)
+
         # Duplicate layer
         self.duplicate_button = QPushButton("Duplicate")
         self.duplicate_button.setToolTip("Duplicate")
@@ -562,6 +568,28 @@ class SegmentationListItemWidget(QWidget):
         # Resize list item properly
         self.list_widget_item.setSizeHint(self.sizeHint())  # Use widget's own updated size
         self.list_widget.doItemsLayout()
+
+    def clear_layer_clicked(self):
+        """Zero voxel values in-place; keep the same vtkImageData and geometry."""
+        image = self.layer.get_image()
+        if image is None:
+            return
+        scalars = image.GetPointData().GetScalars()
+        if scalars is None:
+            return
+
+        # Fill existing buffer so origin/spacing/direction and viewer
+        # reslicer input pointers stay unchanged.
+        scalars.Fill(0)
+        scalars.Modified()
+        image.Modified()
+        self.layer.set_modified(True)
+        manager = getattr(self, "manager", None)
+        if manager is not None:
+            manager._modified = True
+        # Emit last so 3D surface refresh (image_changed -> timer 0) is not
+        # overridden by the paint debounce path (layer_image_modified -> 1000ms).
+        self.layer.image_changed.emit(self.layer)
 
     def duplicate_layer_clicked(self):
         layer_copy = SegmentationLayer.deep_copy(self.layer)
@@ -794,6 +822,27 @@ class SegmentationListManager(QObject):
         self.nnunet_prediction_tool_button = None
         self.get_nnunet_prediction_context = None  # optional callback set by MainWindow
 
+        # Scribble Tool (GraphCut + Histogram)
+        self.scribble_active = False
+        self.scribble_action = None
+        self.scribble_button = None
+        self.scribble_tool_dialog = None
+        self._closing_scribble_tool = False
+        self.scribble_mode = "foreground"  # "foreground" | "background"
+        self.scribble_erase_active = False
+        self._scribble_target_layer_name = None
+        self._scribble_target_layer = None
+        self.scribble_fg_layer_name = "Scribble FG"
+        self.scribble_bg_layer_name = "Scribble BG"
+        self.scribble_fg_brush_color = [0.0, 1.0, 0.0]
+        self.scribble_bg_brush_color = [1.0, 0.0, 0.0]
+        self.scribble_lamda = 1.0
+        self.scribble_sigma = 0.1
+        self.scribble_num_bins = 64
+
+        self.interpolation_tool_dialog = None
+        self.interpolation_tool_button = None
+
         logger.info("SegmentationListManager initialized")
 
     def get_segmentation_layer_list(self) -> SegmentationLayerList:
@@ -896,6 +945,23 @@ class SegmentationListManager(QObject):
         )
         button_layout.addWidget(self.nnunet_prediction_tool_button)
 
+        self.scribble_action, self.scribble_button = self.create_checkable_button(
+            "Scribble Tool", self.scribble_active, None, self.toggle_scribble_tool
+        )
+        self.scribble_button.setToolTip(
+            "Draw FG/BG scribbles and run GraphCut+Histogram to update the target layer"
+        )
+        button_layout.addWidget(self.scribble_button)
+
+        self.interpolation_tool_button = QPushButton("Interpolation Tool")
+        self.interpolation_tool_button.setToolTip(
+            "Fill between sparsely painted slices (morphological contour interpolation)"
+        )
+        self.interpolation_tool_button.clicked.connect(
+            self.show_interpolation_tool_clicked
+        )
+        button_layout.addWidget(self.interpolation_tool_button)
+
         # Add the button layout 
         main_layout.addLayout(button_layout)
 
@@ -942,6 +1008,575 @@ class SegmentationListManager(QObject):
         )
         self.nnunet_prediction_tool_dialog = dialog
         dialog.show()
+
+    # ------------------------------------------------------------------
+    # Scribble Tool: FG/BG paintbrush + GraphCut+Histogram
+    # ------------------------------------------------------------------
+
+    def get_scribble_target_layer(self):
+        if self._scribble_target_layer is not None:
+            return self._scribble_target_layer
+        if self._scribble_target_layer_name:
+            layer = self.segmentation_layers.get_layer_by_name(self._scribble_target_layer_name)
+            if layer is not None:
+                self._scribble_target_layer = layer
+                return layer
+        return self.get_active_layer()
+
+    def get_scribble_paint_layer(self):
+        """Layer currently being painted by scribble strokes (FG or BG overlay)."""
+        self._ensure_scribble_layers()
+        name = (
+            self.scribble_bg_layer_name
+            if self.scribble_mode == "background"
+            else self.scribble_fg_layer_name
+        )
+        return self.segmentation_layers.get_layer_by_name(name)
+
+    def _ensure_scribble_layers(self):
+        """Create Scribble FG/BG overlay layers if missing."""
+        if self.get_base_vtk_image() is None:
+            return
+
+        specs = [
+            (self.scribble_fg_layer_name, (0, 255, 0), 0.35),
+            (self.scribble_bg_layer_name, (255, 0, 0), 0.35),
+        ]
+        for name, color, alpha in specs:
+            if self.segmentation_layers.get_layer_by_name(name) is not None:
+                continue
+            empty = self.create_empty_segmentation_image()
+            self.add_layer(
+                segmentation=empty,
+                layer_name=name,
+                color_vtk=[c / 255.0 for c in color],
+                alpha=alpha,
+            )
+
+    def _refresh_scribble_target_layers(self, preferred_name=None):
+        if not hasattr(self, "scribble_target_combo") or self.scribble_target_combo is None:
+            return
+        skip = {self.scribble_fg_layer_name, self.scribble_bg_layer_name}
+        names = [n for n in self.segmentation_layers.get_layer_names() if n not in skip]
+        current = preferred_name or self.scribble_target_combo.currentText()
+        self.scribble_target_combo.blockSignals(True)
+        self.scribble_target_combo.clear()
+        self.scribble_target_combo.addItems(names)
+        if current in names:
+            self.scribble_target_combo.setCurrentText(current)
+        elif names:
+            self.scribble_target_combo.setCurrentIndex(0)
+        self.scribble_target_combo.blockSignals(False)
+        self._on_scribble_target_layer_changed(self.scribble_target_combo.currentText())
+
+    def _on_scribble_target_layer_changed(self, name):
+        self._scribble_target_layer_name = name or None
+        self._scribble_target_layer = (
+            self.segmentation_layers.get_layer_by_name(name) if name else None
+        )
+
+    def _ensure_scribble_tool_dialog(self):
+        if self.scribble_tool_dialog is not None:
+            return self.scribble_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog,
+            QComboBox,
+            QFormLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QRadioButton,
+            QButtonGroup,
+            QDoubleSpinBox,
+            QSpinBox,
+            QCheckBox,
+        )
+        from labeled_slider import LabeledSlider
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Scribble Tool (GraphCut+Histogram)")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(360, 340)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.scribble_target_combo = QComboBox(dialog)
+        self.scribble_target_combo.setToolTip(
+            "Foreground / target layer updated when you press Run"
+        )
+        self.scribble_target_combo.currentTextChanged.connect(
+            self._on_scribble_target_layer_changed
+        )
+        form.addRow("Target Layer:", self.scribble_target_combo)
+
+        mode_row = QHBoxLayout()
+        self.scribble_fg_radio = QRadioButton("Foreground")
+        self.scribble_bg_radio = QRadioButton("Background")
+        self.scribble_fg_radio.setChecked(True)
+        self.scribble_mode_group = QButtonGroup(dialog)
+        self.scribble_mode_group.addButton(self.scribble_fg_radio)
+        self.scribble_mode_group.addButton(self.scribble_bg_radio)
+        # Connect both radios: only the checked=True transition updates mode.
+        self.scribble_fg_radio.toggled.connect(self._on_scribble_mode_toggled)
+        self.scribble_bg_radio.toggled.connect(self._on_scribble_mode_toggled)
+        mode_row.addWidget(self.scribble_fg_radio)
+        mode_row.addWidget(self.scribble_bg_radio)
+        form.addRow("Paint:", mode_row)
+
+        self.scribble_brush_size_slider = LabeledSlider("Brush Size:", initial_value=20)
+        self.scribble_brush_size_slider.slider.setMinimum(3)
+        self.scribble_brush_size_slider.slider.setMaximum(100)
+        self.scribble_brush_size_slider.slider.valueChanged.connect(self.update_brush_size)
+        form.addRow(self.scribble_brush_size_slider)
+
+        self.scribble_brush_3d_checkbox = QCheckBox("3D Brush")
+        self.scribble_brush_3d_checkbox.setChecked(bool(self.paintbrush_3d))
+        self.scribble_brush_3d_checkbox.stateChanged.connect(self.on_brush_3d_toggled)
+        form.addRow("", self.scribble_brush_3d_checkbox)
+
+        self.scribble_erase_checkbox = QCheckBox("Erase")
+        self.scribble_erase_checkbox.setToolTip("Erase scribbles from the active FG/BG overlay")
+        self.scribble_erase_checkbox.toggled.connect(self._on_scribble_erase_toggled)
+        form.addRow("", self.scribble_erase_checkbox)
+
+        self.scribble_lamda_spin = QDoubleSpinBox()
+        self.scribble_lamda_spin.setRange(0.01, 100.0)
+        self.scribble_lamda_spin.setSingleStep(0.1)
+        self.scribble_lamda_spin.setValue(self.scribble_lamda)
+        self.scribble_lamda_spin.setToolTip("GraphCut smoothness weight (lambda)")
+        form.addRow("Lambda:", self.scribble_lamda_spin)
+
+        self.scribble_sigma_spin = QDoubleSpinBox()
+        self.scribble_sigma_spin.setRange(0.001, 10.0)
+        self.scribble_sigma_spin.setDecimals(3)
+        self.scribble_sigma_spin.setSingleStep(0.01)
+        self.scribble_sigma_spin.setValue(self.scribble_sigma)
+        self.scribble_sigma_spin.setToolTip("Intensity std for pairwise term (sigma)")
+        form.addRow("Sigma:", self.scribble_sigma_spin)
+
+        self.scribble_bins_spin = QSpinBox()
+        self.scribble_bins_spin.setRange(8, 256)
+        self.scribble_bins_spin.setValue(self.scribble_num_bins)
+        form.addRow("Histogram Bins:", self.scribble_bins_spin)
+
+        layout.addLayout(form)
+
+        btn_row = QHBoxLayout()
+        clear_btn = QPushButton("Clear Scribbles")
+        clear_btn.clicked.connect(self.clear_scribble_layers)
+        run_btn = QPushButton("Run")
+        run_btn.setToolTip("Run GraphCut+Histogram and update the Target Layer")
+        run_btn.clicked.connect(self.run_scribble_graphcut)
+        btn_row.addWidget(clear_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(run_btn)
+        layout.addLayout(btn_row)
+
+        hint = QLabel(
+            "Paint FG (green) and BG (red) scribbles, then Run.\n"
+            "Review, add more scribbles, and Run again until satisfied."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        dialog.finished.connect(self._on_scribble_tool_dialog_finished)
+        self.scribble_tool_dialog = dialog
+        return dialog
+
+    def _on_scribble_mode_toggled(self, checked):
+        if not checked:
+            return
+        self.scribble_mode = "foreground" if self.scribble_fg_radio.isChecked() else "background"
+        self._brush_color_is_erase = None
+        self._update_scribble_brush_colors()
+        # Keep the active scribble overlay visible so the stroke color is obvious.
+        layer = self.get_scribble_paint_layer()
+        if layer is not None and not layer.get_visible():
+            layer.set_visible(True)
+        self.print_status(f"Scribble mode: {self.scribble_mode}")
+
+    def _update_scribble_brush_colors(self):
+        """Apply FG/BG/erase brush color immediately on all 2D viewers."""
+        if self.scribble_erase_active:
+            color = self.erase_brush_color
+            key = "erase"
+        elif self.scribble_mode == "background":
+            color = self.scribble_bg_brush_color
+            key = "bg"
+        else:
+            color = self.scribble_fg_brush_color
+            key = "fg"
+        self._brush_color_is_erase = key
+        if self.vtk_viewer is None:
+            return
+        for v in self.vtk_viewer.get_viewers_2d():
+            if hasattr(v, "paintbrush") and v.paintbrush is not None:
+                v.paintbrush.set_color(color)
+
+    def _on_scribble_erase_toggled(self, checked):
+        self.scribble_erase_active = bool(checked)
+        self._brush_color_is_erase = None
+        self._update_scribble_brush_colors()
+        self.print_status("Scribble erase " + ("on" if checked else "off"))
+
+    def _on_scribble_tool_dialog_finished(self, result):
+        if self._closing_scribble_tool:
+            return
+        if self.scribble_active:
+            self.toggle_scribble_tool(False)
+
+    def open_scribble_tool(self):
+        if self.paint_active or self.erase_active:
+            self.toggle_paint_tool(False)
+        if self.pencil_active:
+            self.toggle_pencil_tool(False)
+
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Scribble Tool",
+                "Open an image in the viewer first.",
+            )
+            if self.scribble_action is not None:
+                self.scribble_action.blockSignals(True)
+                self.scribble_action.setChecked(False)
+                self.scribble_action.blockSignals(False)
+            return
+
+        dialog = self._ensure_scribble_tool_dialog()
+        active = self.get_active_layer()
+        preferred = None
+        if active is not None and active.get_name() not in (
+            self.scribble_fg_layer_name,
+            self.scribble_bg_layer_name,
+        ):
+            preferred = active.get_name()
+        self._ensure_scribble_layers()
+        self._refresh_scribble_target_layers(preferred_name=preferred)
+
+        self.scribble_erase_active = False
+        if hasattr(self, "scribble_erase_checkbox") and self.scribble_erase_checkbox is not None:
+            self.scribble_erase_checkbox.blockSignals(True)
+            self.scribble_erase_checkbox.setChecked(False)
+            self.scribble_erase_checkbox.blockSignals(False)
+
+        self.scribble_active = True
+        self.scribble_action.blockSignals(True)
+        self.scribble_action.setChecked(True)
+        self.scribble_action.blockSignals(False)
+        if self.scribble_button is not None:
+            self.scribble_button.blockSignals(True)
+            self.scribble_button.setChecked(True)
+            self.scribble_button.blockSignals(False)
+
+        self._brush_color_is_erase = None
+        dialog.show()
+        dialog.raise_()
+        self.enable_paintbrush(True)
+        self._update_scribble_brush_colors()
+        self.print_status("Scribble tool activated")
+
+    def close_scribble_tool(self):
+        self._closing_scribble_tool = True
+        try:
+            self.scribble_active = False
+            self.scribble_erase_active = False
+            if self.scribble_action is not None:
+                self.scribble_action.blockSignals(True)
+                self.scribble_action.setChecked(False)
+                self.scribble_action.blockSignals(False)
+            if self.scribble_button is not None:
+                self.scribble_button.blockSignals(True)
+                self.scribble_button.setChecked(False)
+                self.scribble_button.blockSignals(False)
+            if hasattr(self, "scribble_erase_checkbox") and self.scribble_erase_checkbox is not None:
+                self.scribble_erase_checkbox.blockSignals(True)
+                self.scribble_erase_checkbox.setChecked(False)
+                self.scribble_erase_checkbox.blockSignals(False)
+            if self.scribble_tool_dialog is not None and self.scribble_tool_dialog.isVisible():
+                self.scribble_tool_dialog.hide()
+            self.enable_paintbrush(False)
+            self.print_status("Scribble tool deactivated")
+        finally:
+            self._closing_scribble_tool = False
+
+    def toggle_scribble_tool(self, checked):
+        dialog_visible = (
+            self.scribble_tool_dialog is not None and self.scribble_tool_dialog.isVisible()
+        )
+        if checked and self.scribble_active and dialog_visible:
+            return
+        if (not checked) and (not self.scribble_active) and (not dialog_visible):
+            return
+        if checked:
+            self.open_scribble_tool()
+        else:
+            self.close_scribble_tool()
+
+    def clear_scribble_layers(self):
+        import vtk_tools
+
+        for name in (self.scribble_fg_layer_name, self.scribble_bg_layer_name):
+            layer = self.segmentation_layers.get_layer_by_name(name)
+            if layer is None:
+                continue
+            empty = self.create_empty_segmentation_image()
+            layer.set_image(empty)
+            self.layer_image_modified.emit(layer, self)
+        self.print_status("Scribble overlays cleared")
+
+    def run_scribble_graphcut(self):
+        from PyQt5.QtWidgets import QMessageBox
+        import qt_tools
+        from graphcut_histogram import vtk_arrays_histogram_graphcut
+
+        base = self.get_base_vtk_image()
+        if base is None:
+            QMessageBox.warning(self.dock_widget, "Scribble Tool", "No image is open.")
+            return
+
+        self._ensure_scribble_layers()
+        fg_layer = self.segmentation_layers.get_layer_by_name(self.scribble_fg_layer_name)
+        bg_layer = self.segmentation_layers.get_layer_by_name(self.scribble_bg_layer_name)
+        target = self.get_scribble_target_layer()
+        if fg_layer is None or bg_layer is None:
+            QMessageBox.warning(self.dock_widget, "Scribble Tool", "Scribble layers are missing.")
+            return
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Scribble Tool",
+                "Select a Target Layer (foreground) to update.",
+            )
+            return
+        if target.get_name() in (self.scribble_fg_layer_name, self.scribble_bg_layer_name):
+            QMessageBox.warning(
+                self.dock_widget,
+                "Scribble Tool",
+                "Target Layer must be a real label layer, not a scribble overlay.",
+            )
+            return
+
+        if hasattr(self, "scribble_lamda_spin"):
+            self.scribble_lamda = float(self.scribble_lamda_spin.value())
+            self.scribble_sigma = float(self.scribble_sigma_spin.value())
+            self.scribble_num_bins = int(self.scribble_bins_spin.value())
+
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Scribble Tool",
+                label="Running GraphCut+Histogram...",
+            ):
+                result = vtk_arrays_histogram_graphcut(
+                    base_vtk_image=base,
+                    fg_scribble_vtk=fg_layer.get_image(),
+                    bg_scribble_vtk=bg_layer.get_image(),
+                    num_bins=self.scribble_num_bins,
+                    lamda=self.scribble_lamda,
+                    sigma=self.scribble_sigma,
+                )
+            target.set_image(result)
+            self._modified = True
+            self.layer_image_modified.emit(target, self)
+            self.print_status(
+                f"Scribble GraphCut updated target layer '{target.get_name()}'"
+            )
+        except Exception as e:
+            QMessageBox.critical(self.dock_widget, "Scribble Tool Failed", str(e))
+            self.print_status(f"Scribble GraphCut failed: {e}")
+
+    # ------------------------------------------------------------------
+    # Interpolation Tool: fill between sparse slices (Slicer Fill between slices)
+    # ------------------------------------------------------------------
+
+    def show_interpolation_tool_clicked(self):
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Interpolation Tool",
+                "Open an image in the viewer first.",
+            )
+            return
+
+        if (
+            self.interpolation_tool_dialog is not None
+            and self.interpolation_tool_dialog.isVisible()
+        ):
+            self.interpolation_tool_dialog.raise_()
+            self.interpolation_tool_dialog.activateWindow()
+            self._refresh_interpolation_target_layers()
+            return
+
+        dialog = self._ensure_interpolation_tool_dialog()
+        active = self.get_active_layer()
+        preferred = active.get_name() if active is not None else None
+        # Prefer a real label layer, not scribble overlays.
+        if preferred in (
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        ):
+            preferred = None
+        self._refresh_interpolation_target_layers(preferred_name=preferred)
+        dialog.show()
+        dialog.raise_()
+
+    def _ensure_interpolation_tool_dialog(self):
+        if self.interpolation_tool_dialog is not None:
+            return self.interpolation_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog,
+            QComboBox,
+            QFormLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+        )
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Interpolation Tool (Fill Between Slices)")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(400, 260)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.interpolation_target_combo = QComboBox(dialog)
+        self.interpolation_target_combo.setToolTip(
+            "Layer with sparse slice labels to fill between"
+        )
+        self.interpolation_target_combo.currentTextChanged.connect(
+            self._on_interpolation_target_changed
+        )
+        form.addRow("Target Layer:", self.interpolation_target_combo)
+
+        self.interpolation_axis_combo = QComboBox(dialog)
+        # Values match ITK MorphologicalContourInterpolator axes.
+        self.interpolation_axis_combo.addItem("Auto (all axes)", -1)
+        self.interpolation_axis_combo.addItem("Axial (Z)", 2)
+        self.interpolation_axis_combo.addItem("Coronal (Y)", 1)
+        self.interpolation_axis_combo.addItem("Sagittal (X)", 0)
+        self.interpolation_axis_combo.setCurrentIndex(1)  # Axial default for CT workflows
+        self.interpolation_axis_combo.setToolTip(
+            "Slice axis to interpolate along. Axial is typical for sparse axial paintings."
+        )
+        form.addRow("Axis:", self.interpolation_axis_combo)
+
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Paint complete contours on selected slices with the Paint Tool, "
+            "leaving at least one empty neighbor slice between painted slices. "
+            "Then click Run to fill the empty slices "
+            "(morphological contour interpolation, same as Slicer "
+            "\"Fill between slices\")."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        btn_row = QHBoxLayout()
+        run_btn = QPushButton("Run")
+        run_btn.setToolTip("Fill empty slices between painted contours")
+        run_btn.clicked.connect(self.run_interpolation_fill_between_slices)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        btn_row.addWidget(run_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.interpolation_tool_dialog = dialog
+        return dialog
+
+    def _on_interpolation_target_changed(self, name):
+        self._interpolation_target_layer_name = name or None
+
+    def _refresh_interpolation_target_layers(self, preferred_name=None):
+        if (
+            not hasattr(self, "interpolation_target_combo")
+            or self.interpolation_target_combo is None
+        ):
+            return
+        skip = {
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        }
+        skip.discard(None)
+        names = [n for n in self.segmentation_layers.get_layer_names() if n not in skip]
+        current = preferred_name or self.interpolation_target_combo.currentText()
+        self.interpolation_target_combo.blockSignals(True)
+        self.interpolation_target_combo.clear()
+        self.interpolation_target_combo.addItems(names)
+        if current in names:
+            self.interpolation_target_combo.setCurrentText(current)
+        elif names:
+            self.interpolation_target_combo.setCurrentIndex(0)
+        self.interpolation_target_combo.blockSignals(False)
+        self._on_interpolation_target_changed(
+            self.interpolation_target_combo.currentText()
+        )
+
+    def get_interpolation_target_layer(self):
+        name = getattr(self, "_interpolation_target_layer_name", None)
+        if name:
+            layer = self.segmentation_layers.get_layer_by_name(name)
+            if layer is not None:
+                return layer
+        return self.get_active_layer()
+
+    def run_interpolation_fill_between_slices(self):
+        from PyQt5.QtWidgets import QMessageBox
+        import qt_tools
+        from fill_between_slices import fill_between_slices_vtk, write_zyx_into_vtk_image
+
+        target = self.get_interpolation_target_layer()
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Interpolation Tool",
+                "Select a Target Layer that has sparse slice paintings.",
+            )
+            return
+
+        image = target.get_image()
+        if image is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Interpolation Tool",
+                "Target layer has no image data.",
+            )
+            return
+
+        axis = int(self.interpolation_axis_combo.currentData())
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Interpolation Tool",
+                label="Filling between slices...",
+            ):
+                filled = fill_between_slices_vtk(image, axis=axis, label=0)
+                write_zyx_into_vtk_image(image, filled)
+            target.set_modified(True)
+            self._modified = True
+            # Emit image_changed last so 3D surface uses the prompt (0ms) refresh path.
+            target.image_changed.emit(target)
+            self.print_status(
+                f"Fill between slices applied to '{target.get_name()}' (axis={axis})"
+            )
+        except Exception as e:
+            QMessageBox.critical(self.dock_widget, "Interpolation Failed", str(e))
+            self.print_status(f"Interpolation failed: {e}")
 
     def show_boolean_tool_clicked(self):
         from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QVBoxLayout, QFormLayout
@@ -1043,7 +1678,10 @@ class SegmentationListManager(QObject):
                 v.paintbrush.set_brush_3d(self.paintbrush_3d)
 
     def get_exclusive_actions(self):
-        return [self.paint_action, self.pencil_action]
+        actions = [self.paint_action, self.pencil_action]
+        if getattr(self, "scribble_action", None) is not None:
+            actions.append(self.scribble_action)
+        return actions
     
     def clear(self):       
         
@@ -1051,6 +1689,8 @@ class SegmentationListManager(QObject):
         self.toggle_erase_tool(False)
         self.toggle_paint_tool(False)
         self.toggle_pencil_tool(False)
+        if getattr(self, "scribble_active", False):
+            self.toggle_scribble_tool(False)
 
         # reset rgw color rotator
         color_rotator1.reset()
@@ -1174,7 +1814,12 @@ class SegmentationListManager(QObject):
             return
 
         image_index = event_data['image_index']
-        layer = self.get_paint_target_layer()
+        if getattr(self, "scribble_active", False):
+            layer = self.get_scribble_paint_layer()
+            erase = bool(self.scribble_erase_active)
+        else:
+            layer = self.get_paint_target_layer()
+            erase = bool(self.erase_active)
         if layer is None:
             return
 
@@ -1183,7 +1828,7 @@ class SegmentationListManager(QObject):
             QMessageBox.warning(None, "Warning", "The layer being editted is not visible. Please turn it on first.")
             return
 
-        value = 0 if self.erase_active else 1
+        value = 0 if erase else 1
         v2d.paintbrush.paint(layer.get_image(), image_index[0], image_index[1], image_index[2], value)
 
         # flag vtkImageData as Modified to update the pipeline.
@@ -1281,7 +1926,17 @@ class SegmentationListManager(QObject):
             paintbrush.get_actor().SetVisibility(True)  # Make the brush visible
 
             # Only update brush color when erase mode changes.
-            if self._brush_color_is_erase != self.erase_active:
+            if getattr(self, "scribble_active", False):
+                if self.scribble_erase_active:
+                    desired = ("erase", self.erase_brush_color)
+                elif self.scribble_mode == "background":
+                    desired = ("bg", self.scribble_bg_brush_color)
+                else:
+                    desired = ("fg", self.scribble_fg_brush_color)
+                if self._brush_color_is_erase != desired[0]:
+                    paintbrush.set_color(desired[1])
+                    self._brush_color_is_erase = desired[0]
+            elif self._brush_color_is_erase != self.erase_active:
                 if self.erase_active:
                     paintbrush.set_color(self.erase_brush_color)
                 else:
@@ -1458,6 +2113,8 @@ class SegmentationListManager(QObject):
     def open_paint_tool(self):
         if self.pencil_active:
             self.toggle_pencil_tool(False)
+        if getattr(self, "scribble_active", False):
+            self.toggle_scribble_tool(False)
 
         dialog = self._ensure_paint_tool_dialog()
         active = self.get_active_layer()
@@ -1660,6 +2317,8 @@ class SegmentationListManager(QObject):
     def open_pencil_tool(self):
         if self.paint_active or self.erase_active:
             self.toggle_paint_tool(False)
+        if getattr(self, "scribble_active", False):
+            self.toggle_scribble_tool(False)
 
         dialog = self._ensure_pencil_tool_dialog()
         active = self.get_active_layer()
@@ -2149,9 +2808,10 @@ class SegmentationListManager(QObject):
         layer_item_widget = SegmentationListItemWidget(layer_data)
         layer_item = QListWidgetItem(self.list_widget)
         
-        # add references for resizing
+        # add references for resizing / manager callbacks
         layer_item_widget.list_widget_item = layer_item
         layer_item_widget.list_widget = self.list_widget
+        layer_item_widget.manager = self
         
         layer_item.setSizeHint(layer_item_widget.sizeHint())
         self.list_widget.addItem(layer_item)
@@ -2223,6 +2883,10 @@ class SegmentationListManager(QObject):
         # Select the last item in the list widget (to activate it)
         self.select_the_last_item_on_the_list()
         self._refresh_paint_target_layers()
+        if getattr(self, "scribble_tool_dialog", None) is not None:
+            self._refresh_scribble_target_layers()
+        if getattr(self, "interpolation_tool_dialog", None) is not None:
+            self._refresh_interpolation_target_layers()
 
     def segmentation_layer_removed(self, layer, segmentation_layers):
         

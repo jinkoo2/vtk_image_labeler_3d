@@ -4,13 +4,82 @@ class ServerError(Exception):
     """Custom exception for server errors."""
     pass
 
+# Mutable auth session filled by login() after Keycloak authentication.
+# Kept as `test_user` name for compatibility with existing Bearer header sites.
 test_user = {
-  "email": "test@email.com",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGVtYWlsLmNvbSIsImV4cCI6MTc5NTg5ODc4M30.Zu_fZ4T1pq78vs-XkrYAJbUGpQPwWQjKL0bQMxDLrNo"
+    "email": None,
+    "token": None,
+    "is_admin": False,
 }
 
+
+def set_auth_session(access_token, user_email=None, is_admin=False):
+    """Store Bearer token for subsequent API calls."""
+    test_user["token"] = access_token
+    test_user["email"] = user_email
+    test_user["is_admin"] = bool(is_admin)
+
+
+def clear_auth_session():
+    test_user["token"] = None
+    test_user["email"] = None
+    test_user["is_admin"] = False
+
+
+def get_auth_session():
+    return dict(test_user)
+
+
+def is_authenticated():
+    return bool(test_user.get("token"))
+
+
 def _auth_headers():
-    return {"Authorization": f"Bearer {test_user['token']}"}
+    token = test_user.get("token")
+    if not token:
+        raise ServerError("Not logged in. Connect to the server and sign in first.")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def login(BASE_URL, email, password, timeout_seconds=30):
+    """
+    POST /auth/login — authenticate against Keycloak via the nnU-Net server.
+
+    Returns dict with access_token, token_type, user_email, is_admin and
+    stores the token for subsequent API calls.
+    """
+    url = f"{BASE_URL.rstrip('/')}/auth/login"
+    print(f"Logging in at {url} as {email}")
+    try:
+        response = requests.post(
+            url,
+            json={"email": email, "password": password},
+            headers={"Content-Type": "application/json"},
+            timeout=timeout_seconds,
+        )
+    except requests.exceptions.RequestException as e:
+        raise ServerError(f"Login request failed: {e}") from e
+
+    if response.status_code != 200:
+        detail = response.text
+        try:
+            detail = response.json().get("detail", detail)
+        except Exception:
+            pass
+        raise ServerError(f"Login failed ({response.status_code}): {detail}")
+
+    data = response.json()
+    token = data.get("access_token")
+    if not token:
+        raise ServerError(f"Login response missing access_token: {data}")
+
+    set_auth_session(
+        access_token=token,
+        user_email=data.get("user_email") or email,
+        is_admin=bool(data.get("is_admin", False)),
+    )
+    print(f"Logged in as {test_user['email']} (admin={test_user['is_admin']})")
+    return data
 
 
 def _filename_from_content_disposition(response, fallback):
