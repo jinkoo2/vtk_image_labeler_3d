@@ -60,7 +60,7 @@ class NnUNetLoginDialog(QDialog):
         layout = QVBoxLayout(self)
 
         info = QLabel(
-            "Sign in with your myphysics Keycloak account to connect to the nnU-Net server."
+            "Sign in with your myphysics account to connect to the nnU-Net server."
         )
         info.setWordWrap(True)
         layout.addWidget(info)
@@ -96,7 +96,7 @@ class NnUNetLoginDialog(QDialog):
         self.register_button.setDefault(False)
         self.register_button.setCursor(Qt.PointingHandCursor)
         self.register_button.setStyleSheet("QPushButton { color: #1565c0; text-align: left; }")
-        self.register_button.setToolTip("Open Keycloak registration in your browser")
+        self.register_button.setToolTip("Open account registration in your browser")
         self.register_button.clicked.connect(self._on_register_clicked)
         if not registration_url:
             self.register_button.setEnabled(False)
@@ -121,7 +121,7 @@ class NnUNetLoginDialog(QDialog):
                 self,
                 "Registration",
                 "No registration URL is configured.\n"
-                "Ask an administrator to create your account in Keycloak.",
+                "Ask an administrator to create your account.",
             )
             return
         ok = QDesktopServices.openUrl(QUrl(url))
