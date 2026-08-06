@@ -32,6 +32,9 @@ jobs:
             artifact: linux-x64
           - os: macos-latest
             artifact: macos-arm64
+          # Intel Macs (x86_64). macos-13 is the current GitHub Intel runner.
+          - os: macos-13
+            artifact: macos-x64
 
     defaults:
       run:
