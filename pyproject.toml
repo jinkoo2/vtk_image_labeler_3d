@@ -1,6 +1,6 @@
 [project]
 name = "vtk-image-labeler-3d"
-version = "0.1.0"
+version = "0.1.2"
 description = ""
 authors = [
     { name = "Jinkoo", email = "jinkoo2@hotmail.com" }
