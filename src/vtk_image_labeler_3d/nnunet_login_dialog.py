@@ -78,11 +78,22 @@ class NnUNetLoginDialog(QDialog):
         form.addRow("Password:", self.password_edit)
         layout.addLayout(form)
 
-        # Register row
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self._login_button = buttons.button(QDialogButtonBox.Ok)
+        self._login_button.setText("Login")
+        self._login_button.setDefault(True)
+        self._login_button.setAutoDefault(True)
+        buttons.accepted.connect(self._on_login_clicked)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        # Registration at the bottom; never autoDefault so Enter logs in, not Register.
         reg_row = QHBoxLayout()
         reg_label = QLabel("Don't have an account?")
         self.register_button = QPushButton("Register")
         self.register_button.setFlat(True)
+        self.register_button.setAutoDefault(False)
+        self.register_button.setDefault(False)
         self.register_button.setCursor(Qt.PointingHandCursor)
         self.register_button.setStyleSheet("QPushButton { color: #1565c0; text-align: left; }")
         self.register_button.setToolTip("Open Keycloak registration in your browser")
@@ -95,14 +106,10 @@ class NnUNetLoginDialog(QDialog):
         reg_row.addStretch(1)
         layout.addLayout(reg_row)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("Login")
-        buttons.accepted.connect(self._on_login_clicked)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-        self.password_edit.returnPressed.connect(self._on_login_clicked)
+        # Do not also connect password returnPressed -> login: Enter would fire
+        # both returnPressed and the default Login button, showing errors twice.
         self.email_edit.returnPressed.connect(self.password_edit.setFocus)
+        self._login_in_progress = False
 
     def login_result(self):
         return self._login_result
@@ -125,25 +132,32 @@ class NnUNetLoginDialog(QDialog):
         import nnunet_service
         import qt_tools
 
-        email = self.email_edit.text().strip()
-        password = self.password_edit.text()
-        if not email or not password:
-            QMessageBox.warning(self, "Login", "Enter both email and password.")
+        # Guard against re-entrancy (Enter / default-button / processEvents).
+        if getattr(self, "_login_in_progress", False):
             return
-
+        self._login_in_progress = True
         try:
-            with qt_tools.busy_progress(
-                self,
-                title="Login",
-                label="Signing in...",
-            ):
-                result = nnunet_service.login(self.server_url, email, password)
-        except Exception as e:
-            QMessageBox.critical(self, "Login Failed", str(e))
-            return
+            email = self.email_edit.text().strip()
+            password = self.password_edit.text()
+            if not email or not password:
+                QMessageBox.warning(self, "Login", "Enter both email and password.")
+                return
 
-        self._login_result = result
-        # Remember last email for convenience
-        settings = QSettings("vtk_image_labeler_3d", "nnunet")
-        settings.setValue("last_login_email", email)
-        self.accept()
+            try:
+                with qt_tools.busy_progress(
+                    self,
+                    title="Login",
+                    label="Signing in...",
+                ):
+                    result = nnunet_service.login(self.server_url, email, password)
+            except Exception as e:
+                QMessageBox.critical(self, "Login Failed", str(e))
+                return
+
+            self._login_result = result
+            # Remember last email for convenience
+            settings = QSettings("vtk_image_labeler_3d", "nnunet")
+            settings.setValue("last_login_email", email)
+            self.accept()
+        finally:
+            self._login_in_progress = False

@@ -400,6 +400,7 @@ class RectListManager(QObject):
     def setup_ui(self):
         """Set up the UI with a dockable widget."""
         dock = QDockWidget(self.name)
+        dock.setObjectName("RectsDock")
         widget = QWidget()
         layout = QVBoxLayout()
 

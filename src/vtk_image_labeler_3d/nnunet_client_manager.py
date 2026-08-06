@@ -262,6 +262,7 @@ class nnUNetDatasetManager(BaseObject):
     def setup_ui(self):
         """Set up the UI with a dockable widget."""
         dock = QDockWidget(self.name)
+        dock.setObjectName("NnUNetDashboardDock")
         widget = QWidget()
         layout = QVBoxLayout()
 
@@ -283,28 +284,33 @@ class nnUNetDatasetManager(BaseObject):
         return None, dock
 
     def _create_connection_layout(self):
-        layout = QHBoxLayout()
+        import flowlayout
+        from PyQt5.QtWidgets import QSizePolicy
+
+        # Wrap URL / Connect / Ping / status onto extra lines when the dock is narrow.
+        layout = flowlayout.FlowLayout(margin=0, spacing=6)
 
         self.server_url_input = QLineEdit()
         self.server_url_input.setText(conf['nnunet_server_url'])
         self.server_url_input.setPlaceholderText("Server URL here")
+        self.server_url_input.setMinimumWidth(180)
+        self.server_url_input.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         layout.addWidget(self.server_url_input)
-        
-        # Connect button
+
         self.connect_button = QPushButton("Connect")
-        self.connect_button.clicked.connect(self.connect_to_server_clicked)  # You need to define this method
+        self.connect_button.clicked.connect(self.connect_to_server_clicked)
         layout.addWidget(self.connect_button)
 
-        # Ping button
         self.ping_button = QPushButton("Ping")
         self.ping_button.clicked.connect(self.ping_clicked)
         layout.addWidget(self.ping_button)
 
         self.auth_status_label = QLabel("Not signed in")
         self.auth_status_label.setStyleSheet("color: #666;")
+        self.auth_status_label.setWordWrap(True)
         layout.addWidget(self.auth_status_label)
-    
-        return layout 
+
+        return layout
 
     def _create_dataset_layout(self):
         layout = QVBoxLayout()
@@ -315,10 +321,13 @@ class nnUNetDatasetManager(BaseObject):
 
         # Dropdown (ComboBox)
         self.dataset_dropdown = QComboBox()
+        self.dataset_dropdown.setEnabled(False)
+        self.dataset_dropdown.setToolTip("Connect to the server first.")
         self._active_dataset_index = -1
         self.before_dataset_change = None  # optional callback: () -> bool
         self.dataset_dropdown.currentIndexChanged.connect(self._on_dataset_dropdown_changed)
         layout.addWidget(self.dataset_dropdown)
+        self._update_dataset_selection_required_style()
 
         # Main tab widget to replace all CollapsibleGroupBoxes
         main_tab_widget = QTabWidget()
@@ -429,6 +438,7 @@ class nnUNetDatasetManager(BaseObject):
         preprocessed_tab_layout.addWidget(self.data_status_refresh_button)
         
         preprocessed_tab_widget.setLayout(preprocessed_tab_layout)
+        self.plan_preprocess_tab_widget = preprocessed_tab_widget
         main_tab_widget.addTab(preprocessed_tab_widget, "Plan and Preprocess")
 
         # === Train Tab ===
@@ -481,6 +491,7 @@ class nnUNetDatasetManager(BaseObject):
         train_tab_layout.addWidget(self.training_log_files_refresh_button)
         
         train_tab_widget.setLayout(train_tab_layout)
+        self.train_tab_widget = train_tab_widget
         main_tab_widget.addTab(train_tab_widget, "Train")
 
         # === Predictions Tab ===
@@ -500,9 +511,12 @@ class nnUNetDatasetManager(BaseObject):
         
         predictions_tab_layout.addWidget(predictions_list_widget)
         predictions_tab_widget.setLayout(predictions_tab_layout)
+        self.predictions_tab_widget = predictions_tab_widget
         main_tab_widget.addTab(predictions_tab_widget, "Predictions")
 
+        self.main_tab_widget = main_tab_widget
         layout.addWidget(main_tab_widget)
+        self._update_train_role_tabs_visibility()
 
         return layout
     
@@ -511,13 +525,17 @@ class nnUNetDatasetManager(BaseObject):
         import flowlayout
         layout = flowlayout.FlowLayout()
 
-        # New Dataset button
+        # New Dataset button (enabled after a successful Connect)
         self.new_dataset_button = QPushButton("New Dataset")
+        self.new_dataset_button.setEnabled(False)
+        self.new_dataset_button.setToolTip("Connect to the server first.")
         self.new_dataset_button.clicked.connect(self.open_new_dataset_dialog)
         layout.addWidget(self.new_dataset_button)
 
-        # Update list
-        self.refresh_list_button = QPushButton("Refrush List")
+        # Update list (enabled after a successful Connect)
+        self.refresh_list_button = QPushButton("Refresh List")
+        self.refresh_list_button.setEnabled(False)
+        self.refresh_list_button.setToolTip("Connect to the server first.")
         self.refresh_list_button.clicked.connect(self.update_train_test_prediction_lists)
         layout.addWidget(self.refresh_list_button)
 
@@ -1078,6 +1096,7 @@ class nnUNetDatasetManager(BaseObject):
                     self.dataset_dropdown.addItem(new_dataset["id"])  # Add to dropdown
                     self.dataset_dropdown.setCurrentIndex(len(self.datasets) - 1)  # Select new dataset
                     self._on_dataset_selected(len(self.datasets) - 1)  # Show details
+                    self._update_dataset_selection_required_style()
 
                     print(f"response_data={response_data}")
                     self.log_message.emit("INFO", response_data.get("message", "No message received"))
@@ -1653,6 +1672,29 @@ class nnUNetDatasetManager(BaseObject):
         """Retrieve the current server URL from the input field."""
         return self.server_url_input.text()
 
+    def _set_server_command_buttons_enabled(self, enabled):
+        """Enable/disable dataset commands that require an active server session."""
+        enabled = bool(enabled)
+        for name in ("new_dataset_button", "refresh_list_button"):
+            btn = getattr(self, name, None)
+            if btn is None:
+                continue
+            btn.setEnabled(enabled)
+            btn.setToolTip("" if enabled else "Connect to the server first.")
+
+        dropdown = getattr(self, "dataset_dropdown", None)
+        if dropdown is not None:
+            dropdown.setEnabled(enabled)
+            if not enabled:
+                dropdown.setToolTip("Connect to the server first.")
+            self._update_dataset_selection_required_style()
+
+    def apply_settings_from_config(self):
+        """Refresh connection UI from the shared settings singleton."""
+        url = (conf.get("nnunet_server_url") or "").strip()
+        if hasattr(self, "server_url_input") and self.server_url_input is not None and url:
+            self.server_url_input.setText(url)
+
     def _registration_url(self):
         from nnunet_login_dialog import default_registration_url
         override = (conf.get("keycloak_registration_url") or "").strip()
@@ -1670,11 +1712,39 @@ class nnUNetDatasetManager(BaseObject):
         email = session.get("email")
         if session.get("token") and email:
             role = "admin" if session.get("is_admin") else "user"
+            if nnunet_service.has_nnunet_train_role():
+                role = f"{role}+train"
             self.auth_status_label.setText(f"Signed in: {email} ({role})")
             self.auth_status_label.setStyleSheet("color: #2e7d32;")
         else:
             self.auth_status_label.setText("Not signed in")
             self.auth_status_label.setStyleSheet("color: #666;")
+
+    def _update_train_role_tabs_visibility(self):
+        """Show Plan/Preprocess, Train, Predictions only for nnunet-train users."""
+        tabs = getattr(self, "main_tab_widget", None)
+        if tabs is None:
+            return
+
+        can_train = nnunet_service.has_nnunet_train_role()
+        train_pages = [
+            getattr(self, "plan_preprocess_tab_widget", None),
+            getattr(self, "train_tab_widget", None),
+            getattr(self, "predictions_tab_widget", None),
+        ]
+
+        current = tabs.currentWidget()
+        for page in train_pages:
+            if page is None:
+                continue
+            idx = tabs.indexOf(page)
+            if idx < 0:
+                continue
+            tabs.setTabVisible(idx, can_train)
+
+        # If the active tab was hidden, fall back to Dataset.
+        if current is not None and tabs.indexOf(current) >= 0 and not tabs.isTabVisible(tabs.indexOf(current)):
+            tabs.setCurrentIndex(0)
 
     def _prompt_login(self):
         """Show Keycloak login dialog. Returns True on success."""
@@ -1704,6 +1774,7 @@ class nnUNetDatasetManager(BaseObject):
             return False
 
         self._update_auth_status_label()
+        self._update_train_role_tabs_visibility()
         self.log_message.emit(
             "INFO",
             f"Signed in as {nnunet_service.get_auth_session().get('email')}",
@@ -1726,11 +1797,20 @@ class nnUNetDatasetManager(BaseObject):
             ):
                 self.datasets = nnunet_service.get_dataset_json_list(self.get_server_url(), 5)
 
+            # Connected successfully — prevent repeated Connect/login.
+            if hasattr(self, "connect_button") and self.connect_button is not None:
+                self.connect_button.setEnabled(False)
+                self.connect_button.setToolTip(
+                    "Already connected. Restart the app to sign in as a different user."
+                )
+            self._set_server_command_buttons_enabled(True)
+
             if not self.datasets:
                 self.dataset_dropdown.addItem("No datasets available")
                 self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
                 self._current_datast = None
                 self._clear_dataset_views()
+                self._update_dataset_selection_required_style()
                 return
 
             dataset_ids = [dataset["id"] for dataset in self.datasets]
@@ -1741,6 +1821,7 @@ class nnUNetDatasetManager(BaseObject):
             self._current_datast = None
             self.details_label.setText("<b>Select a dataset.</b>")
             self._clear_dataset_views()
+            self._update_dataset_selection_required_style()
 
         except nnunet_service.ServerError as e:
             self.show_msgbox_error(title="Error", msg=f"Server error: {e}", parent=self.main_widget)
@@ -1748,6 +1829,7 @@ class nnUNetDatasetManager(BaseObject):
             self.show_msgbox_error(title="Error", msg=f"Request failed: {e}", parent=self.main_widget)
         finally:
             self.dataset_dropdown.blockSignals(False)
+            self._update_dataset_selection_required_style()
 
     def get_dataset_image_list(self, dataset_id):
         """Fetch dataset list from nnUNet server."""
@@ -1779,6 +1861,36 @@ class nnUNetDatasetManager(BaseObject):
         except Exception as e:
             print(f"_clear_dataset_views: {e}")
 
+    def _update_dataset_selection_required_style(self):
+        """Light-red border when datasets exist but none is selected."""
+        dropdown = getattr(self, "dataset_dropdown", None)
+        if dropdown is None:
+            return
+
+        datasets = getattr(self, "datasets", None) or []
+        needs_selection = (
+            dropdown.isEnabled()
+            and len(datasets) > 0
+            and dropdown.count() > 0
+            and dropdown.currentIndex() < 0
+        )
+        if needs_selection:
+            dropdown.setStyleSheet(
+                "QComboBox {"
+                " border: 2px solid #ef9a9a;"
+                " border-radius: 3px;"
+                " padding: 2px 4px;"
+                " background-color: #fff8f8;"
+                "}"
+                "QComboBox:hover, QComboBox:focus {"
+                " border: 2px solid #e57373;"
+                "}"
+            )
+            dropdown.setToolTip("Select a dataset to continue.")
+        else:
+            dropdown.setStyleSheet("")
+            dropdown.setToolTip("")
+
     def _on_dataset_dropdown_changed(self, dataset_index):
         """User changed the dataset dropdown; confirm unsaved work first."""
         if dataset_index == getattr(self, "_active_dataset_index", -1):
@@ -1795,10 +1907,12 @@ class nnUNetDatasetManager(BaseObject):
                 self.dataset_dropdown.blockSignals(True)
                 self.dataset_dropdown.setCurrentIndex(self._active_dataset_index)
                 self.dataset_dropdown.blockSignals(False)
+                self._update_dataset_selection_required_style()
                 return
 
         self._active_dataset_index = dataset_index
         self._on_dataset_selected(dataset_index)
+        self._update_dataset_selection_required_style()
 
     def _on_dataset_details_toggled(self, expanded):
         """Expand/collapse the dataset.json text box."""

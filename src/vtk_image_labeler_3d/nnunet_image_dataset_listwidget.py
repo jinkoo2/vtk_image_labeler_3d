@@ -36,7 +36,8 @@ def extract_image_number(filename):
         return int(match.group(1))
     raise ValueError(f"Could not extract number from filename: {filename}")
 
-nnunet_server_url = conf['nnunet_server_url']
+def nnunet_server_url():
+    return conf['nnunet_server_url']
 
 LABEL_AUTO_FIELDS = {
     "filename", "shape", "spacing", "label_stats", "error", "modified_at", "modified_by"
@@ -428,7 +429,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
 
         self.images_for = images_for
         self._dataset_id = None
-        self._base_url = nnunet_server_url
+        self._base_url = nnunet_server_url()
         self._label_nums = set()
 
         layout = QVBoxLayout()
@@ -466,11 +467,18 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         # Kept for backward compatibility; not shown in the UI.
         self.download_label_button = None
         self.append_button = QPushButton("Append As New Image Set")
+        self.append_button.setToolTip(
+            "Upload the currently open image and its labels to this dataset as a new case "
+            "(does not overwrite an existing case)."
+        )
         self.save_label_button = QPushButton("Save")
         self.save_label_button.setToolTip(
             "Save modified label data and related metadata (e.g. window/level) for the selected case."
         )
         self.delete_button = QPushButton("Delete")
+        self.delete_button.setToolTip(
+            "Delete the selected case (image and label) from this dataset on the server."
+        )
         self.properties_button = QPushButton("Properties")
         self.properties_button.setToolTip(
             "View and edit image and label metadata for the selected case."
@@ -577,7 +585,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             dataset_id=self._dataset_id,
             images_for=self.images_for,
             num=number,
-            base_url=self._base_url or nnunet_server_url,
+            base_url=self._base_url or nnunet_server_url(),
             parent=self,
         )
         dialog.exec_()
@@ -587,7 +595,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
     def set_dataset(self, dataset_id, image_list, base_url=None, label_list=None):
         self.table_widget.setRowCount(0)
         self._dataset_id = dataset_id
-        self._base_url = base_url or nnunet_server_url
+        self._base_url = base_url or nnunet_server_url()
 
         self._label_nums = set()
         for label_item in (label_list or []):
@@ -703,7 +711,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             ):
                 out_dir = os.path.join("./_downloads", str(uuid.uuid4()))
                 result = nnunet_service.download_dataset_image(
-                    BASE_URL=self._base_url or nnunet_server_url,
+                    BASE_URL=self._base_url or nnunet_server_url(),
                     dataset_id=self._dataset_id,
                     images_for=self.images_for,
                     num=number,
@@ -719,7 +727,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                             label=f"Downloading label for case {number}..."
                         )
                         label_result = nnunet_service.download_dataset_label(
-                            BASE_URL=self._base_url or nnunet_server_url,
+                            BASE_URL=self._base_url or nnunet_server_url(),
                             dataset_id=self._dataset_id,
                             images_for=self.images_for,
                             num=number,
@@ -740,12 +748,12 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                     "dataset_id": self._dataset_id,
                     "images_for": self.images_for,
                     "num": number,
-                    "base_url": self._base_url or nnunet_server_url,
+                    "base_url": self._base_url or nnunet_server_url(),
                 }
                 try:
                     qt_tools.update_busy_progress(label="Fetching image display settings...")
                     meta_response = nnunet_service.get_image_meta(
-                        self._base_url or nnunet_server_url,
+                        self._base_url or nnunet_server_url(),
                         self._dataset_id,
                         self.images_for,
                         number,
@@ -820,7 +828,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                 label=f"Updating status for case {num}...",
             ):
                 response = nnunet_service.get_label_meta(
-                    self._base_url or nnunet_server_url,
+                    self._base_url or nnunet_server_url(),
                     self._dataset_id,
                     self.images_for,
                     num,
@@ -832,7 +840,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                 else:
                     meta.pop("status", None)
                 result = nnunet_service.update_label_meta(
-                    self._base_url or nnunet_server_url,
+                    self._base_url or nnunet_server_url(),
                     self._dataset_id,
                     self.images_for,
                     num,
@@ -846,7 +854,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             QMessageBox.critical(self, "Status Update Failed", str(e))
             try:
                 meta = self._fetch_label_meta(
-                    self._base_url or nnunet_server_url, self._dataset_id, num
+                    self._base_url or nnunet_server_url(), self._dataset_id, num
                 )
                 self.update_label_meta_row(num, meta)
             except Exception:

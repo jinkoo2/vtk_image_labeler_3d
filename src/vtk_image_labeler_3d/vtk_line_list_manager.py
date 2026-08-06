@@ -217,6 +217,7 @@ class LineListManager(QObject):
     def setup_ui(self):
         """Set up the UI with a dockable widget."""
         dock = QDockWidget(self.name)
+        dock.setObjectName("LinesDock")
         widget = QWidget()
         layout = QVBoxLayout()
 

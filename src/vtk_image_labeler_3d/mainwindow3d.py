@@ -1,6 +1,6 @@
 import vtk
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QSlider, QLabel, QHBoxLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 from PyQt5.QtWidgets import (
@@ -11,6 +11,12 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QListWidget
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QIcon
 
 from logger import logger, _info, _err
+from ui_icons import apply_icon
+
+def _iconize_action(action):
+    """Attach a Material icon when a mapping exists."""
+    apply_icon(action)
+    return action
 
 import viewer3d
 
@@ -61,6 +67,8 @@ class MainWindow3D(QMainWindow):
         # exclusive QActions
         self.exclusive_actions = []
         self.managers = []
+        self._manager_visibility_actions = []  # (QAction, QDockWidget)
+        self._manager_dock_open = {}  # id(dock) -> open even if not active tab
         self.vtk_image = None
         self.image_path = None
         self.image_type = None
@@ -86,6 +94,7 @@ class MainWindow3D(QMainWindow):
         self.create_menu()
         self.create_file_toolbar()
         self.create_view_toolbar()
+        self.create_managers_toolbar()
 
         ##########################
         # Segmentation List Manager
@@ -183,15 +192,17 @@ class MainWindow3D(QMainWindow):
         
         #self.tabifyDockWidget(self.nnunet_client_manager, self.rect_list_dock_widget)
 
-        # Ensure segmentation manager dock is visible and active
-        self.segmentation_list_dock_widget.show()
-        self.segmentation_list_dock_widget.raise_()
-        self.segmentation_list_dock_widget.activateWindow()
-        self.segmentation_list_dock_widget.setFocus()
-
         # Add status bar
         self.status_bar = self.statusBar()
         self.status_bar.showMessage("Ready")  # Initial message
+
+        # Restore window / dock / toolbar layout from last session
+        if not self._restore_ui_layout():
+            self.segmentation_list_dock_widget.show()
+            self.segmentation_list_dock_widget.raise_()
+
+        # Sync manager menu/toolbar checks with dock open/closed state
+        self._sync_manager_open_flags_from_docks()
 
         _info("MainWindow initialized")
 
@@ -209,17 +220,86 @@ class MainWindow3D(QMainWindow):
         self.vtk_viewer.on_active_segmentation_layer_changed(sender)
 
     def add_manager_visibility_toggle_menu(self, manager, visible):
-        toggle_action = QAction(manager.name, self)
-        toggle_action.setCheckable(True)
-        toggle_action.setChecked(visible)
-        toggle_action.triggered.connect(lambda checked, m=manager: self.toggle_dock_widget(m.dock_widget, checked))
-        if visible:
-            manager.dock_widget.show()
-        else: 
-            manager.dock_widget.hide()
+        dock = manager.dock_widget
+        self._configure_manager_dock_hide_on_close(dock)
 
+        toggle_action = _iconize_action(QAction(manager.name, self))
+        toggle_action.setCheckable(True)
+        toggle_action.setChecked(bool(visible))
+        toggle_action.setToolTip(f"Show/hide {manager.name}")
+        self._manager_dock_open[id(dock)] = bool(visible)
+
+        toggle_action.triggered.connect(
+            lambda checked, m=manager: self._on_manager_toggle_triggered(m.dock_widget, checked)
+        )
+        if visible:
+            dock.show()
+        else:
+            dock.hide()
+
+        # Inactive tabs emit visibilityChanged(False) while still open; ignore those.
+        dock.visibilityChanged.connect(
+            lambda is_visible, action=toggle_action, d=dock: self._sync_manager_toggle_action(
+                action, d, is_visible
+            )
+        )
+
+        self._manager_visibility_actions.append((toggle_action, dock))
         self.managers_menu.addAction(toggle_action)
-        
+        if hasattr(self, "managers_toolbar") and self.managers_toolbar is not None:
+            self.managers_toolbar.addAction(toggle_action)
+
+    def _configure_manager_dock_hide_on_close(self, dock_widget):
+        """Title-bar close hides the dock (same as toggling View->Managers off)."""
+        if getattr(dock_widget, "_hide_on_close_configured", False):
+            return
+        dock_widget._hide_on_close_configured = True
+        dock_widget.setAttribute(Qt.WA_DeleteOnClose, False)
+        dock_widget.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QDockWidget) and event.type() == QEvent.Close:
+            # Hide instead of destroying so the manager can be shown again.
+            obj.hide()
+            self._manager_dock_open[id(obj)] = False
+            for action, dock in getattr(self, "_manager_visibility_actions", []):
+                if dock is obj:
+                    action.blockSignals(True)
+                    action.setChecked(False)
+                    action.blockSignals(False)
+                    break
+            event.ignore()
+            return True
+        return super().eventFilter(obj, event)
+
+
+
+    def _save_ui_layout(self):
+        """Persist main window geometry and dock/toolbar layout."""
+        settings.setValue("mainwindow/geometry", self.saveGeometry())
+        settings.setValue("mainwindow/windowState", self.saveState())
+        settings.sync()
+
+    def _restore_ui_layout(self):
+        """Restore main window geometry and dock/toolbar layout. Returns True if restored."""
+        restored = False
+        geom = settings.value("mainwindow/geometry")
+        if geom is not None:
+            self.restoreGeometry(geom)
+            restored = True
+        state = settings.value("mainwindow/windowState")
+        if state is not None:
+            self.restoreState(state)
+            restored = True
+        return restored
+
+    def _sync_manager_open_flags_from_docks(self):
+        """Update manager toggle checks from actual dock hidden/visible state."""
+        for action, dock in getattr(self, "_manager_visibility_actions", []):
+            if dock is None:
+                continue
+            self._manager_dock_open[id(dock)] = not dock.isHidden()
+        self._refresh_manager_visibility_checks()
 
     def closeEvent(self, event):
         """
@@ -230,6 +310,7 @@ class MainWindow3D(QMainWindow):
             return
 
         _info("MainWindow is closing.")
+        self._save_ui_layout()
         self._clear_workspace_without_prompt()
         self.vtk_viewer.cleanup_vtk(event)  # explicitly clean VTK resources
         super().closeEvent(event)  # Call the base class method to ensure proper behavior
@@ -298,6 +379,7 @@ class MainWindow3D(QMainWindow):
     def print_status(self, msg):
         self.status_bar.showMessage(msg)
 
+
     def create_menu(self):
         # Create a menu bar
         menubar = self.menuBar()
@@ -306,90 +388,243 @@ class MainWindow3D(QMainWindow):
         file_menu = menubar.addMenu("File")
         self.create_file_menu(file_menu)
 
+        # Add Edit menu
+        edit_menu = menubar.addMenu("Edit")
+        self.create_edit_menu(edit_menu)
+
         # Add View menu
         view_menu = menubar.addMenu("View")
         self.create_view_menu(view_menu)
+
+        # Add Help menu
+        help_menu = menubar.addMenu("Help")
+        self.create_help_menu(help_menu)
+
+    def create_edit_menu(self, edit_menu):
+        preferences_action = _iconize_action(QAction("Preferences...", self))
+        preferences_action.triggered.connect(self.open_preferences)
+        edit_menu.addAction(preferences_action)
+
+    def open_preferences(self):
+        from preferences_dialog import PreferencesDialog
+        dlg = PreferencesDialog(self)
+        if dlg.exec_() != dlg.Accepted:
+            return
+        # Refresh UI that reads settings at construction time
+        mgr = getattr(self, "nnunet_client_manager", None)
+        if mgr is not None and hasattr(mgr, "apply_settings_from_config"):
+            mgr.apply_settings_from_config()
+
+    def create_help_menu(self, help_menu):
+        check_updates_action = _iconize_action(QAction("Check for Updates...", self))
+        check_updates_action.triggered.connect(self.check_for_updates_clicked)
+        help_menu.addAction(check_updates_action)
+
+        feature_action = _iconize_action(QAction("Feature Request...", self))
+        feature_action.setToolTip("Suggest an improvement via a GitHub issue")
+        feature_action.triggered.connect(self.show_feature_request_dialog)
+        help_menu.addAction(feature_action)
+
+        bug_action = _iconize_action(QAction("Bug Report...", self))
+        bug_action.setToolTip("Report a problem via a GitHub issue")
+        bug_action.triggered.connect(self.show_bug_report_dialog)
+        help_menu.addAction(bug_action)
+
+        about_action = _iconize_action(QAction("About...", self))
+        about_action.triggered.connect(self.show_about_dialog)
+        help_menu.addAction(about_action)
+
+        # Quiet startup check: only prompt when a newer release exists.
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(2500, lambda: self.check_for_updates(silent=True))
+
+    def show_feature_request_dialog(self):
+        from feedback_dialog import show_feedback_dialog
+        show_feedback_dialog("feature", parent=self)
+
+    def show_bug_report_dialog(self):
+        from feedback_dialog import show_feedback_dialog
+        show_feedback_dialog("bug", parent=self)
+
+    def show_about_dialog(self):
+        from version_info import GITHUB_RELEASES_URL, get_version
+        QMessageBox.about(
+            self,
+            "About Image Labeler 3D",
+            (
+                "<b>Image Labeler 3D</b><br>"
+                f"Version {get_version()}<br><br>"
+                f'Releases: <a href="{GITHUB_RELEASES_URL}">{GITHUB_RELEASES_URL}</a>'
+            ),
+        )
+
+    def check_for_updates_clicked(self):
+        self.check_for_updates(silent=False)
+
+    def check_for_updates(self, silent=False):
+        from PyQt5.QtGui import QDesktopServices
+        from PyQt5.QtCore import QUrl
+        from update_check import fetch_latest_update
+        from version_info import GITHUB_RELEASES_URL
+
+        try:
+            info = fetch_latest_update()
+        except Exception as exc:
+            if not silent:
+                QMessageBox.warning(
+                    self,
+                    "Check for Updates",
+                    f"Could not check for updates:\n{exc}",
+                )
+            return
+
+        if not info.available:
+            if not silent:
+                QMessageBox.information(
+                    self,
+                    "Check for Updates",
+                    f"You are up to date.\n\nCurrent version: {info.current_version}",
+                )
+            return
+
+        asset_line = ""
+        if info.asset_name:
+            asset_line = f"\nPackage: {info.asset_name}"
+
+        answer = QMessageBox.question(
+            self,
+            "Update Available",
+            (
+                f"A newer version is available.\n\n"
+                f"Current: {info.current_version}\n"
+                f"Latest: {info.latest_version}"
+                f"{asset_line}\n\n"
+                f"Open the download page now?"
+            ),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if answer != QMessageBox.Yes:
+            return
+
+        target = info.asset_url or info.release_url or GITHUB_RELEASES_URL
+        QDesktopServices.openUrl(QUrl(target))
 
     def create_file_menu(self, file_menu):
         
         from PyQt5.QtWidgets import QAction
         
         # Add Open Image action
-        open_image_action = QAction("Import Image", self)
+        open_image_action = _iconize_action(QAction("Import Image", self))
         open_image_action.triggered.connect(self.import_image_clicked)
         file_menu.addAction(open_image_action)
 
         # Add Save Workspace action
-        open_workspace_action = QAction("Open Workspace", self)
+        open_workspace_action = _iconize_action(QAction("Open Workspace", self))
         open_workspace_action.triggered.connect(self.open_workspace)
         file_menu.addAction(open_workspace_action)
 
         # Add Save Workspace action
-        save_workspace_action = QAction("Save Workspace", self)
+        save_workspace_action = _iconize_action(QAction("Save Workspace", self))
         save_workspace_action.triggered.connect(self.save_workspace)
         file_menu.addAction(save_workspace_action)
 
         # Add Open Image action
-        close_image_action = QAction("Close Workspace", self)
+        close_image_action = _iconize_action(QAction("Close Workspace", self))
         close_image_action.triggered.connect(self.close_workspace)
         file_menu.addAction(close_image_action)
 
         # Print Object Properties Button
-        print_objects_action = QAction("Print Object Properties", self)
+        print_objects_action = _iconize_action(QAction("Print Object Properties", self))
         print_objects_action.triggered.connect(self.vtk_viewer.print_properties)
         file_menu.addAction(print_objects_action)
         
     def create_managers_menu(self, view_menu):
         self.managers_menu = view_menu.addMenu("Managers")
+        self.managers_menu.aboutToShow.connect(self._refresh_manager_visibility_checks)
+
+    def _refresh_manager_visibility_checks(self):
+        """Refresh checkmarks from tracked open-state (not active-tab visibility)."""
+        for action, dock in getattr(self, "_manager_visibility_actions", []):
+            if action is None or dock is None:
+                continue
+            open_state = self._manager_dock_open.get(id(dock), not dock.isHidden())
+            action.blockSignals(True)
+            action.setChecked(bool(open_state))
+            action.blockSignals(False)
+
+    def _on_manager_toggle_triggered(self, dock, checked):
+        self._manager_dock_open[id(dock)] = bool(checked)
+        self.toggle_dock_widget(dock, checked)
+        if checked:
+            dock.raise_()
+
+    def _sync_manager_toggle_action(self, action, dock, is_visible):
+        """Update checks only when a dock is truly closed or becomes active."""
+        if action is None or dock is None:
+            return
+        if dock.isHidden():
+            self._manager_dock_open[id(dock)] = False
+            checked = False
+        elif is_visible:
+            self._manager_dock_open[id(dock)] = True
+            checked = True
+        else:
+            return
+        if action.isChecked() == checked:
+            return
+        action.blockSignals(True)
+        action.setChecked(checked)
+        action.blockSignals(False)
+
+    def create_managers_toolbar(self):
+        toolbar = QToolBar("Managers Toolbar", self)
+        toolbar.setObjectName("ManagersToolbar")
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.addToolBar(Qt.TopToolBarArea, toolbar)
+        self.managers_toolbar = toolbar
 
     def create_view_menu(self, view_menu):
         
         # Zoom In
-        zoom_in_action = QAction("Zoom In", self)
+        zoom_in_action = _iconize_action(QAction("Zoom In", self))
         zoom_in_action.triggered.connect(self.vtk_viewer.zoom_in)
         view_menu.addAction(zoom_in_action)
 
         # Zoom Out
-        zoom_out_action = QAction("Zoom Out", self)
+        zoom_out_action = _iconize_action(QAction("Zoom Out", self))
         zoom_out_action.triggered.connect(self.vtk_viewer.zoom_out)
         view_menu.addAction(zoom_out_action)
 
         # Zoom Reset
-        zoom_reset_action = QAction("Zoom Reset", self)
+        zoom_reset_action = _iconize_action(QAction("Zoom Reset", self))
         zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         view_menu.addAction(zoom_reset_action)
         
         self.create_managers_menu(view_menu)
 
-        # Add Toggle Button
-        toggle_image_button = QAction("Toggle Base Image", self)
-        toggle_image_button.setCheckable(True)
-        toggle_image_button.setChecked(True)
-        toggle_image_button.triggered.connect(self.vtk_viewer.toggle_base_image)
-        view_menu.addAction(toggle_image_button)
-
-
     def create_file_toolbar(self):
         # Create a toolbar
         toolbar = QToolBar("File Toolbar", self)
+        toolbar.setObjectName("FileToolbar")
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
         # Add actions to the toolbar
         # Add Open DICOM action
-        open_image_action = QAction("Import Image", self)
+        open_image_action = _iconize_action(QAction("Import Image", self))
         open_image_action.triggered.connect(self.import_image_clicked)
         toolbar.addAction(open_image_action)
 
         # Add Save Workspace action
-        open_workspace_action = QAction("Open Workspace", self)
+        open_workspace_action = _iconize_action(QAction("Open Workspace", self))
         open_workspace_action.triggered.connect(self.open_workspace)
         toolbar.addAction(open_workspace_action)
 
-        save_workspace_action = QAction("Save Workspace", self)
+        save_workspace_action = _iconize_action(QAction("Save Workspace", self))
         save_workspace_action.triggered.connect(self.save_workspace)
         toolbar.addAction(save_workspace_action)
 
-        close_image_action = QAction("Close Workspace", self)
+        close_image_action = _iconize_action(QAction("Close Workspace", self))
         close_image_action.triggered.connect(self.close_workspace)
         toolbar.addAction(close_image_action)
 
@@ -399,6 +634,7 @@ class MainWindow3D(QMainWindow):
 
         # Create a toolbar
         toolbar = QToolBar("View Toolbar", self)
+        toolbar.setObjectName("ViewToolbar")
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
         # Add a label for context
@@ -412,49 +648,49 @@ class MainWindow3D(QMainWindow):
         toolbar.addWidget(self.range_slider)
         
         # zoom in action
-        zoom_in_action = QAction("Zoom In", self)
+        zoom_in_action = _iconize_action(QAction("Zoom In", self))
         zoom_in_action.triggered.connect(self.vtk_viewer.zoom_in)
         toolbar.addAction(zoom_in_action)    
         
          # zoom out action
-        zoom_out_action = QAction("Zoom Out", self)
+        zoom_out_action = _iconize_action(QAction("Zoom Out", self))
         zoom_out_action.triggered.connect(self.vtk_viewer.zoom_out)
         toolbar.addAction(zoom_out_action)    
 
         # zoom reset button
-        zoom_reset_action = QAction("Zoom Reset", self)
+        zoom_reset_action = _iconize_action(QAction("Zoom Reset", self))
         zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         toolbar.addAction(zoom_reset_action)        
 
         # zoom toggle button
-        zoom_action = QAction("Zoom", self)
+        zoom_action = _iconize_action(QAction("Zoom", self))
         zoom_action.setCheckable(True)
         zoom_action.toggled.connect(self.zoom_clicked)
         toolbar.addAction(zoom_action)        
 
         # pan toggle button
-        pan_action = QAction("Pan", self)
+        pan_action = _iconize_action(QAction("Pan", self))
         pan_action.setCheckable(True)
         pan_action.toggled.connect(self.pan_clicked)
         toolbar.addAction(pan_action)        
 
         # rotate plus 90 deg (x-->y)
-        rot_plus_90_action = QAction("Rot +90", self)
+        rot_plus_90_action = _iconize_action(QAction("Rot +90", self))
         rot_plus_90_action.triggered.connect(self.rotate_plus_90_clicked)
         toolbar.addAction(rot_plus_90_action)        
 
         # rotate minus 90 deg (y-->x)
-        rot_minus_90_action = QAction("Rot -90", self)
+        rot_minus_90_action = _iconize_action(QAction("Rot -90", self))
         rot_minus_90_action.triggered.connect(self.rotate_minus_90_clicked)
         toolbar.addAction(rot_minus_90_action)        
 
         # flip x
-        flip_x_action = QAction("Flip X", self)
+        flip_x_action = _iconize_action(QAction("Flip X", self))
         flip_x_action.triggered.connect(self.flip_x_clicked)
         toolbar.addAction(flip_x_action)      
 
         # flip y
-        flip_y_action = QAction("Flip Y", self)
+        flip_y_action = _iconize_action(QAction("Flip Y", self))
         flip_y_action.triggered.connect(self.flip_y_clicked)
         toolbar.addAction(flip_y_action)      
 
@@ -462,7 +698,7 @@ class MainWindow3D(QMainWindow):
         self.add_exclusive_actions([pan_action])
         
         # Add ruler toggle action
-        add_ruler_action = QAction("Add Ruler", self)
+        add_ruler_action = _iconize_action(QAction("Add Ruler", self))
         add_ruler_action.triggered.connect(self.vtk_viewer.add_ruler)
         toolbar.addAction(add_ruler_action)
 
@@ -494,7 +730,7 @@ class MainWindow3D(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import rot90
+        from itk_tools import rot90
         sitk_image_rotated = rot90(sitk_image, plus=True)
 
         # back to vtk image
@@ -526,7 +762,7 @@ class MainWindow3D(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import rot90
+        from itk_tools import rot90
         sitk_image_rotated = rot90(sitk_image, plus=False)
 
         # back to vtk image
@@ -548,7 +784,7 @@ class MainWindow3D(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import flip_x
+        from itk_tools import flip_x
         sitk_image_flipped = flip_x(sitk_image)
 
         # back to vtk image
@@ -571,7 +807,7 @@ class MainWindow3D(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import flip_y
+        from itk_tools import flip_y
         sitk_image_flipped = flip_y(sitk_image)
 
         # back to vtk image

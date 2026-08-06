@@ -10,20 +10,53 @@ test_user = {
     "email": None,
     "token": None,
     "is_admin": False,
+    "roles": [],
 }
 
+NNUNET_TRAIN_ROLE = "nnunet-train"
+NNUNET_ADMIN_ROLE = "nnunet-admin"
 
-def set_auth_session(access_token, user_email=None, is_admin=False):
+
+def _decode_jwt_payload(access_token):
+    """Decode JWT payload without verifying signature (roles only)."""
+    import base64
+
+    try:
+        parts = (access_token or "").split(".")
+        if len(parts) < 2:
+            return {}
+        payload = parts[1]
+        padding = "=" * (-len(payload) % 4)
+        raw = base64.urlsafe_b64decode(payload + padding)
+        data = json.loads(raw.decode("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _roles_from_token(access_token):
+    claims = _decode_jwt_payload(access_token)
+    roles = claims.get("realm_access", {}).get("roles", []) or []
+    return [str(r) for r in roles]
+
+
+def set_auth_session(access_token, user_email=None, is_admin=False, roles=None):
     """Store Bearer token for subsequent API calls."""
+    token_roles = list(roles) if roles is not None else _roles_from_token(access_token)
+    # Prefer explicit is_admin from login API; also derive from roles if needed.
+    is_admin_flag = bool(is_admin) or (NNUNET_ADMIN_ROLE in token_roles)
+
     test_user["token"] = access_token
     test_user["email"] = user_email
-    test_user["is_admin"] = bool(is_admin)
+    test_user["is_admin"] = is_admin_flag
+    test_user["roles"] = token_roles
 
 
 def clear_auth_session():
     test_user["token"] = None
     test_user["email"] = None
     test_user["is_admin"] = False
+    test_user["roles"] = []
 
 
 def get_auth_session():
@@ -32,6 +65,19 @@ def get_auth_session():
 
 def is_authenticated():
     return bool(test_user.get("token"))
+
+
+def has_role(role_name):
+    """True if the signed-in user has the given Keycloak realm role."""
+    if not role_name:
+        return False
+    roles = test_user.get("roles") or []
+    return role_name in roles
+
+
+def has_nnunet_train_role():
+    """True when user can access train/preprocess/predictions dashboard tabs."""
+    return has_role(NNUNET_TRAIN_ROLE)
 
 
 def _auth_headers():
@@ -78,7 +124,10 @@ def login(BASE_URL, email, password, timeout_seconds=30):
         user_email=data.get("user_email") or email,
         is_admin=bool(data.get("is_admin", False)),
     )
-    print(f"Logged in as {test_user['email']} (admin={test_user['is_admin']})")
+    print(
+        f"Logged in as {test_user['email']} "
+        f"(admin={test_user['is_admin']}, roles={test_user.get('roles')})"
+    )
     return data
 
 

@@ -39,9 +39,19 @@ logger.addHandler(console_handler)
 # Function to log an exception
 def log_exception(e):
     logger.error("Exception occurred", exc_info=e)
+    try:
+        from crash_reporting import capture_exception
+        capture_exception(e)
+    except Exception:
+        pass
 
 def log_and_raise_exception(e):
     logger.error("Exception occurred", exc_info=e)
+    try:
+        from crash_reporting import capture_exception
+        capture_exception(e)
+    except Exception:
+        pass
     raise e
 
 def _info(msg):

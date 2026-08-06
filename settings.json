@@ -1,0 +1,8 @@
+{
+  "log_dir": "_logs",
+  "temp_dir": "_temp",
+  "nnunet_server_url": "https://nnunet-server-01.apps.myphysics.net/api/v3",
+  "keycloak_url": "https://login.apps.myphysics.net",
+  "keycloak_realm": "myphysics",
+  "keycloak_registration_url": "https://login.apps.myphysics.net/realms/myphysics/protocol/openid-connect/registrations?client_id=account-console&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Flogin.apps.myphysics.net%2Frealms%2Fmyphysics%2Faccount%2F"
+}

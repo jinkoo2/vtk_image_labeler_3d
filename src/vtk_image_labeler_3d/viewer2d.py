@@ -1334,13 +1334,6 @@ class MainWindow(QMainWindow):
         
         self.create_managers_menu(view_menu)
 
-        # Add Toggle Button
-        toggle_image_button = QAction("Toggle Base Image", self)
-        toggle_image_button.setCheckable(True)
-        toggle_image_button.setChecked(True)
-        toggle_image_button.triggered.connect(self.vtk_viewer.set_base_image_visibility)
-        view_menu.addAction(toggle_image_button)
-
 
     def create_file_toolbar(self):
         # Create a toolbar
@@ -1459,7 +1452,7 @@ class MainWindow(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import rot90
+        from itk_tools import rot90
         sitk_image_rotated = rot90(sitk_image, plus=True)
 
         # back to vtk image
@@ -1491,7 +1484,7 @@ class MainWindow(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import rot90
+        from itk_tools import rot90
         sitk_image_rotated = rot90(sitk_image, plus=False)
 
         # back to vtk image
@@ -1513,7 +1506,7 @@ class MainWindow(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import flip_x
+        from itk_tools import flip_x
         sitk_image_flipped = flip_x(sitk_image)
 
         # back to vtk image
@@ -1536,7 +1529,7 @@ class MainWindow(QMainWindow):
         sitk_image = vtk_to_sitk(self.vtk_image)
 
         # rot 90
-        from itk import flip_y
+        from itk_tools import flip_y
         sitk_image_flipped = flip_y(sitk_image)
 
         # back to vtk image

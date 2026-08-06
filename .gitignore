@@ -1,4 +1,11 @@
 .venv/
 __pycache__/
 *.pyc
-_*    
+.env
+_*
+dist/
+build/
+*.spec.bak
+
+.claude/
+

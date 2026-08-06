@@ -21,7 +21,8 @@ def extract_req_id(listitem_text):
     return listitem_text_parts[0]
 
 
-nnunet_server_url = conf['nnunet_server_url']
+def nnunet_server_url():
+    return conf['nnunet_server_url']
 
 from base_widget import BaseWidget
 class nnUnetPredictionsListWidget(BaseWidget):
@@ -134,7 +135,7 @@ class nnUnetPredictionsListWidget(BaseWidget):
 
             download_dir = os.path.join("./_downloads", str(uuid.uuid4()))
             result = nnunet_service.download_prediction_images_and_labels(
-                BASE_URL=nnunet_server_url,
+                BASE_URL=nnunet_server_url(),
                 dataset_id=dataset_id,
                 req_id=req_data['req_id'],
                 image_number=int(selected_image_number),

@@ -2,7 +2,8 @@
 
 import vtk
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QListWidgetItem, QToolBar, QAction, QToolButton, QVBoxLayout, QPushButton, QLabel, QWidget, QDockWidget, QListWidget, QHBoxLayout, QPushButton, QCheckBox, QLineEdit)
+from ui_icons import apply_icon, material_icon
+from PyQt5.QtWidgets import (QListWidgetItem, QToolBar, QAction, QToolButton, QVBoxLayout, QPushButton, QLabel, QWidget, QDockWidget, QListWidget, QHBoxLayout, QPushButton, QCheckBox, QLineEdit, QSizePolicy, QFrame)
 from PyQt5.QtCore import pyqtSignal, QObject
 from PyQt5.QtGui import QColor
 
@@ -444,10 +445,12 @@ class SegmentationListItemWidget(QWidget):
     def _create_header_widget(self):
         
         widget = QWidget()
+        widget.setMinimumHeight(28)
 
         # === Header Layout ===
         layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setSpacing(4)
 
         # Checkbox for visibility
         self.checkbox = QCheckBox()
@@ -463,11 +466,13 @@ class SegmentationListItemWidget(QWidget):
         self.color_patch.mousePressEvent = self.change_color_clicked  # Assign event for color change
         layout.addWidget(self.color_patch)
 
-        # Label for the layer name
+        # Label for the layer name (stretch so action buttons stay fully visible)
         self.label = QLabel(self.layer.get_name())
         self.label.setCursor(Qt.PointingHandCursor)
+        self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.label.setMinimumWidth(40)
         self.label.mouseDoubleClickEvent = self.activate_editor  # Assign double-click to activate editor
-        layout.addWidget(self.label)
+        layout.addWidget(self.label, 1)
 
         # Editable name field
         self.edit_name = LineEdit2(self.layer.get_name())
@@ -477,22 +482,36 @@ class SegmentationListItemWidget(QWidget):
         self.edit_name.returnPressed.connect(self.deactivate_editor)  # Commit name on Enter
         self.edit_name.editingFinished.connect(self.deactivate_editor)  # Commit name on losing focus
         self.edit_name.textChanged.connect(self.validate_name)
-        layout.addWidget(self.edit_name)
+        self.edit_name.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(self.edit_name, 1)
 
-        # Remove button (with 'x')
-        self.remove_button = QPushButton("X")
-        self.remove_button.setFixedSize(20, 20)
-        #self.remove_button.setMinimumSize(25, 25)  # Adjust size for better appearance
+        btn_style = "QPushButton { padding: 0; margin: 0; border: none; background: transparent; }"
+        btn_size = 24
+
+        # Remove button
+        self.remove_button = QPushButton()
+        self.remove_button.setFixedSize(btn_size, btn_size)
+        self.remove_button.setIcon(material_icon("mdi.close", color="#616161"))
+        self.remove_button.setIconSize(self.remove_button.size() * 0.7)
+        self.remove_button.setStyleSheet(btn_style)
         self.remove_button.setToolTip("Remove this layer")
+        self.remove_button.setAutoDefault(False)
+        self.remove_button.setDefault(False)
         self.remove_button.clicked.connect(self.remove_layer_clicked)
-        layout.addWidget(self.remove_button, alignment=Qt.AlignCenter)
+        layout.addWidget(self.remove_button, 0, Qt.AlignVCenter)
 
-        self.toggle_button = QPushButton("▼")
-        self.toggle_button.setFixedSize(20, 20)
+        # Expand / collapse details
+        self.toggle_button = QPushButton()
+        self.toggle_button.setFixedSize(btn_size, btn_size)
         self.toggle_button.setCheckable(True)
         self.toggle_button.setChecked(False)
+        self.toggle_button.setStyleSheet(btn_style)
+        self.toggle_button.setAutoDefault(False)
+        self.toggle_button.setDefault(False)
+        self.toggle_button.setToolTip("Show or hide layer details")
+        self._update_toggle_button_icon()
         self.toggle_button.clicked.connect(self.toggle_details)
-        layout.addWidget(self.toggle_button)
+        layout.addWidget(self.toggle_button, 0, Qt.AlignVCenter)
         
         widget.setLayout(layout)
 
@@ -517,23 +536,12 @@ class SegmentationListItemWidget(QWidget):
         self.duplicate_button.clicked.connect(self.duplicate_layer_clicked)
         layout.addWidget(self.duplicate_button)
 
-        # Extract the largest 
-        self.extract_the_largest_component_button = QPushButton("Extract Largest Compoments")
-        self.extract_the_largest_component_button.setToolTip("Split into connected components and extract the largest one")
-        self.extract_the_largest_component_button.clicked.connect(self.extract_the_largest_component_clicked)
-        layout.addWidget(self.extract_the_largest_component_button)
 
         # # Extract a compoment
         # self.extract_a_component_button = QPushButton("Extract a Compoment")
         # self.extract_a_component_button.setToolTip("Mouse pick a component")
         # self.extract_a_component_button.clicked.connect(self.extract_a_component_using_mouse_clicked)
         # layout.addWidget(self.extract_a_component_button)
-
-        # Interpolate sparse labels
-        self.make_convex_hull_label_button = QPushButton("Make Enclusure Segmentation")
-        self.make_convex_hull_label_button.setToolTip("Make a convex hull semgmentation")
-        self.make_convex_hull_label_button.clicked.connect(self.make_convex_hull_label_button_clicked)
-        layout.addWidget(self.make_convex_hull_label_button)
 
 
         widget.setLayout(layout)
@@ -560,14 +568,21 @@ class SegmentationListItemWidget(QWidget):
         return widget
 
 
+    def _update_toggle_button_icon(self):
+        expanded = self.toggle_button.isChecked()
+        name = "mdi.chevron-up" if expanded else "mdi.chevron-down"
+        self.toggle_button.setIcon(material_icon(name, color="#616161"))
+        self.toggle_button.setIconSize(self.toggle_button.size() * 0.7)
+
     def toggle_details(self):
         is_expanded = self.toggle_button.isChecked()
-        self.toggle_button.setText("▲" if is_expanded else "▼")
+        self._update_toggle_button_icon()
         self.details_widget.setVisible(is_expanded)      
 
         # Resize list item properly
         self.list_widget_item.setSizeHint(self.sizeHint())  # Use widget's own updated size
         self.list_widget.doItemsLayout()
+
 
     def clear_layer_clicked(self):
         """Zero voxel values in-place; keep the same vtkImageData and geometry."""
@@ -596,13 +611,6 @@ class SegmentationListItemWidget(QWidget):
         layer_copy.set_name(self.layer.get_name()+"_copy")
         layer_copy.set_color(color_rotator1.next())
         self.layer.get_parent_list().add_layer(layer_copy)
-
-    def extract_the_largest_component_clicked(self):
-        import vtk_tools
-        blob_images = vtk_tools.extract_largest_components(self.layer.get_image(), 1)
-        largest_image = blob_images[0]
-        layer_largest = SegmentationLayer(segmentation=largest_image, name=f'{self.layer.get_name()}-largest', color = color_rotator1.next())
-        self.layer.get_parent_list().add_layer(layer_largest)
 
     # def extract_a_component_using_mouse_clicked(self):
 
@@ -641,23 +649,6 @@ class SegmentationListItemWidget(QWidget):
 
     #     run_button.clicked.connect(run_operation)
     #     dialog.show()
-
-    def make_convex_hull_label_button_clicked(self):
-        import itk_tools
-        import itkvtk
-
-        # convert to itk image
-        itk_seg = itkvtk.vtk_to_sitk(self.layer.get_image())
-
-        # interpolate
-        itk_interpolated = itk_tools.make_convex_label(itk_seg)
-
-        # convert back to vtk image
-        vtk_interpolated = itkvtk.sitk_to_vtk(itk_interpolated)
-        
-        # add layer
-        layer_largest = SegmentationLayer(segmentation=vtk_interpolated, name=f'{self.layer.get_name()}-interpolated', color = color_rotator1.next())
-        self.layer.get_parent_list().add_layer(layer_largest)
 
     def remove_layer_clicked(self):
         """Remove the layer when the 'x' button is clicked."""
@@ -843,6 +834,13 @@ class SegmentationListManager(QObject):
         self.interpolation_tool_dialog = None
         self.interpolation_tool_button = None
 
+        self.extract_largest_tool_dialog = None
+        self._extract_largest_target_layer_name = None
+
+        self.binary_morph_tool_dialog = None
+        self._binary_morph_target_layer_name = None
+        self._binary_morph_baseline = None  # deep-copied vtkImageData for Reset
+
         logger.info("SegmentationListManager initialized")
 
     def get_segmentation_layer_list(self) -> SegmentationLayerList:
@@ -867,35 +865,120 @@ class SegmentationListManager(QObject):
     def modified(self):
         return self._modified or self.segmentation_layers.modified()
 
-    def setup_ui(self):   
+    def setup_ui(self):
         toolbar = self.create_toolbar()
         dock = self.create_dock_widget()
 
         self.toolbar = toolbar
         self.dock_widget = dock
 
-        return None, dock
+        return toolbar, dock
 
     def create_toolbar(self):
-        
-        # Create a toolbar
-        toolbar = QToolBar("PaintBrush Toolbar")
-     
+        """Top toolbar with segmentation editing tools (shared actions with dock)."""
+        toolbar = QToolBar("Segmentation Tools")
+        toolbar.setObjectName("SegmentationToolsToolbar")
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
-        # Add Paint Tool button (controls live in the floating Paint Tool window)
-        self.paint_action, self.paint_button = self.create_checkable_button(
-            "Paint Tool", self.paint_active, toolbar, self.toggle_paint_tool
+        self._create_segmentation_tool_actions()
+
+        self.paint_button = self._tool_button_for_action(self.paint_action, toolbar)
+        toolbar.addWidget(self.paint_button)
+
+        self.pencil_button = self._tool_button_for_action(self.pencil_action, toolbar)
+        toolbar.addWidget(self.pencil_button)
+
+        toolbar.addWidget(self._tool_button_for_action(self.boolean_tool_action, toolbar))
+        toolbar.addWidget(
+            self._tool_button_for_action(self.nnunet_prediction_tool_action, toolbar)
         )
-        self.pencil_action, self.pencil_button = self.create_checkable_button(
-            "Pencil Tool", self.pencil_active, toolbar, self.toggle_pencil_tool
+
+        self.scribble_button = self._tool_button_for_action(self.scribble_action, toolbar)
+        toolbar.addWidget(self.scribble_button)
+
+        toolbar.addWidget(
+            self._tool_button_for_action(self.interpolation_tool_action, toolbar)
+        )
+        toolbar.addWidget(
+            self._tool_button_for_action(self.extract_largest_tool_action, toolbar)
+        )
+        toolbar.addWidget(
+            self._tool_button_for_action(self.binary_morph_tool_action, toolbar)
         )
 
         return toolbar
-    
+
+    def _create_segmentation_tool_actions(self):
+        """Create shared QActions used by the Segmentation Tools toolbar and dock."""
+        self.paint_action, _ = self.create_checkable_button(
+            "Paint Tool", self.paint_active, None, self.toggle_paint_tool
+        )
+        apply_icon(self.paint_action)
+        self.pencil_action, _ = self.create_checkable_button(
+            "Pencil Tool", self.pencil_active, None, self.toggle_pencil_tool
+        )
+        apply_icon(self.pencil_action)
+        self.scribble_action, _ = self.create_checkable_button(
+            "Scribble Tool", self.scribble_active, None, self.toggle_scribble_tool
+        )
+        apply_icon(self.scribble_action)
+        self.scribble_action.setToolTip(
+            "Draw FG/BG scribbles and run GraphCut+Histogram to update the target layer"
+        )
+
+        self.boolean_tool_action = QAction("Boolean Tool")
+        apply_icon(self.boolean_tool_action)
+        self.boolean_tool_action.triggered.connect(self.show_boolean_tool_clicked)
+
+        self.nnunet_prediction_tool_action = QAction("nnUNet Prediction Tool")
+        apply_icon(self.nnunet_prediction_tool_action)
+        self.nnunet_prediction_tool_action.setEnabled(False)
+        self.nnunet_prediction_tool_action.setToolTip(
+            "Run an approved nnU-Net model on the currently open image set"
+        )
+        self.nnunet_prediction_tool_action.triggered.connect(
+            self.show_nnunet_prediction_tool_clicked
+        )
+        # Keep legacy attribute name used by enable/disable helpers.
+        self.nnunet_prediction_tool_button = self.nnunet_prediction_tool_action
+
+        self.interpolation_tool_action = QAction("Interpolation Tool")
+        apply_icon(self.interpolation_tool_action)
+        self.interpolation_tool_action.setToolTip(
+            "Fill between sparsely painted slices (morphological contour interpolation)"
+        )
+        self.interpolation_tool_action.triggered.connect(
+            self.show_interpolation_tool_clicked
+        )
+
+        self.extract_largest_tool_action = QAction("Extract Largest Component")
+        apply_icon(self.extract_largest_tool_action)
+        self.extract_largest_tool_action.setToolTip(
+            "Keep only the largest connected component in the target layer"
+        )
+        self.extract_largest_tool_action.triggered.connect(
+            self.show_extract_largest_tool_clicked
+        )
+
+        self.binary_morph_tool_action = QAction("Binary Morphology Tool")
+        apply_icon(self.binary_morph_tool_action)
+        self.binary_morph_tool_action.setToolTip(
+            "Binary morphological operations: Dilate, Erode, Open, Close "
+            "(radius in pixels; Reset restores the original target layer)"
+        )
+        self.binary_morph_tool_action.triggered.connect(
+            self.show_binary_morph_tool_clicked
+        )
+
+    def _tool_button_for_action(self, action, parent=None):
+        button = QToolButton(parent)
+        button.setDefaultAction(action)
+        return button
+
     def create_dock_widget(self):
-        
         # Create a dockable widget
         dock = QDockWidget(self.name)
+        dock.setObjectName("SegmentationsDock")
 
         # Layer manager layout
         main_widget = QWidget()
@@ -904,81 +987,36 @@ class SegmentationListManager(QObject):
         # Layer list
         self.list_widget = QListWidget()
         self.list_widget.currentItemChanged.connect(self.list_widget_on_current_item_changed)
-       
+
         # Enable Reordering
         self.list_widget.setDragEnabled(True)
         self.list_widget.setAcceptDrops(True)
         self.list_widget.setDropIndicatorShown(True)
         self.list_widget.setDragDropMode(QListWidget.InternalMove)
-       
+
         main_layout.addWidget(self.list_widget)
 
-        # Buttons to manage layers
+        # Layer actions (editing tools live on the Segmentation Tools toolbar)
         button_layout = QHBoxLayout()
-
         add_layer_button = QPushButton("Add Layer")
         add_layer_button.clicked.connect(self.add_layer_clicked)
         button_layout.addWidget(add_layer_button)
-        
-        # Add Paint Tool button (opens floating tool window)
-        self.paint_action, self.paint_button = self.create_checkable_button(
-            "Paint Tool", self.paint_active, None, self.toggle_paint_tool
-        )
-        button_layout.addWidget(self.paint_button)
-
-        self.pencil_action, self.pencil_button = self.create_checkable_button(
-            "Pencil Tool", self.pencil_active, None, self.toggle_pencil_tool
-        )
-        button_layout.addWidget(self.pencil_button)
-
-        boolean_tool_button = QPushButton("Boolean Tool")
-        boolean_tool_button.clicked.connect(self.show_boolean_tool_clicked)
-        button_layout.addWidget(boolean_tool_button)
-
-        self.nnunet_prediction_tool_button = QPushButton("nnUNet Prediction Tool")
-        self.nnunet_prediction_tool_button.setEnabled(False)
-        self.nnunet_prediction_tool_button.setToolTip(
-            "Run an approved nnU-Net model on the currently open image set"
-        )
-        self.nnunet_prediction_tool_button.clicked.connect(
-            self.show_nnunet_prediction_tool_clicked
-        )
-        button_layout.addWidget(self.nnunet_prediction_tool_button)
-
-        self.scribble_action, self.scribble_button = self.create_checkable_button(
-            "Scribble Tool", self.scribble_active, None, self.toggle_scribble_tool
-        )
-        self.scribble_button.setToolTip(
-            "Draw FG/BG scribbles and run GraphCut+Histogram to update the target layer"
-        )
-        button_layout.addWidget(self.scribble_button)
-
-        self.interpolation_tool_button = QPushButton("Interpolation Tool")
-        self.interpolation_tool_button.setToolTip(
-            "Fill between sparsely painted slices (morphological contour interpolation)"
-        )
-        self.interpolation_tool_button.clicked.connect(
-            self.show_interpolation_tool_clicked
-        )
-        button_layout.addWidget(self.interpolation_tool_button)
-
-        # Add the button layout 
         main_layout.addLayout(button_layout)
 
-        # Set layout for the layer manager
         main_widget.setLayout(main_layout)
-        
         dock.setWidget(main_widget)
 
         return dock
 
-
     def update_nnunet_prediction_tool_button_state(self):
         """Enable Prediction Tool when a base image is open in the viewer."""
-        btn = getattr(self, "nnunet_prediction_tool_button", None)
-        if btn is None:
+        action = getattr(self, "nnunet_prediction_tool_action", None)
+        if action is None:
+            # Fallback for older attribute name
+            action = getattr(self, "nnunet_prediction_tool_button", None)
+        if action is None:
             return
-        btn.setEnabled(self.get_base_vtk_image() is not None)
+        action.setEnabled(self.get_base_vtk_image() is not None)
 
     def show_nnunet_prediction_tool_clicked(self):
         if self.get_base_vtk_image() is None:
@@ -1578,6 +1616,499 @@ class SegmentationListManager(QObject):
             QMessageBox.critical(self.dock_widget, "Interpolation Failed", str(e))
             self.print_status(f"Interpolation failed: {e}")
 
+
+    # ------------------------------------------------------------------
+    # Extract Largest Component Tool
+    # ------------------------------------------------------------------
+
+    def show_extract_largest_tool_clicked(self):
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Extract Largest Component",
+                "Open an image in the viewer first.",
+            )
+            return
+
+        if (
+            self.extract_largest_tool_dialog is not None
+            and self.extract_largest_tool_dialog.isVisible()
+        ):
+            self.extract_largest_tool_dialog.raise_()
+            self.extract_largest_tool_dialog.activateWindow()
+            self._refresh_extract_largest_target_layers()
+            return
+
+        dialog = self._ensure_extract_largest_tool_dialog()
+        active = self.get_active_layer()
+        preferred = active.get_name() if active is not None else None
+        if preferred in (
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        ):
+            preferred = None
+        self._refresh_extract_largest_target_layers(preferred_name=preferred)
+        dialog.show()
+        dialog.raise_()
+
+    def _ensure_extract_largest_tool_dialog(self):
+        if self.extract_largest_tool_dialog is not None:
+            return self.extract_largest_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog,
+            QComboBox,
+            QFormLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QSpinBox,
+        )
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Extract Largest Component")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(400, 220)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.extract_largest_target_combo = QComboBox(dialog)
+        self.extract_largest_target_combo.setToolTip(
+            "Layer to keep the largest connected component(s)"
+        )
+        self.extract_largest_target_combo.currentTextChanged.connect(
+            self._on_extract_largest_target_changed
+        )
+        form.addRow("Target Layer:", self.extract_largest_target_combo)
+
+        self.extract_largest_count_spin = QSpinBox(dialog)
+        self.extract_largest_count_spin.setMinimum(1)
+        self.extract_largest_count_spin.setMaximum(999)
+        self.extract_largest_count_spin.setValue(1)
+        self.extract_largest_count_spin.setToolTip(
+            "How many of the largest connected components to keep (1 = only the largest)"
+        )
+        form.addRow("Number of Largest Components to Keep:", self.extract_largest_count_spin)
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Keeps the N largest connected components in the Target Layer "
+            "and removes smaller islands. The target layer is updated in place."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        btn_row = QHBoxLayout()
+        run_btn = QPushButton("Run")
+        run_btn.setToolTip(
+            "Keep the selected number of largest connected components in the Target Layer"
+        )
+        run_btn.clicked.connect(self.run_extract_largest_component)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        btn_row.addWidget(run_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.extract_largest_tool_dialog = dialog
+        return dialog
+
+    def _on_extract_largest_target_changed(self, name):
+        self._extract_largest_target_layer_name = name or None
+
+    def _refresh_extract_largest_target_layers(self, preferred_name=None):
+        if (
+            not hasattr(self, "extract_largest_target_combo")
+            or self.extract_largest_target_combo is None
+        ):
+            return
+        skip = {
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        }
+        skip.discard(None)
+        names = [n for n in self.segmentation_layers.get_layer_names() if n not in skip]
+        current = preferred_name or self.extract_largest_target_combo.currentText()
+        self.extract_largest_target_combo.blockSignals(True)
+        self.extract_largest_target_combo.clear()
+        self.extract_largest_target_combo.addItems(names)
+        if current in names:
+            self.extract_largest_target_combo.setCurrentText(current)
+        elif names:
+            self.extract_largest_target_combo.setCurrentIndex(0)
+        self.extract_largest_target_combo.blockSignals(False)
+        self._on_extract_largest_target_changed(
+            self.extract_largest_target_combo.currentText()
+        )
+
+    def get_extract_largest_target_layer(self):
+        name = getattr(self, "_extract_largest_target_layer_name", None)
+        if name:
+            layer = self.segmentation_layers.get_layer_by_name(name)
+            if layer is not None:
+                return layer
+        return self.get_active_layer()
+
+    def run_extract_largest_component(self):
+        from PyQt5.QtWidgets import QMessageBox
+        import qt_tools
+        import vtk_tools
+
+        target = self.get_extract_largest_target_layer()
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Extract Largest Component",
+                "Select a Target Layer.",
+            )
+            return
+
+        image = target.get_image()
+        if image is None or image.GetPointData().GetScalars() is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Extract Largest Component",
+                "Target layer has no image data.",
+            )
+            return
+
+        keep_n = 1
+        if getattr(self, "extract_largest_count_spin", None) is not None:
+            keep_n = int(self.extract_largest_count_spin.value())
+        keep_n = max(1, keep_n)
+
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Extract Largest Component",
+                label="Extracting largest connected component(s)...",
+            ):
+                blob_images = vtk_tools.extract_largest_components(image, keep_n)
+                if not blob_images:
+                    QMessageBox.information(
+                        self.dock_widget,
+                        "Extract Largest Component",
+                        'No labeled voxels found in "%s".\nPaint or load a segmentation first.'
+                        % target.get_name(),
+                    )
+                    return
+
+                import numpy as np
+                from vtk.util import numpy_support
+
+                dims = image.GetDimensions()
+                combined = np.zeros(dims[::-1], dtype=np.uint8)
+                for blob in blob_images:
+                    arr = numpy_support.vtk_to_numpy(
+                        blob.GetPointData().GetScalars()
+                    ).reshape(dims[::-1])
+                    combined |= (arr > 0).astype(np.uint8)
+
+                # Preserve original label value when possible (binary labels become 1).
+                src_arr = numpy_support.vtk_to_numpy(
+                    image.GetPointData().GetScalars()
+                ).reshape(dims[::-1])
+                nonzero = src_arr[src_arr != 0]
+                label_value = int(nonzero[0]) if nonzero.size else 1
+                out = np.zeros_like(src_arr)
+                out[combined > 0] = label_value
+
+                flat = out.reshape(-1, order="C")
+                vtk_array = numpy_support.numpy_to_vtk(
+                    num_array=flat, deep=True, array_type=image.GetPointData().GetScalars().GetDataType()
+                )
+                dst = image.GetPointData().GetScalars()
+                dst.DeepCopy(vtk_array)
+                dst.Modified()
+                image.Modified()
+
+            kept = len(blob_images)
+            target.set_modified(True)
+            self._modified = True
+            target.image_changed.emit(target)
+            self.print_status(
+                "Kept %d largest component(s) in '%s'" % (kept, target.get_name())
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self.dock_widget, "Extract Largest Component Failed", str(e)
+            )
+            self.print_status("Extract largest component failed: %s" % e)
+
+
+    # ------------------------------------------------------------------
+    # Binary Morphology Tool
+    # ------------------------------------------------------------------
+
+    def show_binary_morph_tool_clicked(self):
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Binary Morphology Tool",
+                "Open an image in the viewer first.",
+            )
+            return
+
+        if (
+            self.binary_morph_tool_dialog is not None
+            and self.binary_morph_tool_dialog.isVisible()
+        ):
+            self.binary_morph_tool_dialog.raise_()
+            self.binary_morph_tool_dialog.activateWindow()
+            self._refresh_binary_morph_target_layers()
+            return
+
+        dialog = self._ensure_binary_morph_tool_dialog()
+        active = self.get_active_layer()
+        preferred = active.get_name() if active is not None else None
+        if preferred in (
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        ):
+            preferred = None
+        self._refresh_binary_morph_target_layers(preferred_name=preferred)
+        dialog.show()
+        dialog.raise_()
+
+    def _ensure_binary_morph_tool_dialog(self):
+        if self.binary_morph_tool_dialog is not None:
+            return self.binary_morph_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog,
+            QComboBox,
+            QFormLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QSpinBox,
+        )
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Binary Morphology Tool")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(420, 280)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.binary_morph_target_combo = QComboBox(dialog)
+        self.binary_morph_target_combo.setToolTip(
+            "Layer to apply binary morphological operations"
+        )
+        self.binary_morph_target_combo.currentTextChanged.connect(
+            self._on_binary_morph_target_changed
+        )
+        form.addRow("Target Layer:", self.binary_morph_target_combo)
+
+        self.binary_morph_radius_spin = QSpinBox(dialog)
+        self.binary_morph_radius_spin.setMinimum(1)
+        self.binary_morph_radius_spin.setMaximum(99)
+        self.binary_morph_radius_spin.setValue(1)
+        self.binary_morph_radius_spin.setToolTip("Structuring-element radius in pixels")
+        form.addRow("Radius (pixels):", self.binary_morph_radius_spin)
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Dilate / Erode / Open / Close apply immediately to the Target Layer. "
+            "Reset restores the segmentation as it was when this target was selected."
+        )
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        op_row = QHBoxLayout()
+        for label, op, tip in (
+            ("Dilate", "dilate", "Expand the label by the radius"),
+            ("Erode", "erode", "Shrink the label by the radius"),
+            ("Open (Erode->Dilate)", "open", "Remove thin protrusions / small spots"),
+            ("Close (Dilate->Erode)", "close", "Fill small holes / gaps"),
+        ):
+            btn = QPushButton(label, dialog)
+            btn.setToolTip(tip)
+            btn.clicked.connect(
+                lambda checked=False, operation=op: self.run_binary_morph_operation(operation)
+            )
+            op_row.addWidget(btn)
+        layout.addLayout(op_row)
+
+        btn_row = QHBoxLayout()
+        reset_btn = QPushButton("Reset", dialog)
+        reset_btn.setToolTip("Restore the Target Layer to its original image for this tool")
+        reset_btn.clicked.connect(self.reset_binary_morph_target)
+        close_btn = QPushButton("Close", dialog)
+        close_btn.clicked.connect(dialog.close)
+        btn_row.addWidget(reset_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.binary_morph_tool_dialog = dialog
+        return dialog
+
+    def _on_binary_morph_target_changed(self, name):
+        self._binary_morph_target_layer_name = name or None
+        self._capture_binary_morph_baseline()
+
+    def _refresh_binary_morph_target_layers(self, preferred_name=None):
+        if (
+            not hasattr(self, "binary_morph_target_combo")
+            or self.binary_morph_target_combo is None
+        ):
+            return
+        skip = {
+            getattr(self, "scribble_fg_layer_name", None),
+            getattr(self, "scribble_bg_layer_name", None),
+        }
+        skip.discard(None)
+        names = [n for n in self.segmentation_layers.get_layer_names() if n not in skip]
+        current = preferred_name or self.binary_morph_target_combo.currentText()
+        self.binary_morph_target_combo.blockSignals(True)
+        self.binary_morph_target_combo.clear()
+        self.binary_morph_target_combo.addItems(names)
+        if current in names:
+            self.binary_morph_target_combo.setCurrentText(current)
+        elif names:
+            self.binary_morph_target_combo.setCurrentIndex(0)
+        self.binary_morph_target_combo.blockSignals(False)
+        self._on_binary_morph_target_changed(self.binary_morph_target_combo.currentText())
+
+    def get_binary_morph_target_layer(self):
+        name = getattr(self, "_binary_morph_target_layer_name", None)
+        if name:
+            layer = self.segmentation_layers.get_layer_by_name(name)
+            if layer is not None:
+                return layer
+        return self.get_active_layer()
+
+    def _capture_binary_morph_baseline(self):
+        """Store a deep copy of the current target image for Reset."""
+        import vtk_tools
+
+        target = self.get_binary_morph_target_layer()
+        if target is None or target.get_image() is None:
+            self._binary_morph_baseline = None
+            return
+        self._binary_morph_baseline = vtk_tools.deep_copy_image(target.get_image())
+
+    def run_binary_morph_operation(self, operation):
+        from PyQt5.QtWidgets import QMessageBox
+        import qt_tools
+        import itk_tools
+        import itkvtk
+
+        target = self.get_binary_morph_target_layer()
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Binary Morphology Tool",
+                "Select a Target Layer.",
+            )
+            return
+
+        image = target.get_image()
+        if image is None or image.GetPointData().GetScalars() is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Binary Morphology Tool",
+                "Target layer has no image data.",
+            )
+            return
+
+        if self._binary_morph_baseline is None:
+            self._capture_binary_morph_baseline()
+
+        radius = 1
+        if getattr(self, "binary_morph_radius_spin", None) is not None:
+            radius = int(self.binary_morph_radius_spin.value())
+        radius = max(1, radius)
+
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Binary Morphology Tool",
+                label="%s (radius=%d)..." % (operation.capitalize(), radius),
+            ):
+                sitk_in = itkvtk.vtk_to_sitk(image)
+                sitk_out = itk_tools.binary_morphology(sitk_in, operation, radius=radius)
+                vtk_out = itkvtk.sitk_to_vtk(sitk_out)
+
+                dst = image.GetPointData().GetScalars()
+                src = vtk_out.GetPointData().GetScalars()
+                if src is None:
+                    raise RuntimeError("Morphology produced no scalar data")
+                dst.DeepCopy(src)
+                dst.Modified()
+                image.Modified()
+
+            target.set_modified(True)
+            self._modified = True
+            target.image_changed.emit(target)
+            self.print_status(
+                "Binary %s (r=%d) applied to '%s'"
+                % (operation, radius, target.get_name())
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self.dock_widget, "Binary Morphology Failed", str(e)
+            )
+            self.print_status("Binary morphology failed: %s" % e)
+
+    def reset_binary_morph_target(self):
+        from PyQt5.QtWidgets import QMessageBox
+        import vtk_tools
+
+        target = self.get_binary_morph_target_layer()
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Binary Morphology Tool",
+                "Select a Target Layer.",
+            )
+            return
+
+        image = target.get_image()
+        baseline = getattr(self, "_binary_morph_baseline", None)
+        if image is None or baseline is None:
+            QMessageBox.information(
+                self.dock_widget,
+                "Binary Morphology Tool",
+                "No original image is stored for Reset yet.",
+            )
+            return
+
+        try:
+            dst = image.GetPointData().GetScalars()
+            src = baseline.GetPointData().GetScalars()
+            if dst is None or src is None:
+                raise RuntimeError("Missing scalar data for reset")
+            dst.DeepCopy(src)
+            dst.Modified()
+            image.Modified()
+            # Keep geometry consistent if needed
+            vtk_tools.copy_image_origin_spacing_direction_matrix(baseline, image)
+
+            target.set_modified(True)
+            self._modified = True
+            target.image_changed.emit(target)
+            self.print_status(
+                "Binary morphology reset for '%s'" % target.get_name()
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self.dock_widget, "Binary Morphology Reset Failed", str(e)
+            )
+            self.print_status("Binary morphology reset failed: %s" % e)
+
     def show_boolean_tool_clicked(self):
         from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QVBoxLayout, QFormLayout
 
@@ -1784,6 +2315,8 @@ class SegmentationListManager(QObject):
     def enable_paintbrush(self, enabled=True):
         
         for v in self.vtk_viewer.get_viewers_2d():
+            if getattr(v, "vtk_image", None) is None:
+                continue
             if not hasattr(v, 'paintbrush') or v.paintbrush is None:
                 v.paintbrush = PaintBrush(viewer=v)
                 v.paintbrush.set_radius_in_pixel(radius_in_pixel=20, pixel_spacing=v.vtk_image.GetSpacing())
@@ -2116,6 +2649,19 @@ class SegmentationListManager(QObject):
         if getattr(self, "scribble_active", False):
             self.toggle_scribble_tool(False)
 
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Paint Tool",
+                "Open an image in the viewer first.",
+            )
+            if self.paint_action is not None:
+                self.paint_action.blockSignals(True)
+                self.paint_action.setChecked(False)
+                self.paint_action.blockSignals(False)
+            return
+
         dialog = self._ensure_paint_tool_dialog()
         active = self.get_active_layer()
         preferred = active.get_name() if active is not None else None
@@ -2319,6 +2865,19 @@ class SegmentationListManager(QObject):
             self.toggle_paint_tool(False)
         if getattr(self, "scribble_active", False):
             self.toggle_scribble_tool(False)
+
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Pencil Tool",
+                "Open an image in the viewer first.",
+            )
+            if self.pencil_action is not None:
+                self.pencil_action.blockSignals(True)
+                self.pencil_action.setChecked(False)
+                self.pencil_action.blockSignals(False)
+            return
 
         dialog = self._ensure_pencil_tool_dialog()
         active = self.get_active_layer()
@@ -2887,6 +3446,10 @@ class SegmentationListManager(QObject):
             self._refresh_scribble_target_layers()
         if getattr(self, "interpolation_tool_dialog", None) is not None:
             self._refresh_interpolation_target_layers()
+        if getattr(self, "extract_largest_tool_dialog", None) is not None:
+            self._refresh_extract_largest_target_layers()
+        if getattr(self, "binary_morph_tool_dialog", None) is not None:
+            self._refresh_binary_morph_target_layers()
 
     def segmentation_layer_removed(self, layer, segmentation_layers):
         
@@ -2905,6 +3468,10 @@ class SegmentationListManager(QObject):
         if self._paint_target_layer_name == layer_name:
             self._paint_target_layer_name = None
         self._refresh_paint_target_layers()
+        if getattr(self, "extract_largest_tool_dialog", None) is not None:
+            self._refresh_extract_largest_target_layers()
+        if getattr(self, "binary_morph_tool_dialog", None) is not None:
+            self._refresh_binary_morph_target_layers()
 
         self._modified = True
 

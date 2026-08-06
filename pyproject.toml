@@ -35,12 +35,16 @@ dependencies = [
     "typing_extensions == 4.12.2",
     "urllib3 == 2.3.0",
     "vtk == 9.3.1",
-    "python-dotenv",  # No version specified, Poetry will resolve
     "scikit-image (>=0.25.2,<0.26.0)",
     "websocket-client (>=1.8.0,<2.0.0)",
     "PyMaxflow (>=1.3.2,<2.0.0)",
-    "itk-morphologicalcontourinterpolation (>=2.1.2,<3.0.0)"
+    "itk-morphologicalcontourinterpolation (>=2.1.2,<3.0.0)",
+    "qtawesome (>=1.3.1,<2.0.0)",
+    "sentry-sdk (>=2.0.0,<3.0.0)"
 ]
+
+[tool.poetry]
+packages = [{ include = "vtk_image_labeler_3d", from = "src" }]
 
 [tool.poetry.scripts]
 app = "vtk_image_labeler_3d.app:main"
@@ -51,3 +55,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src/vtk_image_labeler_3d"]
+addopts = "-q"

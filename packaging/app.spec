@@ -1,0 +1,115 @@
+# -*- mode: python ; coding: utf-8 -*-
+"""PyInstaller spec for vtk-image-labeler-3d (onedir)."""
+
+import sys
+from pathlib import Path
+
+from PyInstaller.building.api import COLLECT, EXE, PYZ
+from PyInstaller.building.build_main import Analysis
+from PyInstaller.utils.hooks import collect_all
+
+SPEC_DIR = Path(SPECPATH).resolve()
+ROOT = SPEC_DIR.parent
+PKG = ROOT / "src" / "vtk_image_labeler_3d"
+ENTRY = PKG / "app.py"
+
+datas = []
+binaries = []
+hiddenimports = []
+
+# Bundle default settings next to the frozen app payload.
+settings = ROOT / "settings.json"
+if settings.exists():
+    datas.append((str(settings), "."))
+
+icons = PKG / "icons"
+if icons.exists():
+    datas.append((str(icons), "icons"))
+
+for name in (
+    "vtk",
+    "PyQt5",
+    "SimpleITK",
+    "skimage",
+    "cv2",
+    "itk",
+    "maxflow",
+    "qtawesome",
+):
+    try:
+        d, b, h = collect_all(name)
+        datas += d
+        binaries += b
+        hiddenimports += h
+    except Exception as exc:  # noqa: BLE001 - best-effort collection
+        print(f"collect_all({name!r}) skipped: {exc}", file=sys.stderr)
+
+# Bare imports used throughout the package
+hiddenimports += [
+    "mainwindow3d",
+    "viewer3d",
+    "viewer2d",
+    "config",
+    "logger",
+    "itk_tools",
+    "itkvtk",
+    "nnunet_service",
+    "nnunet_client_manager",
+    "nnunet_login_dialog",
+    "preferences_dialog",
+    "version_info",
+    "splash_screen",
+    "qtawesome",
+    "ui_theme",
+    "ui_icons",
+    "update_check",
+    "vtk_segmentation_list_manager",
+    "vtk_point_list_manager",
+    "vtk_line_list_manager",
+    "vtk_rect_list_manager",
+    "graphcut_histogram",
+    "fill_between_slices",
+    "flowlayout",
+    "qt_tools",
+    "model_viewer",
+    "reslicer",
+]
+
+a = Analysis(
+    [str(ENTRY)],
+    pathex=[str(PKG)],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[str(SPEC_DIR / "runtime_hook_path.py")],
+    excludes=[],
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="ImageLabeler3D",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="ImageLabeler3D",
+)

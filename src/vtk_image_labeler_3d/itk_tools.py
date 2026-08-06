@@ -208,3 +208,56 @@ if __name__ == '__main__':
     print("\nTraisnformed Array (90° Clockwise):")
     print(transformed_array)
 
+
+
+def binary_morphology(sitk_image, operation: str, radius: int = 1):
+    """
+    Binary morphological op on a SimpleITK label/mask image.
+
+    operation: "dilate" | "erode" | "open" | "close"
+    radius: kernel radius in pixels (ball structuring element).
+    Preserves a single foreground label value when present.
+    """
+    import SimpleITK as sitk
+    import numpy as np
+
+    if sitk_image is None:
+        raise ValueError("sitk_image is required")
+
+    operation = (operation or "").strip().lower()
+    if operation not in ("dilate", "erode", "open", "close"):
+        raise ValueError("operation must be dilate, erode, open, or close")
+
+    radius = max(1, int(radius))
+    dim = sitk_image.GetDimension()
+    kernel_radius = [radius] * dim
+
+    arr = sitk.GetArrayFromImage(sitk_image)
+    nonzero = arr[arr != 0]
+    fg = int(nonzero[0]) if nonzero.size else 1
+
+    binary = sitk.Cast(sitk_image != 0, sitk.sitkUInt8)
+
+    if operation == "dilate":
+        filt = sitk.BinaryDilateImageFilter()
+    elif operation == "erode":
+        filt = sitk.BinaryErodeImageFilter()
+    elif operation == "open":
+        filt = sitk.BinaryMorphologicalOpeningImageFilter()
+    else:
+        filt = sitk.BinaryMorphologicalClosingImageFilter()
+
+    filt.SetKernelRadius(kernel_radius)
+    filt.SetKernelType(sitk.sitkBall)
+    filt.SetForegroundValue(1)
+    if hasattr(filt, "SetBackgroundValue"):
+        filt.SetBackgroundValue(0)
+    out_bin = filt.Execute(binary)
+
+    out_arr = sitk.GetArrayFromImage(out_bin)
+    labeled = np.zeros_like(arr)
+    labeled[out_arr != 0] = fg
+
+    out = sitk.GetImageFromArray(labeled.astype(arr.dtype, copy=False))
+    out.CopyInformation(sitk_image)
+    return out
