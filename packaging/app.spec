@@ -102,6 +102,7 @@ exe = EXE(
     upx=False,
     console=False,
     disable_windowed_traceback=False,
+    icon=str(SPEC_DIR / "app.ico"),
 )
 
 coll = COLLECT(

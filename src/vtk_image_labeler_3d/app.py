@@ -23,24 +23,21 @@ def main():
     init_crash_reporting(release=get_version())
 
     from PyQt5.QtWidgets import QApplication
-    from PyQt5.QtGui import QIcon
+    from app_icon import load_app_icon
     from logger import logger, _info, _err
     from splash_screen import create_splash, show_message
     from ui_theme import apply_material_theme
-
-    # Construct paths to the icons
-    current_dir = pkg_dir
-    brush_icon_path = os.path.join(current_dir, "icons", "brush.png")
 
     _info("Application started")
 
     try:
         app = QApplication(sys.argv)
         apply_material_theme(app)
-        app.setWindowIcon(QIcon(brush_icon_path))
+        app_icon = load_app_icon(pkg_dir)
+        app.setWindowIcon(app_icon)
         app.aboutToQuit.connect(lambda: _info("Application is quitting."))
 
-        splash = create_splash(version=get_version())
+        splash = create_splash(version=get_version(), icon=app_icon)
         splash.show()
         show_message(splash, "Loading modules...")
 
@@ -48,6 +45,7 @@ def main():
 
         show_message(splash, "Building main window...")
         main_window = mainwindow3d.MainWindow3D()
+        main_window.setWindowIcon(app_icon)
 
         show_message(splash, "Ready")
         main_window.showMaximized()
