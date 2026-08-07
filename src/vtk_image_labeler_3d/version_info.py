@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 # Keep in sync with pyproject.toml [project].version when bumping releases.
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 GITHUB_OWNER = "jinkoo2"
 GITHUB_REPO = "vtk_image_labeler_3d"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
