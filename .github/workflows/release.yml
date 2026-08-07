@@ -28,17 +28,23 @@ jobs:
         include:
           - os: windows-latest
             artifact: windows-x64
+            shell: pwsh
           - os: ubuntu-latest
             artifact: linux-x64
+            shell: bash
           - os: macos-latest
             artifact: macos-arm64
+            shell: bash
           # Intel Macs (x86_64). macos-13 is the current GitHub Intel runner.
           - os: macos-13
             artifact: macos-x64
+            shell: bash
 
     defaults:
       run:
-        shell: bash
+        # Git Bash + Poetry on Windows often fails with
+        # "The system cannot find the file specified" for poetry run.
+        shell: ${{ matrix.shell }}
 
     steps:
       - name: Checkout
@@ -79,12 +85,41 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
 
-      - name: Install PyInstaller
-        # Use python -m pip: "poetry run pip" fails on Windows/Git Bash with
-        # "The system cannot find the file specified."
-        run: poetry run python -m pip install "pyinstaller>=6.3,<7"
+      - name: Install PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $py = Join-Path $PWD ".venv/Scripts/python.exe"
+          if (-not (Test-Path $py)) { throw "Missing venv python: $py" }
+          & $py -c "import sys; print(sys.executable)"
+          & $py -m pip install "pyinstaller>=6.3,<7"
+
+      - name: Install PyInstaller (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          PY=".venv/bin/python"
+          test -x "$PY"
+          "$PY" -c "import sys; print(sys.executable)"
+          "$PY" -m pip install "pyinstaller>=6.3,<7"
 
       - name: Ensure default settings.json exists
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path settings.json)) {
+            $obj = [ordered]@{
+              log_dir = "_logs"
+              temp_dir = "_temp"
+              nnunet_server_url = "https://nnunet-server-01.apps.myphysics.net/api/v3"
+              keycloak_url = "https://login.apps.myphysics.net"
+              keycloak_realm = "myphysics"
+              keycloak_registration_url = ""
+            }
+            $obj | ConvertTo-Json | Set-Content -Encoding utf8 settings.json
+          }
+
+      - name: Ensure default settings.json exists
+        if: runner.os != 'Windows'
         run: |
           if [ ! -f settings.json ]; then
             cat > settings.json <<'EOF'
@@ -99,15 +134,43 @@ jobs:
           EOF
           fi
 
-      - name: Build with PyInstaller
-        run: poetry run pyinstaller packaging/app.spec --noconfirm --clean
+      - name: Build with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $py = Join-Path $PWD ".venv/Scripts/python.exe"
+          & $py -m PyInstaller packaging/app.spec --noconfirm --clean
 
-      - name: Stage package
+      - name: Build with PyInstaller (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          .venv/bin/python -m PyInstaller packaging/app.spec --noconfirm --clean
+
+      - name: Stage package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "dist/stage/ImageLabeler3D-${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Path "dist/ImageLabeler3D\*" -Destination $stage -Recurse -Force
+          if (Test-Path settings.json) {
+            Copy-Item settings.json (Join-Path $stage "settings.json") -Force
+          }
+          @(
+            "Image Labeler 3D",
+            "----------------",
+            "1. Unzip/extract this folder.",
+            "2. Run ImageLabeler3D (ImageLabeler3D.exe on Windows).",
+            "3. Edit settings.json or use Edit -> Preferences for server URLs.",
+            "Logs: _logs/   Temp: _temp/"
+          ) | Set-Content -Encoding utf8 (Join-Path $stage "README_RUN.txt")
+
+      - name: Stage package (Unix)
+        if: runner.os != 'Windows'
         run: |
           set -euo pipefail
           STAGE="dist/stage/ImageLabeler3D-${{ matrix.artifact }}"
           mkdir -p "$STAGE"
-          # -R is portable; -a is not always available in Git Bash on Windows.
           cp -R dist/ImageLabeler3D/. "$STAGE/"
           if [ -f settings.json ]; then
             cp settings.json "$STAGE/settings.json"
@@ -117,15 +180,15 @@ jobs:
           ----------------
           1. Unzip/extract this folder.
           2. Run ImageLabeler3D (ImageLabeler3D.exe on Windows).
-          3. Edit settings.json or use Edit -> Preferences for server/Keycloak URLs.
+          3. Edit settings.json or use Edit -> Preferences for server URLs.
           Logs: _logs/   Temp: _temp/
           EOF
 
       - name: Compress package (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          cd dist/stage
-          powershell -Command "Compress-Archive -Path 'ImageLabeler3D-${{ matrix.artifact }}' -DestinationPath '../ImageLabeler3D-${{ matrix.artifact }}.zip' -Force"
+          Compress-Archive -Path "dist/stage/ImageLabeler3D-${{ matrix.artifact }}" -DestinationPath "dist/ImageLabeler3D-${{ matrix.artifact }}.zip" -Force
 
       - name: Compress package (Unix)
         if: runner.os != 'Windows'
