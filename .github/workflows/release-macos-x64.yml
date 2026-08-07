@@ -92,14 +92,35 @@ jobs:
           if [ -f settings.json ]; then
             cp settings.json "$STAGE/settings.json"
           fi
+          cp packaging/run_mac.command "$STAGE/run_mac.command"
+          chmod +x "$STAGE/run_mac.command" "$STAGE/ImageLabeler3D"
           cat > "$STAGE/README_RUN.txt" <<'EOF'
-          Image Labeler 3D
-          ----------------
-          1. Unzip/extract this folder.
-          2. Run ImageLabeler3D.
-          3. Edit settings.json or use Edit -> Preferences for server URLs.
+          Image Labeler 3D (macOS)
+          ------------------------
+          Gatekeeper often blocks unsigned PyInstaller builds downloaded from the
+          internet with: "Python.framework" is damaged and can't be opened.
+
+          Easiest: double-click run_mac.command (clears quarantine and launches).
+
+          Or in Terminal (from this folder):
+            xattr -cr .
+            chmod +x ./ImageLabeler3D
+            ./ImageLabeler3D
+
+          Then edit settings.json or use Edit -> Preferences for server URLs.
           Logs: _logs/   Temp: _temp/
           EOF
+
+      - name: Ad-hoc codesign (macOS)
+        run: |
+          set -euo pipefail
+          STAGE="dist/stage/ImageLabeler3D-macos-x64"
+          codesign --force --deep --sign - "$STAGE/ImageLabeler3D"
+          FW=$(find "$STAGE" -type d -name 'Python.framework' | head -n 1 || true)
+          if [ -n "$FW" ]; then
+            codesign --force --deep --sign - "$FW"
+          fi
+          codesign --verify --deep --strict "$STAGE/ImageLabeler3D" || true
 
       - name: Smoke-test frozen app
         run: |

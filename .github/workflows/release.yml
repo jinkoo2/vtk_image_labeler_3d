@@ -179,14 +179,49 @@ jobs:
           if [ -f settings.json ]; then
             cp settings.json "$STAGE/settings.json"
           fi
-          cat > "$STAGE/README_RUN.txt" <<'EOF'
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp packaging/run_mac.command "$STAGE/run_mac.command"
+            chmod +x "$STAGE/run_mac.command" "$STAGE/ImageLabeler3D"
+            cat > "$STAGE/README_RUN.txt" <<'EOF'
+          Image Labeler 3D (macOS)
+          ------------------------
+          Gatekeeper often blocks unsigned PyInstaller builds downloaded from the
+          internet with: "Python.framework" is damaged and can't be opened.
+
+          Easiest: double-click run_mac.command (clears quarantine and launches).
+
+          Or in Terminal (from this folder):
+            xattr -cr .
+            chmod +x ./ImageLabeler3D
+            ./ImageLabeler3D
+
+          Then edit settings.json or use Edit -> Preferences for server URLs.
+          Logs: _logs/   Temp: _temp/
+          EOF
+          else
+            cat > "$STAGE/README_RUN.txt" <<'EOF'
           Image Labeler 3D
           ----------------
-          1. Unzip/extract this folder.
-          2. Run ImageLabeler3D (ImageLabeler3D.exe on Windows).
+          1. Extract this folder.
+          2. Run ./ImageLabeler3D
           3. Edit settings.json or use Edit -> Preferences for server URLs.
           Logs: _logs/   Temp: _temp/
           EOF
+          fi
+
+      - name: Ad-hoc codesign (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          STAGE="dist/stage/ImageLabeler3D-${{ matrix.artifact }}"
+          # Deep ad-hoc signature reduces "damaged" false-positives on frameworks.
+          # Downloads still need xattr -cr / run_mac.command until notarized.
+          codesign --force --deep --sign - "$STAGE/ImageLabeler3D"
+          FW=$(find "$STAGE" -type d -name 'Python.framework' | head -n 1 || true)
+          if [ -n "$FW" ]; then
+            codesign --force --deep --sign - "$FW"
+          fi
+          codesign --verify --deep --strict "$STAGE/ImageLabeler3D" || true
 
       - name: Smoke-test frozen app (Windows)
         if: runner.os == 'Windows'

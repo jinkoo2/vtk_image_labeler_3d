@@ -31,3 +31,18 @@ Release workflows:
 1. **Release (Primary Platforms)** — Windows x64, Linux x64, macOS arm64 (publishes the GitHub Release).
 2. **Release (macOS x64)** — starts after (1) succeeds and appends the Intel Mac package to the same release.
 
+## macOS Gatekeeper ("Python.framework is damaged")
+
+Downloaded builds are unsigned. After extracting the macOS archive, either:
+
+- Double-click `run_mac.command`, or
+- In Terminal from the extracted folder:
+
+```bash
+xattr -cr .
+chmod +x ./ImageLabeler3D
+./ImageLabeler3D
+```
+
+Proper Developer ID signing + notarization is required to eliminate this prompt for end users.
+
