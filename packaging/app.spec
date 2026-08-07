@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PyInstaller.building.api import COLLECT, EXE, PYZ
 from PyInstaller.building.build_main import Analysis
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 SPEC_DIR = Path(SPECPATH).resolve()
 ROOT = SPEC_DIR.parent
@@ -44,9 +44,30 @@ for name in (
     except Exception as exc:  # noqa: BLE001 - best-effort collection
         print(f"collect_all({name!r}) skipped: {exc}", file=sys.stderr)
 
+# VTK util helpers are imported dynamically and often missed by Analysis.
+try:
+    hiddenimports += collect_submodules("vtk.util")
+except Exception as exc:  # noqa: BLE001
+    print(f"collect_submodules(vtk.util) skipped: {exc}", file=sys.stderr)
+try:
+    hiddenimports += collect_submodules("vtkmodules.util")
+except Exception as exc:  # noqa: BLE001
+    print(f"collect_submodules(vtkmodules.util) skipped: {exc}", file=sys.stderr)
+
+hiddenimports += [
+    "vtk.util",
+    "vtk.util.numpy_support",
+    "vtkmodules",
+    "vtkmodules.util",
+    "vtkmodules.util.numpy_support",
+]
+
 # Bare imports used throughout the package
 hiddenimports += [
     "mainwindow3d",
+    "app_icon",
+    "crash_reporting",
+    "feedback_dialog",
     "viewer3d",
     "viewer2d",
     "config",
