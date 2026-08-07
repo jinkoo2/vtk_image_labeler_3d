@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for vtk-image-labeler-3d (onedir)."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -120,6 +121,9 @@ _SYSTEM_LIB_PREFIXES = (
 
 def _is_os_x11_lib(dest_name: str) -> bool:
     name = Path(str(dest_name)).name
+    # Keep auditwheel/vtk.libs hashed copies like libXcursor-<hash>.so.* (must ship).
+    if re.search(r"-[0-9a-f]{6,}\.so", name):
+        return False
     return any(name.startswith(prefix) for prefix in _SYSTEM_LIB_PREFIXES)
 
 
