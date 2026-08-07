@@ -101,6 +101,14 @@ jobs:
           Logs: _logs/   Temp: _temp/
           EOF
 
+      - name: Smoke-test frozen app
+        run: |
+          set -euo pipefail
+          STAGE="dist/stage/ImageLabeler3D-macos-x64"
+          export QT_QPA_PLATFORM=offscreen
+          python packaging/run_smoke_test.py "$STAGE" --timeout 120
+          rm -f "$STAGE/smoke_result.txt"
+
       - name: Compress package
         run: |
           cd dist/stage

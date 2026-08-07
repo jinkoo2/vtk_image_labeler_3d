@@ -64,7 +64,8 @@ jobs:
             libxcb-shape0 \
             libxcb-xfixes0 \
             libxcb-xinerama0 \
-            libxi6
+            libxi6 \
+            xvfb
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -186,6 +187,30 @@ jobs:
           3. Edit settings.json or use Edit -> Preferences for server URLs.
           Logs: _logs/   Temp: _temp/
           EOF
+
+      - name: Smoke-test frozen app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stage = "dist/stage/ImageLabeler3D-${{ matrix.artifact }}"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          python packaging/run_smoke_test.py $stage --timeout 120
+          # Keep packages clean for end users.
+          Remove-Item (Join-Path $stage "smoke_result.txt") -ErrorAction SilentlyContinue
+
+      - name: Smoke-test frozen app (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          STAGE="dist/stage/ImageLabeler3D-${{ matrix.artifact }}"
+          export QT_QPA_PLATFORM=offscreen
+          XVFB_FLAG=""
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            XVFB_FLAG="--xvfb"
+          fi
+          python packaging/run_smoke_test.py "$STAGE" --timeout 120 $XVFB_FLAG
+          rm -f "$STAGE/smoke_result.txt"
 
       - name: Compress package (Windows)
         if: runner.os == 'Windows'
