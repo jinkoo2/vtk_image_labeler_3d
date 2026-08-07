@@ -78,11 +78,15 @@ class NnUNetLoginDialog(QDialog):
         form.addRow("Password:", self.password_edit)
         layout.addLayout(form)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self._login_button = buttons.button(QDialogButtonBox.Ok)
-        self._login_button.setText("Login")
+        # Use explicit roles so macOS button order is Cancel | Login, and force
+        # Login to be the only default/autoDefault button (Enter must not Cancel).
+        buttons = QDialogButtonBox()
+        self._login_button = buttons.addButton("Login", QDialogButtonBox.AcceptRole)
+        self._cancel_button = buttons.addButton("Cancel", QDialogButtonBox.RejectRole)
         self._login_button.setDefault(True)
         self._login_button.setAutoDefault(True)
+        self._cancel_button.setDefault(False)
+        self._cancel_button.setAutoDefault(False)
         buttons.accepted.connect(self._on_login_clicked)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -106,9 +110,10 @@ class NnUNetLoginDialog(QDialog):
         reg_row.addStretch(1)
         layout.addLayout(reg_row)
 
-        # Do not also connect password returnPressed -> login: Enter would fire
-        # both returnPressed and the default Login button, showing errors twice.
         self.email_edit.returnPressed.connect(self.password_edit.setFocus)
+        # Explicit Enter-on-password -> Login. _login_in_progress guards double-fire
+        # if the dialog default button also activates.
+        self.password_edit.returnPressed.connect(self._on_login_clicked)
         self._login_in_progress = False
 
     def login_result(self):

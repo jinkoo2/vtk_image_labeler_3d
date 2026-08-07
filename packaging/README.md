@@ -46,3 +46,9 @@ chmod +x ./ImageLabeler3D
 
 Proper Developer ID signing + notarization is required to eliminate this prompt for end users.
 
+## Linux glibc compatibility
+
+Linux Release builds use **ubuntu-22.04** so the package targets glibc 2.35
+(Ubuntu 22.04 / equivalent). Building on Ubuntu 24.04 (`ubuntu-latest`) can
+produce `GLIBC_2.38 not found` on older desktops when X11 libs are bundled.
+

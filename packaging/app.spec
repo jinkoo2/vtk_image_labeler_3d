@@ -96,6 +96,33 @@ hiddenimports += [
     "reslicer",
 ]
 
+# Host OS should supply these; shipping copies from a newer distro
+# (e.g. Ubuntu 24.04) causes GLIBC_2.38-not-found on older desktops.
+_SYSTEM_LIB_PREFIXES = (
+    "libX11",
+    "libXext",
+    "libXrender",
+    "libXfixes",
+    "libXinerama",
+    "libXi",
+    "libXrandr",
+    "libXcursor",
+    "libXdamage",
+    "libXcomposite",
+    "libXtst",
+    "libXxf86vm",
+    "libXss",
+    "libxcb",
+    "libbsd",
+    "libmd.so",
+)
+
+
+def _is_os_x11_lib(dest_name: str) -> bool:
+    name = Path(str(dest_name)).name
+    return any(name.startswith(prefix) for prefix in _SYSTEM_LIB_PREFIXES)
+
+
 a = Analysis(
     [str(ENTRY)],
     pathex=[str(PKG)],
@@ -108,6 +135,22 @@ a = Analysis(
     excludes=[],
     noarchive=False,
 )
+
+kept_bins = []
+dropped = []
+for entry in a.binaries:
+    dest = entry[0]
+    if _is_os_x11_lib(dest):
+        dropped.append(dest)
+    else:
+        kept_bins.append(entry)
+if dropped:
+    print(
+        f"Excluded {len(dropped)} OS X11/bsd libs from bundle "
+        f"(examples: {', '.join(dropped[:5])})",
+        file=sys.stderr,
+    )
+a.binaries = kept_bins
 
 pyz = PYZ(a.pure)
 

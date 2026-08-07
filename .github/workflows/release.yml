@@ -29,7 +29,9 @@ jobs:
           - os: windows-latest
             artifact: windows-x64
             shell: pwsh
-          - os: ubuntu-latest
+          # Pin to 22.04 so bundled libs do not require GLIBC 2.38+
+          # (ubuntu-latest is 24.04 and breaks older Ubuntu desktops).
+          - os: ubuntu-22.04
             artifact: linux-x64
             shell: bash
           - os: macos-latest
@@ -200,12 +202,16 @@ jobs:
           EOF
           else
             cat > "$STAGE/README_RUN.txt" <<'EOF'
-          Image Labeler 3D
-          ----------------
+          Image Labeler 3D (Linux)
+          ------------------------
+          Requires glibc from Ubuntu 22.04+ (or equivalent).
+
           1. Extract this folder.
-          2. Run ./ImageLabeler3D
+          2. chmod +x ./ImageLabeler3D && ./ImageLabeler3D
           3. Edit settings.json or use Edit -> Preferences for server URLs.
           Logs: _logs/   Temp: _temp/
+
+          If you see GLIBC_2.xx not found, your OS is older than the build host.
           EOF
           fi
 
