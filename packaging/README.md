@@ -4,7 +4,7 @@ Build locally:
 
 ```bash
 poetry install
-poetry run pip install "pyinstaller>=6.3,<7"
+poetry run python -m pip install "pyinstaller>=6.3,<7"
 poetry run pyinstaller packaging/app.spec --noconfirm --clean
 ```
 
