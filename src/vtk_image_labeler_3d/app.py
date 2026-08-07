@@ -31,37 +31,28 @@ def _write_smoke_result(ok: bool, detail: str = "") -> None:
 
 
 def _run_smoke_test(pkg_dir: str) -> int:
-    """Import + construct main window, then exit (no event loop).
+    """Import-only packaging smoke test (no Qt/VTK windows).
 
-    Catches frozen packaging gaps such as missing vtk.util.numpy_support.
+    CI runners are headless: constructing MainWindow3D / OpenGL contexts
+    segfaults (Windows 0xC0000005, macOS SIGSEGV, Linux X BadWindow).
+    Importing the mainwindow chain still catches missing hidden imports
+    such as vtk.util.numpy_support (via reslicer -> itkvtk).
     """
-    # Headless-friendly defaults for CI / remote runners.
+    del pkg_dir  # reserved for future resource checks
+    # Avoid accidental GUI backend selection if any import constructs QApplication.
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
     try:
-        from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy  # noqa: F401
-        import itkvtk  # noqa: F401
-        import mainwindow3d
-
-        from PyQt5.QtWidgets import QApplication
-        from app_icon import load_app_icon
-        from ui_theme import apply_material_theme
         from version_info import get_version
 
-        app = QApplication(sys.argv)
-        apply_material_theme(app)
-        app_icon = load_app_icon(pkg_dir)
-        app.setWindowIcon(app_icon)
+        from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy  # noqa: F401
+        import itkvtk  # noqa: F401
+        # Pulls viewer3d -> reslicer -> itkvtk; same path as cold start before UI.
+        import mainwindow3d  # noqa: F401
 
-        main_window = mainwindow3d.MainWindow3D()
-        main_window.setWindowIcon(app_icon)
-        # Force a processEvents tick so lazy widget/VTK setup runs.
-        app.processEvents()
-        main_window.close()
-        app.processEvents()
-
-        _write_smoke_result(True, detail=f"version={get_version()}")
-        print("SMOKE_OK", flush=True)
+        detail = f"version={get_version()} imports=ok"
+        _write_smoke_result(True, detail=detail)
+        print("SMOKE_OK", detail, flush=True)
         return 0
     except BaseException as exc:
         detail = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
