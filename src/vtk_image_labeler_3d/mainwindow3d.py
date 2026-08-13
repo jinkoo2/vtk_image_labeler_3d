@@ -200,6 +200,26 @@ class MainWindow3D(QMainWindow):
         if not self._restore_ui_layout():
             self.segmentation_list_dock_widget.show()
             self.segmentation_list_dock_widget.raise_()
+            if getattr(self, "managers_toolbar", None) is not None:
+                self.managers_toolbar.hide()
+            if getattr(self, "file_toolbar", None) is not None:
+                self.file_toolbar.hide()
+
+        # One-time defaults for upgrades: hide Managers / File toolbars.
+        # After this, View -> Toolbars + saveState keep the user's choice.
+        applied = False
+        if not settings.contains("ui/managers_toolbar_default_hidden_v1"):
+            if getattr(self, "managers_toolbar", None) is not None:
+                self.managers_toolbar.hide()
+            settings.setValue("ui/managers_toolbar_default_hidden_v1", True)
+            applied = True
+        if not settings.contains("ui/file_toolbar_default_hidden_v1"):
+            if getattr(self, "file_toolbar", None) is not None:
+                self.file_toolbar.hide()
+            settings.setValue("ui/file_toolbar_default_hidden_v1", True)
+            applied = True
+        if applied:
+            self._save_ui_layout()
 
         # Sync manager menu/toolbar checks with dock open/closed state
         self._sync_manager_open_flags_from_docks()
@@ -539,6 +559,40 @@ class MainWindow3D(QMainWindow):
         print_objects_action.triggered.connect(self.vtk_viewer.print_properties)
         file_menu.addAction(print_objects_action)
         
+    def create_toolbars_menu(self, view_menu):
+        """View -> Toolbars: show/hide main-window toolbars (persisted via saveState)."""
+        self.toolbars_menu = view_menu.addMenu("Toolbars")
+        self.toolbars_menu.aboutToShow.connect(self._refresh_toolbars_menu)
+
+    def _iter_main_toolbars(self):
+        """Toolbars that belong to this main window (not nested widgets)."""
+        for toolbar in self.findChildren(QToolBar):
+            if toolbar.parentWidget() is self:
+                yield toolbar
+
+    def _toolbar_menu_title(self, toolbar: QToolBar) -> str:
+        title = (toolbar.windowTitle() or "").strip()
+        if title:
+            return title
+        name = (toolbar.objectName() or "").strip()
+        return name or "Toolbar"
+
+    def _refresh_toolbars_menu(self):
+        self.toolbars_menu.clear()
+        for toolbar in self._iter_main_toolbars():
+            action = QAction(self._toolbar_menu_title(toolbar), self)
+            action.setCheckable(True)
+            action.setChecked(toolbar.isVisible())
+            action.toggled.connect(
+                lambda checked, tb=toolbar: self._on_toolbar_visibility_toggled(tb, checked)
+            )
+            self.toolbars_menu.addAction(action)
+
+    def _on_toolbar_visibility_toggled(self, toolbar: QToolBar, visible: bool):
+        toolbar.setVisible(bool(visible))
+        # Persist immediately so the choice survives crashes / force-quit.
+        self._save_ui_layout()
+
     def create_managers_menu(self, view_menu):
         self.managers_menu = view_menu.addMenu("Managers")
         self.managers_menu.aboutToShow.connect(self._refresh_manager_visibility_checks)
@@ -583,6 +637,8 @@ class MainWindow3D(QMainWindow):
         toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.addToolBar(Qt.TopToolBarArea, toolbar)
         self.managers_toolbar = toolbar
+        # Show/hide toggles for docks; hidden by default (View -> Toolbars).
+        toolbar.hide()
 
     def create_view_menu(self, view_menu):
         
@@ -600,14 +656,19 @@ class MainWindow3D(QMainWindow):
         zoom_reset_action = _iconize_action(QAction("Zoom Reset", self))
         zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         view_menu.addAction(zoom_reset_action)
-        
+
+        self.create_toolbars_menu(view_menu)
         self.create_managers_menu(view_menu)
 
     def create_file_toolbar(self):
         # Create a toolbar
         toolbar = QToolBar("File Toolbar", self)
         toolbar.setObjectName("FileToolbar")
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.addToolBar(Qt.TopToolBarArea, toolbar)
+        self.file_toolbar = toolbar
+        # Hidden by default; re-enable via View -> Toolbars.
+        toolbar.hide()
 
         # Add actions to the toolbar
         # Add Open DICOM action
@@ -635,6 +696,7 @@ class MainWindow3D(QMainWindow):
         # Create a toolbar
         toolbar = QToolBar("View Toolbar", self)
         toolbar.setObjectName("ViewToolbar")
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
         # Add a label for context

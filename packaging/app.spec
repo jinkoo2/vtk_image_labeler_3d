@@ -91,6 +91,7 @@ hiddenimports += [
     "vtk_rect_list_manager",
     "graphcut_histogram",
     "fill_between_slices",
+    "threshold_tool",
     "flowlayout",
     "qt_tools",
     "model_viewer",

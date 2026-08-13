@@ -8,12 +8,29 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# ITK axis indices after itk.GetImageFromArray(zyx):
-#   dim0 = Z (axial), dim1 = Y (coronal), dim2 = X (sagittal)
+# Numpy axes for volumes shaped (z, y, x):
+#   0 = Z (axial), 1 = Y (coronal), 2 = X (sagittal)
+# itk.GetImageFromArray reverses to ITK axes: 0 = X, 1 = Y, 2 = Z
 AXIS_AUTO = -1  # all axes (Slicer default)
-AXIS_AXIAL = 0  # Z
-AXIS_CORONAL = 1  # Y
-AXIS_SAGITTAL = 2  # X
+AXIS_AXIAL = 0  # Z (numpy)
+AXIS_CORONAL = 1  # Y (numpy)
+AXIS_SAGITTAL = 2  # X (numpy)
+
+AXIS_NAMES = {
+    AXIS_AUTO: "Auto (all axes)",
+    AXIS_AXIAL: "Axial (Z)",
+    AXIS_CORONAL: "Coronal (Y)",
+    AXIS_SAGITTAL: "Sagittal (X)",
+}
+
+def _numpy_axis_to_itk(axis: int) -> int:
+    """Map (z,y,x) numpy axis to ITK axis after GetImageFromArray."""
+    if axis < 0:
+        return -1
+    return 2 - int(axis)  # Z0->2, Y1->1, X2->0
+
+
+
 
 
 def _vtk_to_zyx_uint16(vtk_image) -> np.ndarray:
@@ -37,44 +54,53 @@ def _vtk_to_zyx_uint16(vtk_image) -> np.ndarray:
             f"Scalar size {arr.size} does not match image dimensions {dims} "
             f"(expected at least {expected} values)."
         )
-    # Drop extra components if present (use first component only).
     if arr.ndim > 1:
         arr = arr.reshape(-1, arr.shape[-1])[:, 0]
     arr = np.asarray(arr).reshape(-1)[:expected]
     return arr.reshape(dims[2], dims[1], dims[0]).astype(np.uint16, copy=False)
 
 
+def _labeled_slice_mask(vol: np.ndarray, axis: int) -> np.ndarray:
+    other = tuple(i for i in range(3) if i != axis)
+    return np.any(vol != 0, axis=other)
+
+
 def _count_labeled_slices(vol: np.ndarray, axis: int) -> int:
     """Number of slices along axis that contain any nonzero label."""
     if axis < 0:
-        # Auto: report max across axes for messaging.
         return max(_count_labeled_slices(vol, a) for a in (0, 1, 2))
-    axes = tuple(i for i in range(3) if i != axis)
-    labeled = np.any(vol != 0, axis=axes)
-    return int(np.count_nonzero(labeled))
+    return int(np.count_nonzero(_labeled_slice_mask(vol, axis)))
+
+
+def _has_gaps_along_axis(vol: np.ndarray, axis: int) -> bool:
+    """True if labeled slices along axis have empty slices between first and last."""
+    if axis < 0:
+        return any(_has_gaps_along_axis(vol, a) for a in (0, 1, 2))
+    labeled = _labeled_slice_mask(vol, axis)
+    idxs = np.flatnonzero(labeled)
+    if idxs.size < 2:
+        return False
+    span = int(idxs[-1] - idxs[0] + 1)
+    return span > int(idxs.size)
+
+
+def _suggest_axes_with_gaps(vol: np.ndarray) -> list[int]:
+    return [a for a in (0, 1, 2) if _has_gaps_along_axis(vol, a)]
 
 
 def fill_between_slices_array(
     label_zyx: np.ndarray,
     axis: int = AXIS_AUTO,
     label: int = 0,
-) -> np.ndarray:
+) -> tuple[np.ndarray, dict]:
     """
     Interpolate sparse labeled slices using Morphological Contour Interpolation.
 
-    Parameters
-    ----------
-    label_zyx : ndarray
-        Integer label volume shaped (Z, Y, X). 0 = background.
-    axis : int
-        -1 = all axes; 0 = Z (axial); 1 = Y (coronal); 2 = X (sagittal).
-    label : int
-        0 = all labels; otherwise only interpolate this label value.
-
     Returns
     -------
-    ndarray uint16
-        Filled label volume, same shape.
+    filled : ndarray uint16
+    info : dict
+        Diagnostics (voxel counts, suggested axes, etc.).
     """
     try:
         import itk
@@ -83,7 +109,6 @@ def fill_between_slices_array(
             "ITK is not available. Install itk-morphologicalcontourinterpolation."
         ) from exc
 
-    # Ensure the remote module is loaded (PyInstaller / lazy factories).
     try:
         _ = itk.MorphologicalContourInterpolator
     except Exception as exc:  # noqa: BLE001
@@ -102,17 +127,44 @@ def fill_between_slices_array(
     if axis not in (-1, 0, 1, 2):
         raise ValueError(f"Invalid axis {axis}. Use -1, 0, 1, or 2.")
 
-    # For a single-axis request, require >=2 labeled slices along that axis.
+    suggested = _suggest_axes_with_gaps(vol)
+
     if axis >= 0 and _count_labeled_slices(vol, axis) < 2:
+        hint = ""
+        if suggested:
+            names = ", ".join(AXIS_NAMES[a] for a in suggested)
+            hint = f" Your labels look sparse along: {names}."
         raise ValueError(
             "Need labels on at least two slices along the selected axis "
-            "before fill-between-slices can run."
+            f"({AXIS_NAMES.get(axis, axis)}) before fill-between-slices can run."
+            + hint
         )
     if axis < 0 and max(_count_labeled_slices(vol, a) for a in (0, 1, 2)) < 2:
         raise ValueError(
             "Need labels on at least two slices (on some axis) "
             "before fill-between-slices can run."
         )
+
+    # If a specific axis has no empty slices between labels, MCI will do nothing.
+    if axis >= 0 and not _has_gaps_along_axis(vol, axis):
+        hint = ""
+        if suggested:
+            names = ", ".join(AXIS_NAMES[a] for a in suggested)
+            hint = (
+                f" Try {names}. "
+                "Tip: choose the same view you painted in (Sagittal view -> Sagittal (X), etc.)."
+            )
+        elif _count_labeled_slices(vol, axis) >= 2:
+            hint = (
+                " Labeled slices along this axis are contiguous (no empty slices "
+                "between them), so there is nothing to fill."
+            )
+        raise ValueError(
+            f"No empty slices to fill along {AXIS_NAMES.get(axis, axis)}."
+            + hint
+        )
+
+    before_fg = int(np.count_nonzero(vol))
 
     itk_img = itk.GetImageFromArray(vol.astype(np.uint16, copy=False))
     ImageType = type(itk_img)
@@ -123,11 +175,11 @@ def fill_between_slices_array(
             f"Could not create MorphologicalContourInterpolator: {exc}"
         ) from exc
 
+    itk_axis = _numpy_axis_to_itk(axis)
     filt.SetInput(itk_img)
-    filt.SetAxis(axis)
+    filt.SetAxis(itk_axis)
     filt.SetLabel(int(label))
     filt.SetHeuristicAlignment(True)
-    # Match Slicer vtkITKMorphologicalContourInterpolator defaults:
     if hasattr(filt, "SetUseDistanceTransform"):
         filt.SetUseDistanceTransform(False)
     if hasattr(filt, "SetUseBallStructuringElement"):
@@ -141,16 +193,37 @@ def fill_between_slices_array(
             f"clearer contours on more slices. Details: {exc}"
         ) from exc
 
-    out = itk.GetArrayFromImage(filt.GetOutput())
-    return np.ascontiguousarray(out, dtype=np.uint16)
+    out = np.ascontiguousarray(itk.GetArrayFromImage(filt.GetOutput()), dtype=np.uint16)
+    after_fg = int(np.count_nonzero(out))
+    info = {
+        "axis": axis,
+        "itk_axis": itk_axis,
+        "axis_name": AXIS_NAMES.get(axis, str(axis)),
+        "foreground_before": before_fg,
+        "foreground_after": after_fg,
+        "voxels_added": max(0, after_fg - before_fg),
+        "suggested_axes": suggested,
+    }
+    if after_fg <= before_fg:
+        hint = ""
+        if suggested:
+            names = ", ".join(AXIS_NAMES[a] for a in suggested)
+            hint = f" Try axis: {names}."
+        raise ValueError(
+            "Interpolation produced no new voxels along "
+            f"{info['axis_name']}.{hint} "
+            "Paint complete contours on sparse slices in one view, then choose "
+            "that same axis (Axial if you scrolled Z, etc.)."
+        )
+    return out, info
 
 
 def fill_between_slices_vtk(
     vtk_label_image,
     axis: int = AXIS_AUTO,
     label: int = 0,
-) -> np.ndarray:
-    """Run MCI on a VTK label image; return filled (Z,Y,X) uint16 array."""
+):
+    """Run MCI on a VTK label image; return (filled zyx uint16, info)."""
     zyx = _vtk_to_zyx_uint16(vtk_label_image)
     return fill_between_slices_array(zyx, axis=axis, label=label)
 
@@ -174,7 +247,6 @@ def write_zyx_into_vtk_image(vtk_image, zyx: np.ndarray) -> None:
             f"Cannot write interpolated labels: scalar buffer too small ({view.size} < {expected})"
         )
     if view.ndim > 1:
-        # Multi-component: write into first component only.
         shaped = view.reshape(dims[2], dims[1], dims[0], -1)
         shaped[..., 0] = zyx.astype(shaped.dtype, copy=False)
     else:

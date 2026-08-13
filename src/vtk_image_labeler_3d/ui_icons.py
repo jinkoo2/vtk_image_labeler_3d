@@ -30,6 +30,7 @@ ACTION_ICONS = {
     "Add Ruler": "mdi.ruler",
     "Paint Tool": "mdi.brush",
     "Pencil Tool": "mdi.pencil-outline",
+    "Threshold Tool": "mdi.chart-bell-curve",
     "Boolean Tool": "mdi.set-merge",
     "nnUNet Prediction Tool": "mdi.brain",
     "Scribble Tool": "mdi.gesture",

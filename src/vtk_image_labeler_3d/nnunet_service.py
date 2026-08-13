@@ -6,9 +6,14 @@ class ServerError(Exception):
 
 # Mutable auth session filled by login() after Keycloak authentication.
 # Kept as `test_user` name for compatibility with existing Bearer header sites.
+# password/base_url are kept in-memory only (not persisted) so the client can
+# silently renew an expired access token during a long labeling session.
 test_user = {
     "email": None,
+    "password": None,
+    "base_url": None,
     "token": None,
+    "token_exp": None,
     "is_admin": False,
     "roles": [],
 }
@@ -16,9 +21,12 @@ test_user = {
 NNUNET_TRAIN_ROLE = "nnunet-train"
 NNUNET_ADMIN_ROLE = "nnunet-admin"
 
+# Renew this many seconds before JWT exp to avoid mid-request expiry races.
+_TOKEN_REFRESH_SKEW_SECONDS = 60
+
 
 def _decode_jwt_payload(access_token):
-    """Decode JWT payload without verifying signature (roles only)."""
+    """Decode JWT payload without verifying signature (roles / exp only)."""
     import base64
 
     try:
@@ -40,27 +48,54 @@ def _roles_from_token(access_token):
     return [str(r) for r in roles]
 
 
-def set_auth_session(access_token, user_email=None, is_admin=False, roles=None):
-    """Store Bearer token for subsequent API calls."""
+def _exp_from_token(access_token):
+    claims = _decode_jwt_payload(access_token)
+    exp = claims.get("exp")
+    try:
+        return int(exp) if exp is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def set_auth_session(
+    access_token,
+    user_email=None,
+    is_admin=False,
+    roles=None,
+    password=None,
+    base_url=None,
+):
+    """Store Bearer token (and optional renew credentials) for subsequent API calls."""
     token_roles = list(roles) if roles is not None else _roles_from_token(access_token)
     # Prefer explicit is_admin from login API; also derive from roles if needed.
     is_admin_flag = bool(is_admin) or (NNUNET_ADMIN_ROLE in token_roles)
 
     test_user["token"] = access_token
+    test_user["token_exp"] = _exp_from_token(access_token)
     test_user["email"] = user_email
     test_user["is_admin"] = is_admin_flag
     test_user["roles"] = token_roles
+    if password is not None:
+        test_user["password"] = password
+    if base_url is not None:
+        test_user["base_url"] = (base_url or "").rstrip("/") or None
 
 
 def clear_auth_session():
     test_user["token"] = None
+    test_user["token_exp"] = None
     test_user["email"] = None
+    test_user["password"] = None
+    test_user["base_url"] = None
     test_user["is_admin"] = False
     test_user["roles"] = []
 
 
 def get_auth_session():
-    return dict(test_user)
+    # Never expose password to callers that dump session for UI/logs.
+    session = dict(test_user)
+    session.pop("password", None)
+    return session
 
 
 def is_authenticated():
@@ -80,21 +115,131 @@ def has_nnunet_train_role():
     return has_role(NNUNET_TRAIN_ROLE)
 
 
+def _token_needs_renewal(skew_seconds=_TOKEN_REFRESH_SKEW_SECONDS):
+    """True when there is no token or JWT exp is missing / near / past."""
+    token = test_user.get("token")
+    if not token:
+        return True
+    exp = test_user.get("token_exp")
+    if exp is None:
+        exp = _exp_from_token(token)
+        test_user["token_exp"] = exp
+    if exp is None:
+        # Cannot tell; leave token alone until server returns 401.
+        return False
+    import time
+
+    return int(time.time()) >= (int(exp) - int(skew_seconds))
+
+
+def can_renew_auth():
+    return bool(
+        test_user.get("email")
+        and test_user.get("password")
+        and test_user.get("base_url")
+    )
+
+
+def renew_auth_session(timeout_seconds=30, force=False):
+    """
+    Silently re-login with in-memory credentials when the access token is expired
+    (or about to expire). Returns True if a renewal was performed.
+    """
+    if not force and not _token_needs_renewal():
+        return False
+    if not can_renew_auth():
+        raise ServerError(
+            "Session token expired. Connect again and sign in to renew."
+        )
+    email = test_user["email"]
+    password = test_user["password"]
+    base_url = test_user["base_url"]
+    print(f"Renewing access token for {email} at {base_url}")
+    login(base_url, email, password, timeout_seconds=timeout_seconds)
+    return True
+
+
+def ensure_auth(skew_seconds=_TOKEN_REFRESH_SKEW_SECONDS):
+    """Renew the access token if missing/expired before an API call."""
+    if not test_user.get("token"):
+        if can_renew_auth():
+            renew_auth_session(force=True)
+        else:
+            raise ServerError("Not logged in. Connect to the server and sign in first.")
+        return
+    if _token_needs_renewal(skew_seconds=skew_seconds):
+        renew_auth_session(force=True)
+
+
 def _auth_headers():
+    ensure_auth()
     token = test_user.get("token")
     if not token:
         raise ServerError("Not logged in. Connect to the server and sign in first.")
     return {"Authorization": f"Bearer {token}"}
 
 
+def _is_token_expired_response(response):
+    """True when the server rejected the request because the JWT expired."""
+    if response is None:
+        return False
+    if response.status_code not in (401, 403):
+        return False
+    text = (response.text or "").lower()
+    if "token expired" in text or "expired signature" in text:
+        return True
+    try:
+        detail = response.json().get("detail")
+        detail_s = str(detail).lower() if detail is not None else ""
+        if "token expired" in detail_s or "expired" in detail_s:
+            return True
+    except Exception:
+        pass
+    # Generic unauthorized often means expired Keycloak JWT after a long session.
+    return response.status_code == 401
+
+
+def request_with_auth(method, url, timeout=30, retry_auth=True, **kwargs):
+    """
+    Authenticated requests.* wrapper: renews JWT when near expiry, and retries
+    once after a silent re-login if the server reports token expired / 401.
+    """
+    headers = dict(kwargs.pop("headers", None) or {})
+    headers.update(_auth_headers())
+    kwargs["headers"] = headers
+    kwargs.setdefault("timeout", timeout)
+
+    response = requests.request(method, url, **kwargs)
+    if retry_auth and _is_token_expired_response(response) and can_renew_auth():
+        print("Server reported expired token; renewing and retrying once...")
+        renew_auth_session(force=True)
+        headers = dict(kwargs.get("headers") or {})
+        headers.update(_auth_headers())
+        kwargs["headers"] = headers
+        # File uploads: reopen / rewind if caller passed an open file that was read.
+        files = kwargs.get("files")
+        if files:
+            for _key, value in list(files.items() if isinstance(files, dict) else []):
+                file_obj = value[1] if isinstance(value, tuple) and len(value) >= 2 else value
+                if hasattr(file_obj, "seek"):
+                    try:
+                        file_obj.seek(0)
+                    except Exception:
+                        pass
+        response = requests.request(method, url, **kwargs)
+    return response
+
+
 def login(BASE_URL, email, password, timeout_seconds=30):
     """
-    POST /auth/login — authenticate against Keycloak via the nnU-Net server.
+    POST /auth/login - authenticate against Keycloak via the nnU-Net server.
 
     Returns dict with access_token, token_type, user_email, is_admin and
-    stores the token for subsequent API calls.
+    stores the token (plus in-memory credentials for auto-renewal) for
+    subsequent API calls.
     """
-    url = f"{BASE_URL.rstrip('/')}/auth/login"
+    base = (BASE_URL or "").rstrip("/")
+    url = f"{base}/auth/login"
     print(f"Logging in at {url} as {email}")
     try:
         response = requests.post(
@@ -123,10 +268,13 @@ def login(BASE_URL, email, password, timeout_seconds=30):
         access_token=token,
         user_email=data.get("user_email") or email,
         is_admin=bool(data.get("is_admin", False)),
+        password=password,
+        base_url=base,
     )
     print(
         f"Logged in as {test_user['email']} "
-        f"(admin={test_user['is_admin']}, roles={test_user.get('roles')})"
+        f"(admin={test_user['is_admin']}, roles={test_user.get('roles')}, "
+        f"exp={test_user.get('token_exp')})"
     )
     return data
 
@@ -144,7 +292,19 @@ def _filename_from_content_disposition(response, fallback):
 def _raise_for_status(response, action):
     if response.status_code == 200:
         return
-    error_message = f"Failed {action}: {response.status_code}, {response.text}"
+    detail = response.text
+    try:
+        detail = response.json().get("detail", detail)
+    except Exception:
+        pass
+    if _is_token_expired_response(response):
+        error_message = (
+            "Failed %s: session token expired and could not be renewed. "
+            "Connect again and sign in. (%s: %s)"
+            % (action, response.status_code, detail)
+        )
+    else:
+        error_message = "Failed %s: %s, %s" % (action, response.status_code, detail)
     print(error_message)
     raise ServerError(error_message)
 
@@ -157,9 +317,7 @@ def get_ping(BASE_URL, timeout_seconds=10):
     print(f'Pinging the server at {url}')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
 
     try:
         response = requests.get(url, headers=headers, timeout=timeout_seconds)
@@ -184,9 +342,7 @@ def get_dataset_json_list(BASE_URL, timeout_seconds=10):
     print('Getting the list of dataset')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
 
     try:
         response = requests.get(f"{BASE_URL}/datasets/list", 
@@ -212,9 +368,7 @@ def get_dataset_json_id_list(BASE_URL, timeout_seconds=10):
     print('Getting the list of dataset IDs')
 
      # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
 
     try:
         response = requests.get(f"{BASE_URL}/datasets/id-list", 
@@ -241,9 +395,7 @@ def get_dataset_image_name_list(BASE_URL, dataset_id, timeout_seconds=10):
     params = {"dataset_id": dataset_id}
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
 
     try:
         response = requests.get(f"{BASE_URL}/datasets/image_name_list", 
@@ -325,17 +477,16 @@ def update_image_meta(BASE_URL, dataset_id, images_for, num, meta, timeout_secon
     Create or replace image-set metadata for a case.
     Full-replace semantics: send the complete merged meta object.
     """
-    headers = _auth_headers()
     params = {
         "dataset_id": dataset_id,
         "images_for": images_for,
         "num": num,
     }
     try:
-        response = requests.put(
+        response = request_with_auth(
+            "PUT",
             f"{BASE_URL}/datasets/update_image_meta",
             params=params,
-            headers=headers,
             json=meta,
             timeout=timeout_seconds,
         )
@@ -353,17 +504,16 @@ def update_label_meta(BASE_URL, dataset_id, images_for, num, meta, timeout_secon
     """
     Create or replace label metadata for a case (status, modified_by, label_stats, ...).
     """
-    headers = _auth_headers()
     params = {
         "dataset_id": dataset_id,
         "images_for": images_for,
         "num": num,
     }
     try:
-        response = requests.put(
+        response = request_with_auth(
+            "PUT",
             f"{BASE_URL}/datasets/update_label_meta",
             params=params,
-            headers=headers,
             json=meta,
             timeout=timeout_seconds,
         )
@@ -507,13 +657,11 @@ def post_dataset_json(BASE_URL, data):
     """
     post a dataset
     """
-    response = requests.post(
+    response = request_with_auth(
+        "POST",
         f"{BASE_URL}/datasets/new",
-        json=data,  # Task input as JSON payload
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {test_user['token']}"
-            }
+        json=data,
+        headers={"Content-Type": "application/json"},
     )
     if response.status_code == 200:
         return response.json()
@@ -584,9 +732,8 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
 
     Uses PUT update_* when the file already exists. If the server returns 404
     (common when an image was opened with no label yet), falls back to POST add_*.
+    Access tokens are auto-renewed when expired (silent re-login).
     """
-    headers = _auth_headers()
-
     try:
         image_data = {
             "dataset_id": dataset_id,
@@ -595,9 +742,9 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
             "ch_number": ch_number,
         }
         with open(image_path, "rb") as img_file:
-            image_response = requests.put(
+            image_response = request_with_auth(
+                "PUT",
                 f"{BASE_URL}/datasets/update_image",
-                headers=headers,
                 data=image_data,
                 files={"image": img_file},
             )
@@ -607,9 +754,9 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
                     "Falling back to POST /add_image."
                 )
                 img_file.seek(0)
-                image_response = requests.post(
+                image_response = request_with_auth(
+                    "POST",
                     f"{BASE_URL}/datasets/add_image",
-                    headers=headers,
                     data=image_data,
                     files={"image": img_file},
                 )
@@ -623,9 +770,9 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
             "num": num,
         }
         with open(labels_path, "rb") as lbl_file:
-            label_response = requests.put(
+            label_response = request_with_auth(
+                "PUT",
                 f"{BASE_URL}/datasets/update_label",
-                headers=headers,
                 data=label_data,
                 files={"label": lbl_file},
             )
@@ -635,9 +782,9 @@ def update_image_and_labels(BASE_URL, dataset_id, images_for, num, image_path, l
                     "Falling back to POST /add_label."
                 )
                 lbl_file.seek(0)
-                label_response = requests.post(
+                label_response = request_with_auth(
+                    "POST",
                     f"{BASE_URL}/datasets/add_label",
-                    headers=headers,
                     data=label_data,
                     files={"label": lbl_file},
                 )
@@ -739,9 +886,7 @@ def test_post_predictions_zip():
             "images_zip": ("images.zip", zip_file, "application/zip")
         }
 
-        response = requests.post(url, data=form_data, files=files, headers={
-            "Authorization": f"Bearer {test_user['token']}"
-        }   )
+        response = requests.post(url, data=form_data, files=files, headers=_auth_headers()   )
 
     if response.status_code == 200:
         print("Request succeeded:", response.json())
@@ -777,9 +922,7 @@ def test_post_predictions():
             "image": image_file
         }
 
-        response = requests.post(url, data=form_data, files=files, headers={
-            "Authorization": f"Bearer {test_user['token']}"
-        })
+        response = requests.post(url, data=form_data, files=files, headers=_auth_headers())
 
     if response.status_code == 200:
         print("Request succeeded:", response.json())
@@ -795,9 +938,7 @@ def get_prediction_list(BASE_URL, dataset_id):
     try:
         response = requests.get(url, 
                                 params=params,
-                                headers={
-                                    "Authorization": f"Bearer {test_user['token']}"
-                                })
+                                headers=_auth_headers())
 
         if response.status_code == 200:
             data = response.json()
@@ -834,9 +975,7 @@ def post_image_for_prediction(BASE_URL, dataset_id, image_path, requester_id, im
         response = requests.post(url, 
                                  data=form_data, 
                                  files=files,
-                                 headers={
-                                     "Authorization": f"Bearer {test_user['token']}"
-                                 })
+                                 headers=_auth_headers())
 
         # Print response with error handling
         if response.status_code == 200:
@@ -983,7 +1122,7 @@ def delete_prediction(BASE_URL, dataset_id, req_id):
     try:
         response = requests.delete(url, 
                                 params=params,
-                                headers={"Authorization": f"Bearer {test_user['token']}"})
+                                headers=_auth_headers())
 
         if response.status_code == 200:
             print("Delete successful:", response.json())
@@ -1005,9 +1144,7 @@ def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_nu
         "req_id": req_id,
         "image_number": image_number
     }
-    meta_response = requests.get(meta_url, params=meta_params, headers={
-        "Authorization": f"Bearer {test_user['token']}"
-    })
+    meta_response = requests.get(meta_url, params=meta_params, headers=_auth_headers())
 
     if meta_response.status_code != 200:
         raise Exception(f"Failed to fetch metadata: {meta_response.status_code}, {meta_response.text}")
@@ -1030,9 +1167,7 @@ def download_prediction_images_and_labels(BASE_URL, dataset_id, req_id, image_nu
     zip_path = os.path.join(out_dir, zip_filename)
 
     zip_response = requests.get(download_url,
-                                headers={
-                                    "Authorization": f"Bearer {test_user['token']}"
-                                })
+                                headers=_auth_headers())
     if zip_response.status_code == 200:
         print(f"Saving ZIP to: {zip_path}")
         with open(zip_path, "wb") as f:
@@ -1069,9 +1204,7 @@ def post_plan_and_preprocess_run(BASE_URL, dataset_id, timeout_seconds=10):
     print(f'Submitting plan and preprocess job for dataset: {dataset_id}')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     # Form data for application/x-www-form-urlencoded
     data = {
@@ -1119,9 +1252,7 @@ def get_plan_and_preprocess_job_status(BASE_URL, job_id, timeout_seconds=10):
     print(f'Checking plan and preprocess job status for job_id: {job_id}')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     try:
         response = requests.get(url,
@@ -1165,9 +1296,7 @@ def get_preprocessed_summary(BASE_URL, dataset_id, timeout_seconds=10):
     url = f"{BASE_URL}/plan_and_preprocess/results/preprocess_summary"
     print(f'Getting preprocessed summary for dataset: {dataset_id}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id
@@ -1221,9 +1350,7 @@ def get_preprocessed_files(BASE_URL, dataset_id, timeout_seconds=10):
     url = f"{BASE_URL}/plan_and_preprocess/results/files"
     print(f'Getting preprocessed files list for dataset: {dataset_id}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id
@@ -1277,9 +1404,7 @@ def get_preprocessed_file_content(BASE_URL, dataset_id, file_name, timeout_secon
     url = f"{BASE_URL}/plan_and_preprocess/results/file_content"
     print(f'Getting preprocessed file content for dataset: {dataset_id}, file: {file_name}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id,
@@ -1334,9 +1459,7 @@ def get_preprocessed_results_details(BASE_URL, dataset_id, timeout_seconds=10):
     url = f"{BASE_URL}/plan_and_preprocess/results/details"
     print(f'Getting all preprocessed results details for dataset: {dataset_id}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id
@@ -1388,9 +1511,7 @@ def post_train_run(BASE_URL, dataset_id, timeout_seconds=10):
     print(f'Submitting training job for dataset: {dataset_id}')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     # Form data for application/x-www-form-urlencoded
     data = {
@@ -1438,9 +1559,7 @@ def get_train_job_status(BASE_URL, job_id, timeout_seconds=10):
     print(f'Checking training job status for job_id: {job_id}')
     
     # The header must follow the format: Authorization: Bearer <TOKEN>
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     try:
         response = requests.get(url,
@@ -1487,9 +1606,7 @@ def get_training_log_files(BASE_URL, dataset_id, model_folder_name, timeout_seco
     url = f"{BASE_URL}/train/results/training_log_files"
     print(f'Getting training log files list for dataset: {dataset_id}, model folder: {model_folder_name}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id,
@@ -1543,9 +1660,7 @@ def get_training_file_content(BASE_URL, dataset_id, model_folder_name, file_name
     url = f"{BASE_URL}/train/results/log_file_content"
     print(f'Getting training file content for dataset: {dataset_id}, model folder: {model_folder_name}, file: {file_name}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id,
@@ -1601,9 +1716,7 @@ def get_training_model_folder_names(BASE_URL, dataset_id, timeout_seconds=10):
     url = f"{BASE_URL}/train/results/model_folders"
     print(f'Getting model folders list for dataset: {dataset_id}')
     
-    headers = {
-        "Authorization": f"Bearer {test_user['token']}"
-    }
+    headers = _auth_headers()
     
     params = {
         "dataset_id": dataset_id

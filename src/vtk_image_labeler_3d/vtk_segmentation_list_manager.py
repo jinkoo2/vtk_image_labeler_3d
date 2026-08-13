@@ -841,6 +841,9 @@ class SegmentationListManager(QObject):
         self._binary_morph_target_layer_name = None
         self._binary_morph_baseline = None  # deep-copied vtkImageData for Reset
 
+        self.threshold_tool_dialog = None
+        self._threshold_target_layer_name = None
+
         logger.info("SegmentationListManager initialized")
 
     def get_segmentation_layer_list(self) -> SegmentationLayerList:
@@ -888,6 +891,10 @@ class SegmentationListManager(QObject):
         self.pencil_button = self._tool_button_for_action(self.pencil_action, toolbar)
         toolbar.addWidget(self.pencil_button)
 
+        toolbar.addWidget(
+            self._tool_button_for_action(self.threshold_tool_action, toolbar)
+        )
+
         toolbar.addWidget(self._tool_button_for_action(self.boolean_tool_action, toolbar))
         toolbar.addWidget(
             self._tool_button_for_action(self.nnunet_prediction_tool_action, toolbar)
@@ -918,6 +925,14 @@ class SegmentationListManager(QObject):
             "Pencil Tool", self.pencil_active, None, self.toggle_pencil_tool
         )
         apply_icon(self.pencil_action)
+
+        self.threshold_tool_action = QAction("Threshold Tool")
+        apply_icon(self.threshold_tool_action)
+        self.threshold_tool_action.setToolTip(
+            "Create a binary mask on the Target Layer from intensity thresholds"
+        )
+        self.threshold_tool_action.triggered.connect(self.show_threshold_tool_clicked)
+
         self.scribble_action, _ = self.create_checkable_button(
             "Scribble Tool", self.scribble_active, None, self.toggle_scribble_tool
         )
@@ -973,6 +988,8 @@ class SegmentationListManager(QObject):
     def _tool_button_for_action(self, action, parent=None):
         button = QToolButton(parent)
         button.setDefaultAction(action)
+        # addWidget() buttons do not inherit QToolBar.setToolButtonStyle().
+        button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         return button
 
     def create_dock_widget(self):
@@ -1502,25 +1519,25 @@ class SegmentationListManager(QObject):
         self.interpolation_axis_combo = QComboBox(dialog)
         # Values match ITK axes after GetImageFromArray(zyx): 0=Z, 1=Y, 2=X.
         self.interpolation_axis_combo.addItem("Auto (all axes)", -1)
-        self.interpolation_axis_combo.addItem("Axial (Z)", 0)
-        self.interpolation_axis_combo.addItem("Coronal (Y)", 1)
-        self.interpolation_axis_combo.addItem("Sagittal (X)", 2)
+        self.interpolation_axis_combo.addItem("Axial (Z) - fill between Z slices", 0)
+        self.interpolation_axis_combo.addItem("Coronal (Y) - fill between Y slices", 1)
+        self.interpolation_axis_combo.addItem("Sagittal (X) - fill between X slices", 2)
         self.interpolation_axis_combo.setCurrentIndex(1)  # Axial default for CT workflows
         self.interpolation_axis_combo.setToolTip(
-            "Slice axis to interpolate along. Axial is typical for sparse axial paintings."
+            "Must match the view you painted in. "
+            "Painted while scrolling Axial (Z)? Choose Axial. "
+            "Sagittal (X) only fills gaps between different X slices."
         )
         form.addRow("Axis:", self.interpolation_axis_combo)
 
         layout.addLayout(form)
 
         hint = QLabel(
-            "Paint complete contours on selected slices with the Paint Tool, "
-            "leaving at least one empty neighbor slice between painted slices. "
-            "Then click Run to fill the empty slices "
-            "(morphological contour interpolation, same as Slicer "
-            "\"Fill between slices\")."
+            "Paint complete contours on sparse slices, with empty slices between them. "
+            "Axis must match the view you painted in: Axial (Z) if you scrolled the "
+            "axial viewer, Sagittal (X) only if you painted on different X slices. "
+            "Run fills gaps via morphological contour interpolation (Slicer algorithm)."
         )
-        hint.setWordWrap(True)
         layout.addWidget(hint)
 
         btn_row = QHBoxLayout()
@@ -1606,14 +1623,15 @@ class SegmentationListManager(QObject):
                 title="Interpolation Tool",
                 label="Filling between slices...",
             ):
-                filled = fill_between_slices_vtk(image, axis=axis, label=0)
+                filled, info = fill_between_slices_vtk(image, axis=axis, label=0)
                 write_zyx_into_vtk_image(image, filled)
             target.set_modified(True)
             self._modified = True
             # Emit image_changed last so 3D surface uses the prompt (0ms) refresh path.
             target.image_changed.emit(target)
             self.print_status(
-                f"Fill between slices applied to '{target.get_name()}' (axis={axis})"
+                f"Fill between slices applied to '{target.get_name()}' "
+                f"({info.get('axis_name', axis)}, +{info.get('voxels_added', 0)} voxels)"
             )
         except Exception as e:
             QMessageBox.critical(self.dock_widget, "Interpolation Failed", str(e))
@@ -2112,6 +2130,214 @@ class SegmentationListManager(QObject):
             )
             self.print_status("Binary morphology reset failed: %s" % e)
 
+
+    # ------------------------------------------------------------------
+    # Threshold Tool: intensity range -> binary mask on target layer
+    # ------------------------------------------------------------------
+
+    def show_threshold_tool_clicked(self):
+        if self.get_base_vtk_image() is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self.dock_widget,
+                "Threshold Tool",
+                "Open an image in the viewer first.",
+            )
+            return
+
+        if (
+            self.threshold_tool_dialog is not None
+            and self.threshold_tool_dialog.isVisible()
+        ):
+            self.threshold_tool_dialog.raise_()
+            self.threshold_tool_dialog.activateWindow()
+            self._refresh_threshold_target_layers()
+            self._sync_threshold_spins_from_image()
+            return
+
+        dialog = self._ensure_threshold_tool_dialog()
+        preferred = None
+        active = self.segmentation_layers.get_active_layer()
+        if active is not None:
+            preferred = active.get_name()
+        self._refresh_threshold_target_layers(preferred_name=preferred)
+        self._sync_threshold_spins_from_image()
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _ensure_threshold_tool_dialog(self):
+        if self.threshold_tool_dialog is not None:
+            return self.threshold_tool_dialog
+
+        from PyQt5.QtWidgets import (
+            QDialog,
+            QComboBox,
+            QFormLayout,
+            QVBoxLayout,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QDoubleSpinBox,
+        )
+
+        dialog = QDialog(self.dock_widget)
+        dialog.setWindowTitle("Threshold Tool")
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
+        dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        dialog.resize(420, 260)
+
+        layout = QVBoxLayout(dialog)
+        form = QFormLayout()
+
+        self.threshold_target_combo = QComboBox(dialog)
+        self.threshold_target_combo.setToolTip(
+            "Segmentation layer that receives the threshold mask"
+        )
+        self.threshold_target_combo.currentTextChanged.connect(
+            self._on_threshold_target_changed
+        )
+        form.addRow("Target Layer:", self.threshold_target_combo)
+
+        self.threshold_lower_spin = QDoubleSpinBox(dialog)
+        self.threshold_lower_spin.setDecimals(2)
+        self.threshold_lower_spin.setRange(-1e7, 1e7)
+        self.threshold_lower_spin.setSingleStep(1.0)
+        self.threshold_lower_spin.setToolTip("Inclusive lower intensity bound")
+        form.addRow("Lower:", self.threshold_lower_spin)
+
+        self.threshold_upper_spin = QDoubleSpinBox(dialog)
+        self.threshold_upper_spin.setDecimals(2)
+        self.threshold_upper_spin.setRange(-1e7, 1e7)
+        self.threshold_upper_spin.setSingleStep(1.0)
+        self.threshold_upper_spin.setToolTip("Inclusive upper intensity bound")
+        form.addRow("Upper:", self.threshold_upper_spin)
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Voxels in the base image with Lower <= intensity <= Upper are set to "
+            "foreground (1) on the Target Layer; all others become 0."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #666; font-size: 11px;")
+        layout.addWidget(hint)
+
+        btn_row = QHBoxLayout()
+        range_btn = QPushButton("Reset to Image Range", dialog)
+        range_btn.setToolTip("Set Lower/Upper from the base image scalar range")
+        range_btn.clicked.connect(self._sync_threshold_spins_from_image)
+        apply_btn = QPushButton("Apply", dialog)
+        apply_btn.setDefault(True)
+        apply_btn.clicked.connect(self.run_threshold_tool)
+        close_btn = QPushButton("Close", dialog)
+        close_btn.clicked.connect(dialog.close)
+        btn_row.addWidget(range_btn)
+        btn_row.addStretch(1)
+        btn_row.addWidget(apply_btn)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self.threshold_tool_dialog = dialog
+        return dialog
+
+    def _on_threshold_target_changed(self, name):
+        self._threshold_target_layer_name = name or None
+
+    def _refresh_threshold_target_layers(self, preferred_name=None):
+        if (
+            not hasattr(self, "threshold_target_combo")
+            or self.threshold_target_combo is None
+        ):
+            return
+        names = [layer.get_name() for layer in self.segmentation_layers]
+        current = preferred_name or self.threshold_target_combo.currentText()
+        self.threshold_target_combo.blockSignals(True)
+        self.threshold_target_combo.clear()
+        self.threshold_target_combo.addItems(names)
+        if current and current in names:
+            self.threshold_target_combo.setCurrentText(current)
+        elif names:
+            self.threshold_target_combo.setCurrentIndex(0)
+        self.threshold_target_combo.blockSignals(False)
+        self._on_threshold_target_changed(self.threshold_target_combo.currentText())
+
+    def get_threshold_target_layer(self):
+        name = getattr(self, "_threshold_target_layer_name", None)
+        if not name:
+            return None
+        return self.segmentation_layers.get_layer_by_name(name)
+
+    def _sync_threshold_spins_from_image(self):
+        from threshold_tool import scalar_range_of_vtk_image
+
+        base = self.get_base_vtk_image()
+        if base is None:
+            return
+        if not hasattr(self, "threshold_lower_spin"):
+            return
+        try:
+            lo, hi = scalar_range_of_vtk_image(base)
+        except Exception:
+            return
+        self.threshold_lower_spin.blockSignals(True)
+        self.threshold_upper_spin.blockSignals(True)
+        self.threshold_lower_spin.setValue(lo)
+        self.threshold_upper_spin.setValue(hi)
+        self.threshold_lower_spin.blockSignals(False)
+        self.threshold_upper_spin.blockSignals(False)
+
+    def run_threshold_tool(self):
+        from PyQt5.QtWidgets import QMessageBox
+        import qt_tools
+        from threshold_tool import apply_threshold_to_layer
+
+        target = self.get_threshold_target_layer()
+        if target is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Threshold Tool",
+                "Select a Target Layer (create/add a segmentation layer first).",
+            )
+            return
+
+        base = self.get_base_vtk_image()
+        image = target.get_image()
+        if base is None:
+            QMessageBox.warning(
+                self.dock_widget, "Threshold Tool", "Open an image in the viewer first."
+            )
+            return
+        if image is None or image.GetPointData().GetScalars() is None:
+            QMessageBox.warning(
+                self.dock_widget,
+                "Threshold Tool",
+                "Target layer has no image data.",
+            )
+            return
+
+        lower = float(self.threshold_lower_spin.value())
+        upper = float(self.threshold_upper_spin.value())
+        try:
+            with qt_tools.busy_progress(
+                self.dock_widget,
+                title="Threshold Tool",
+                label="Applying threshold...",
+            ):
+                n_fg = apply_threshold_to_layer(
+                    base, image, lower=lower, upper=upper, foreground=1, background=0
+                )
+            target.set_modified(True)
+            self._modified = True
+            target.image_changed.emit(target)
+            self.print_status(
+                f"Threshold applied to '{target.get_name()}' "
+                f"[{lower:g}, {upper:g}] -> {n_fg} voxels"
+            )
+        except Exception as e:
+            QMessageBox.critical(self.dock_widget, "Threshold Failed", str(e))
+            self.print_status(f"Threshold failed: {e}")
+
     def show_boolean_tool_clicked(self):
         from PyQt5.QtWidgets import QDialog, QComboBox, QPushButton, QVBoxLayout, QFormLayout
 
@@ -2513,6 +2739,7 @@ class SegmentationListManager(QObject):
         button.setCheckable(True)
         button.setChecked(checked)
         button.setDefaultAction(action)
+        button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
         # add to the toolbar
         if toolbar is not None:
@@ -3453,6 +3680,10 @@ class SegmentationListManager(QObject):
             self._refresh_extract_largest_target_layers()
         if getattr(self, "binary_morph_tool_dialog", None) is not None:
             self._refresh_binary_morph_target_layers()
+        if getattr(self, "threshold_tool_dialog", None) is not None:
+            self._refresh_threshold_target_layers()
+        if getattr(self, "threshold_tool_dialog", None) is not None:
+            self._refresh_threshold_target_layers()
 
     def segmentation_layer_removed(self, layer, segmentation_layers):
         
@@ -3475,6 +3706,8 @@ class SegmentationListManager(QObject):
             self._refresh_extract_largest_target_layers()
         if getattr(self, "binary_morph_tool_dialog", None) is not None:
             self._refresh_binary_morph_target_layers()
+        if getattr(self, "threshold_tool_dialog", None) is not None:
+            self._refresh_threshold_target_layers()
 
         self._modified = True
 
