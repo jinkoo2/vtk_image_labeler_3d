@@ -1500,11 +1500,11 @@ class SegmentationListManager(QObject):
         form.addRow("Target Layer:", self.interpolation_target_combo)
 
         self.interpolation_axis_combo = QComboBox(dialog)
-        # Values match ITK MorphologicalContourInterpolator axes.
+        # Values match ITK axes after GetImageFromArray(zyx): 0=Z, 1=Y, 2=X.
         self.interpolation_axis_combo.addItem("Auto (all axes)", -1)
-        self.interpolation_axis_combo.addItem("Axial (Z)", 2)
+        self.interpolation_axis_combo.addItem("Axial (Z)", 0)
         self.interpolation_axis_combo.addItem("Coronal (Y)", 1)
-        self.interpolation_axis_combo.addItem("Sagittal (X)", 0)
+        self.interpolation_axis_combo.addItem("Sagittal (X)", 2)
         self.interpolation_axis_combo.setCurrentIndex(1)  # Axial default for CT workflows
         self.interpolation_axis_combo.setToolTip(
             "Slice axis to interpolate along. Axial is typical for sparse axial paintings."
@@ -1596,8 +1596,11 @@ class SegmentationListManager(QObject):
             )
             return
 
-        axis = int(self.interpolation_axis_combo.currentData())
         try:
+            axis_data = self.interpolation_axis_combo.currentData()
+            if axis_data is None:
+                raise ValueError("Select an interpolation axis.")
+            axis = int(axis_data)
             with qt_tools.busy_progress(
                 self.dock_widget,
                 title="Interpolation Tool",
