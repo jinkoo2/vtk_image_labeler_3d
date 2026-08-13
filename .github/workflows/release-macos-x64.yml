@@ -75,7 +75,9 @@ jobs:
             "nnunet_server_url": "https://nnunet-server-01.apps.myphysics.net/api/v3",
             "keycloak_url": "https://login.apps.myphysics.net",
             "keycloak_realm": "myphysics",
-            "keycloak_registration_url": ""
+            "keycloak_registration_url": "",
+            "feedback_api_url": "",
+            "feedback_api_key": ""
           }
           EOF
           fi

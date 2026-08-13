@@ -17,6 +17,10 @@ DEFAULT_SETTINGS = {
         "?client_id=account-console&response_type=code&scope=openid"
         "&redirect_uri=https%3A%2F%2Flogin.apps.myphysics.net%2Frealms%2Fmyphysics%2Faccount%2F"
     ),
+    # CapRover feedback API origin (no path). Empty = fall back to opening GitHub Issues.
+    "feedback_api_url": "",
+    # Optional shared secret; must match server FEEDBACK_API_KEY when set.
+    "feedback_api_key": "",
 }
 
 # Mutable singleton returned by get_config(); Preferences updates it in place.
@@ -48,6 +52,8 @@ def _normalize(data: dict) -> dict:
     cfg["keycloak_realm"] = str(cfg.get("keycloak_realm") or "").strip()
     cfg["log_dir"] = str(cfg.get("log_dir") or DEFAULT_SETTINGS["log_dir"]).strip()
     cfg["temp_dir"] = str(cfg.get("temp_dir") or DEFAULT_SETTINGS["temp_dir"]).strip()
+    cfg["feedback_api_url"] = str(cfg.get("feedback_api_url") or "").strip().rstrip("/")
+    cfg["feedback_api_key"] = str(cfg.get("feedback_api_key") or "").strip()
     return cfg
 
 

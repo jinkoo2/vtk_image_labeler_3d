@@ -421,12 +421,12 @@ class MainWindow3D(QMainWindow):
         help_menu.addAction(check_updates_action)
 
         feature_action = _iconize_action(QAction("Feature Request...", self))
-        feature_action.setToolTip("Suggest an improvement via a GitHub issue")
+        feature_action.setToolTip("Suggest an improvement (submitted as a tracked issue)")
         feature_action.triggered.connect(self.show_feature_request_dialog)
         help_menu.addAction(feature_action)
 
         bug_action = _iconize_action(QAction("Bug Report...", self))
-        bug_action.setToolTip("Report a problem via a GitHub issue")
+        bug_action.setToolTip("Report a problem (submitted as a tracked issue)")
         bug_action.triggered.connect(self.show_bug_report_dialog)
         help_menu.addAction(bug_action)
 

@@ -37,6 +37,9 @@ class PreferencesDialog(QDialog):
         self.keycloak_url_edit = QLineEdit(str(conf.get("keycloak_url", "")))
         self.keycloak_realm_edit = QLineEdit(str(conf.get("keycloak_realm", "")))
         self.registration_url_edit = QLineEdit(str(conf.get("keycloak_registration_url", "")))
+        self.feedback_api_url_edit = QLineEdit(str(conf.get("feedback_api_url", "")))
+        self.feedback_api_key_edit = QLineEdit(str(conf.get("feedback_api_key", "")))
+        self.feedback_api_key_edit.setEchoMode(QLineEdit.Password)
 
         form.addRow("Log directory:", self._path_row(self.log_dir_edit))
         form.addRow("Temp directory:", self._path_row(self.temp_dir_edit))
@@ -44,6 +47,8 @@ class PreferencesDialog(QDialog):
         form.addRow("Keycloak URL:", self.keycloak_url_edit)
         form.addRow("Keycloak realm:", self.keycloak_realm_edit)
         form.addRow("Registration URL:", self.registration_url_edit)
+        form.addRow("Feedback API URL:", self.feedback_api_url_edit)
+        form.addRow("Feedback API key:", self.feedback_api_key_edit)
 
         path_label = QLabel(f"Settings file: {settings_path()}")
         path_label.setWordWrap(True)
@@ -51,7 +56,8 @@ class PreferencesDialog(QDialog):
 
         note = QLabel(
             "Log/temp directory changes take effect after restart. "
-            "Server and Keycloak settings apply immediately."
+            "Server, Keycloak, and Feedback API settings apply immediately. "
+            "Feedback API URL is the CapRover origin only (no path)."
         )
         note.setWordWrap(True)
         note.setStyleSheet("color: #666; font-size: 11px;")
@@ -90,6 +96,8 @@ class PreferencesDialog(QDialog):
             "keycloak_url": self.keycloak_url_edit.text().strip(),
             "keycloak_realm": self.keycloak_realm_edit.text().strip(),
             "keycloak_registration_url": self.registration_url_edit.text().strip(),
+            "feedback_api_url": self.feedback_api_url_edit.text().strip().rstrip("/"),
+            "feedback_api_key": self.feedback_api_key_edit.text().strip(),
         }
 
     def accept(self):

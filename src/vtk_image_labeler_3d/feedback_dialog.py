@@ -1,27 +1,34 @@
-"""In-app Feature Request / Bug Report dialog that opens a GitHub Issue."""
+"""In-app Feature Request / Bug Report dialog.
+
+Posts to the CapRover feedback API (GitHub Issues via bot token).
+
+Requires `feedback_api_url` and `feedback_api_key` in settings.json
+(Edit -> Preferences).
+"""
 
 from __future__ import annotations
 
+import json
 import platform
 import sys
 import webbrowser
 from urllib.parse import quote, urlencode
 
+import requests
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QTextEdit,
     QVBoxLayout,
 )
 
+from config import get_config
 from version_info import GITHUB_OWNER, GITHUB_REPO, get_version
 
 
@@ -63,18 +70,28 @@ def github_new_issue_url(title: str, body: str, label: str = "") -> str:
     return f"{base}?{urlencode(params, quote_via=quote)}"
 
 
+def collect_environment_fields() -> dict:
+    return {
+        "app_version": get_version(),
+        "os": platform.platform(),
+        "python_version": sys.version.split()[0],
+        "platform": f"{platform.system()} {platform.release()}",
+    }
+
+
 def collect_environment_block() -> str:
+    env = collect_environment_fields()
     return (
         "### Environment\n"
-        f"- App version: `{get_version()}`\n"
-        f"- OS: `{platform.platform()}`\n"
-        f"- Python: `{sys.version.split()[0]}`\n"
-        f"- Platform: `{platform.system()} {platform.release()}`\n"
+        f"- App version: `{env['app_version']}`\n"
+        f"- OS: `{env['os']}`\n"
+        f"- Python: `{env['python_version']}`\n"
+        f"- Platform: `{env['platform']}`\n"
     )
 
 
 class FeedbackDialog(QDialog):
-    """Collect a title/message and open a prefilled GitHub issue page."""
+    """Collect feedback and submit via API (preferred) or GitHub browser fallback."""
 
     def __init__(self, kind: str = "bug", parent=None):
         super().__init__(parent)
@@ -83,10 +100,14 @@ class FeedbackDialog(QDialog):
         self.kind = kind
         self.meta = FEEDBACK_KINDS[kind]
 
+        conf = get_config()
+        self._api_url = str(conf.get("feedback_api_url") or "").strip().rstrip("/")
+        self._api_key = str(conf.get("feedback_api_key") or "").strip()
+
         self.setWindowTitle(self.meta["window_title"])
         self.setModal(True)
         self.setMinimumWidth(460)
-        self.resize(520, 420)
+        self.resize(520, 460)
 
         layout = QVBoxLayout(self)
 
@@ -103,27 +124,65 @@ class FeedbackDialog(QDialog):
         self.body_edit.setPlaceholderText(self.meta["body_placeholder"])
         self.body_edit.setAcceptRichText(False)
         form.addRow("Details:", self.body_edit)
+
+        self.email_edit = QLineEdit()
+        self.email_edit.setPlaceholderText("Optional — so we can follow up")
+        form.addRow("Email:", self.email_edit)
         layout.addLayout(form)
 
-        note = QLabel(
-            "Send opens GitHub Issues in your browser with this text filled in. "
-            "Sign in to GitHub if needed, then click Submit new issue."
-        )
+        if self._api_configured():
+            note_text = (
+                "Send posts to the feedback service (no GitHub account needed). "
+                "Your report becomes a GitHub Issue for the maintainers / AI agents."
+            )
+            note_style = "color: #666;"
+        else:
+            note_text = (
+                "Feedback API is not configured. Set Feedback API URL and Feedback API key "
+                "in Edit -> Preferences before sending."
+            )
+            note_style = "color: #b71c1c;"
+        note = QLabel(note_text)
         note.setWordWrap(True)
-        note.setStyleSheet("color: #666;")
+        note.setStyleSheet(note_style)
         layout.addWidget(note)
 
         buttons = QDialogButtonBox()
         self.send_button = buttons.addButton("Send", QDialogButtonBox.AcceptRole)
         self.send_button.setDefault(True)
-        buttons.addButton(QDialogButtonBox.Cancel)
+        cancel = buttons.addButton(QDialogButtonBox.Cancel)
+        cancel.setAutoDefault(False)
+        cancel.setDefault(False)
         buttons.accepted.connect(self._on_send)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+        if not self._api_configured():
+            # Nudge immediately; Send will warn again if they ignore it.
+            self._prompt_configure_preferences()
+
+    def _api_configured(self) -> bool:
+        return bool(self._api_url) and bool(self._api_key)
+
+    def _prompt_configure_preferences(self) -> None:
+        QMessageBox.warning(
+            self,
+            self.meta["window_title"],
+            "Feedback API URL and Feedback API key are not set.\n\n"
+            "Open Edit -> Preferences, fill in:\n"
+            "  - Feedback API URL\n"
+            "  - Feedback API key\n\n"
+            "Then try Send again.",
+        )
+
     def _on_send(self):
+        if not self._api_configured():
+            self._prompt_configure_preferences()
+            return
+
         title = (self.title_edit.text() or "").strip()
         details = (self.body_edit.toPlainText() or "").strip()
+        email = (self.email_edit.text() or "").strip()
         if not title:
             QMessageBox.warning(self, self.meta["window_title"], "Please enter a title.")
             self.title_edit.setFocus()
@@ -135,6 +194,66 @@ class FeedbackDialog(QDialog):
             self.body_edit.setFocus()
             return
 
+        ok = self._submit_via_api(title, details, email)
+        if ok:
+            self.accept()
+
+    def _submit_via_api(self, title: str, details: str, email: str) -> bool:
+        url = f"{self._api_url}/api/v1/feedback"
+        env = collect_environment_fields()
+        payload = {
+            "kind": self.kind,
+            "title": title,
+            "details": details,
+            "contact_email": email or None,
+            **env,
+        }
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self._api_key:
+            headers["X-Feedback-Key"] = self._api_key
+
+        self.send_button.setEnabled(False)
+        try:
+            resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
+        except requests.RequestException as exc:
+            self.send_button.setEnabled(True)
+            QMessageBox.critical(
+                self,
+                self.meta["window_title"],
+                f"Could not reach the feedback service:\n{exc}",
+            )
+            return False
+        finally:
+            self.send_button.setEnabled(True)
+
+        if resp.status_code >= 400:
+            detail = resp.text
+            try:
+                detail = resp.json().get("detail", detail)
+            except Exception:
+                pass
+            QMessageBox.critical(
+                self,
+                self.meta["window_title"],
+                f"Feedback service error ({resp.status_code}):\n{detail}",
+            )
+            return False
+
+        try:
+            data = resp.json()
+        except Exception:
+            data = {}
+        issue_url = data.get("html_url") or data.get("issue_url") or ""
+        number = data.get("issue_number")
+        msg = "Thanks - your feedback was submitted."
+        if number:
+            msg += f"\nIssue #{number} was created for the maintainers."
+        if issue_url:
+            msg += f"\n\n{issue_url}"
+        QMessageBox.information(self, self.meta["window_title"], msg)
+        return True
+
+    def _submit_via_github_browser(self, title: str, details: str) -> None:
         full_title = self.meta["title_prefix"] + title
         body = (
             details
@@ -142,9 +261,7 @@ class FeedbackDialog(QDialog):
             + collect_environment_block()
             + "\n_Submitted from Image Labeler 3D in-app feedback._\n"
         )
-
         url = github_new_issue_url(full_title, body, self.meta["label"])
-        # Keep URLs under common browser/OS limits.
         if len(url) > 6500:
             short_body = (
                 details[:1500]
@@ -168,7 +285,6 @@ class FeedbackDialog(QDialog):
         ok = QDesktopServices.openUrl(QUrl(url))
         if not ok:
             webbrowser.open(url)
-        self.accept()
 
 
 def show_feedback_dialog(kind: str, parent=None) -> None:
