@@ -1080,18 +1080,27 @@ class MainWindow3D(QMainWindow):
         _info(f"Loading image from {file_path}")
         self.image_path = file_path 
 
-        _,file_extension = os.path.splitext(file_path)
-        file_extension = file_extension.lower()
+        file_path_lower = file_path.lower()
+        if file_path_lower.endswith(".nii.gz"):
+            file_extension = ".nii.gz"
+        else:
+            _, file_extension = os.path.splitext(file_path)
+            file_extension = file_extension.lower()
 
-        _info(f"File extension: {file_extension}")  # Output: .mha    
+        _info(f"File extension: {file_extension}")  # Output: .mha / .nii.gz / ...
+
+        # SimpleITK's ReadImage auto-detects format from file content, not this
+        # whitelist — it already handles .nii/.nii.gz/.mhd/.mha (and more). This
+        # check just rejects formats we haven't exercised in this app yet.
+        SUPPORTED_IMAGE_EXTENSIONS = {".mhd", ".mha", ".nii", ".nii.gz"}
 
         image_type = ""
         from itkvtk import load_vtk_image_using_sitk
-        if file_extension == ".mhd" or file_extension == ".mha":
+        if file_extension in SUPPORTED_IMAGE_EXTENSIONS:
             self.vtk_image = load_vtk_image_using_sitk(file_path)
             image_type = "meta"
         else:
-            raise Exception("Only meta image formats are supported at the moment.")
+            raise Exception(f"Unsupported image format: {file_extension!r}")
 
         self.image_type = image_type
 
@@ -1130,7 +1139,7 @@ class MainWindow3D(QMainWindow):
 
     def import_image_clicked(self):
         
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha);;MetaImage Files (*.mhd *.mha);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open DICOM File", self.get_last_dir(), "Medical Image Files (*.mhd *.mha *.nii *.nii.gz);;MetaImage Files (*.mhd *.mha);;NIfTI Files (*.nii *.nii.gz);;All Files (*)")
         
         #file_path = 'C:/Users/jkim20/Documents/projects/vtk_image_labeler_3d/sample_data/Dataset101_Eye[ul]L/imagesTr/eye[ul]l_0_0000.mha'
         if file_path == '':
