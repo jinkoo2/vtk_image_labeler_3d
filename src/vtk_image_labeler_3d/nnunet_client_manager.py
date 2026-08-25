@@ -1960,6 +1960,7 @@ class nnUNetDatasetManager(BaseObject):
                     req_list["train_images"],
                     self.get_server_url(),
                     label_list=req_list.get("train_labels") or [],
+                    label_status=req_list.get("train_label_status"),
                 )
 
                 qt_tools.update_busy_progress(label="Loading test image list...")
@@ -1968,6 +1969,7 @@ class nnUNetDatasetManager(BaseObject):
                     req_list["test_images"],
                     self.get_server_url(),
                     label_list=req_list.get("test_labels") or [],
+                    label_status=req_list.get("test_label_status"),
                 )
 
                 qt_tools.update_busy_progress(label="Loading predictions list...")

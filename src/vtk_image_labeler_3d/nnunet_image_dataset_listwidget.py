@@ -592,7 +592,14 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         if dialog.saved_label_meta is not None:
             self.update_label_meta_row(number, dialog.saved_label_meta)
 
-    def set_dataset(self, dataset_id, image_list, base_url=None, label_list=None):
+    def set_dataset(self, dataset_id, image_list, base_url=None, label_list=None, label_status=None):
+        """
+        label_status: optional dict from the server's bulk `train_label_status`/
+        `test_label_status` (GET /image_name_list), keyed by num (str) ->
+        {"status": ..., ...}. When provided, status is read straight from it —
+        no per-case GET /get_label_meta round trip. Pass None (older servers
+        that don't return the field) to fall back to the per-case fetch.
+        """
         self.table_widget.setRowCount(0)
         self._dataset_id = dataset_id
         self._base_url = base_url or nnunet_server_url()
@@ -601,6 +608,9 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         for label_item in (label_list or []):
             if isinstance(label_item, dict) and label_item.get("num") is not None:
                 self._label_nums.add(int(label_item["num"]))
+
+        use_bulk_status = label_status is not None
+        label_status = label_status or {}
 
         items = list(image_list or [])
         total = len(items)
@@ -612,12 +622,16 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                 num = extract_image_number(filename)
             num = int(num)
 
-            if num not in meta_cache:
-                qt_tools.update_busy_progress(
-                    label=f"Loading {self.images_for} status {i + 1}/{total}..."
-                )
-                meta_cache[num] = self._fetch_label_meta(self._base_url, dataset_id, num)
-            meta = meta_cache[num] or {}
+            if use_bulk_status:
+                entry = label_status.get(str(num)) or {}
+                status = entry.get("status", "") if isinstance(entry, dict) else ""
+            else:
+                if num not in meta_cache:
+                    qt_tools.update_busy_progress(
+                        label=f"Loading {self.images_for} status {i + 1}/{total}..."
+                    )
+                    meta_cache[num] = self._fetch_label_meta(self._base_url, dataset_id, num)
+                status = self._derive_status(meta_cache[num] or {})
 
             row = self.table_widget.rowCount()
             self.table_widget.insertRow(row)
@@ -628,7 +642,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             image_item.setFlags(image_item.flags() & ~Qt.ItemIsEditable)
             self.table_widget.setItem(row, self.COLUMN_IMAGE, image_item)
 
-            self._set_row_status_combo(row, num, self._derive_status(meta))
+            self._set_row_status_combo(row, num, status)
 
         self._update_action_buttons()
 
