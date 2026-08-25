@@ -601,6 +601,14 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
                 self.render_delayed(1000)
         
     def on_segmentation_image_modified(self, layer, sender):
+        # Any in-place edit (paint, graphcut, boolean ops, polygon/interpolation
+        # fill, ...) can change which slices this layer has data on — refresh
+        # the reslicer's cached nonzero-slice range (see
+        # reslicer.Reslicer._compute_nonzero_index_range) so slice_has_data()
+        # doesn't wrongly skip a slice the edit just added data to.
+        seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer.get_name())
+        if seg_reslicer is not None:
+            seg_reslicer.refresh_nonzero_index_range()
         self.update_slice_and_render(layer)
 
     def on_layer_image_changed(self, sender):
@@ -631,11 +639,19 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         print(f'Visibility changed to {new_visibility} for {layer_name}')
 
         seg_reslicer = self.segmentation_layer_reslicers.get_reslicer_by_layer_name(layer_name)
-        
+
         if seg_reslicer:
-            seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
-            for actor in seg_reslicer.get_actors():
-                actor.SetVisibility(new_visibility)
+            if new_visibility:
+                # set_slice_index_and_update_slice_actor already sets each
+                # actor's visibility correctly — True only if this layer has
+                # data at the current slice (reslicer.slice_has_data) — so
+                # don't blindly force it back on, or a layer with no data on
+                # this slice would show stale contour/image data left over
+                # from whichever slice it last actually rendered.
+                seg_reslicer.set_slice_index_and_update_slice_actor(self.slice_index)
+            else:
+                for actor in seg_reslicer.get_actors():
+                    actor.SetVisibility(False)
             self.render()
         else:
             print(f'Layer {layer_name} not found in segmentation_layer_reslicers')

@@ -150,10 +150,10 @@ class Reslicer():
         self.viewer = viewer
 
         reslice = vtk.vtkImageReslice()
-        
+
         if vtk_image:
             reslice.SetInputData(vtk_image)
-        
+
         reslice.SetOutputDimensionality(2)
         reslice.SetInterpolationModeToNearestNeighbor()
         reslice.SetBackgroundLevel(background_value)
@@ -162,13 +162,68 @@ class Reslicer():
 
         self.slice_index = 0
 
+        self._nonzero_index_range = None
+        if vtk_image:
+            self._nonzero_index_range = self._compute_nonzero_index_range(vtk_image)
+
     def clear(self):
         self.vtk_image = None
         self.slice_index = 0
-        
+        self._nonzero_index_range = None
+
     def set_vtk_image(self, vtk_image):
         self.vtk_image = vtk_image
         self.vtk_image_reslice.SetInputData(vtk_image)
+        self._nonzero_index_range = self._compute_nonzero_index_range(vtk_image)
+
+    def _compute_nonzero_index_range(self, vtk_image):
+        """
+        Precompute (min, max) slice index along self.axis that contains any
+        non-background voxel, so callers (e.g. segmentation layer reslicing)
+        can skip reslice/contour work entirely for slices outside this range —
+        with 100+ label layers, most are absent from any given slice, and a
+        full vtkImageReslice + vtkContourFilter pass per layer per slice
+        change is the dominant cost of scrolling. Returns None if the check
+        can't be performed (no scalar data).
+        """
+        scalars = vtk_image.GetPointData().GetScalars()
+        if scalars is None:
+            return None
+
+        import vtk.util.numpy_support as numpy_support
+        dims = vtk_image.GetDimensions()
+        arr = numpy_support.vtk_to_numpy(scalars).reshape(dims[::-1])  # (z, y, x)
+
+        numpy_axis = 2 - self.axis
+        other_axes = tuple(a for a in range(3) if a != numpy_axis)
+        any_per_slice = np.any(arr != self.background_value, axis=other_axes)
+
+        nonzero_idx = np.nonzero(any_per_slice)[0]
+        if nonzero_idx.size == 0:
+            return (1, 0)  # empty: lo > hi, so every index is "out of range"
+        return (int(nonzero_idx.min()), int(nonzero_idx.max()))
+
+    def slice_has_data(self, index):
+        """True if this layer has any non-background voxel at the given slice index (see _compute_nonzero_index_range)."""
+        if self._nonzero_index_range is None:
+            return True  # unknown — don't skip, fall back to always rendering
+        lo, hi = self._nonzero_index_range
+        return lo <= index <= hi
+
+    def refresh_nonzero_index_range(self):
+        """
+        Recompute the cached nonzero-slice range from the current voxel data —
+        call after any in-place edit (paint, scribble graphcut, boolean ops,
+        polygon fill, fill-between-slices, ...) since these can add data at
+        slices other than the one currently displayed, so a cheap "just widen
+        to the current slice" heuristic isn't safe here. This is one
+        vectorized numpy reduction over a single layer's volume (not the
+        per-layer VTK reslice/contour pipeline this cache exists to skip), so
+        it's cheap enough to run on every edit, including continuous ones like
+        an active paint drag.
+        """
+        if self.vtk_image is not None:
+            self._nonzero_index_range = self._compute_nonzero_index_range(self.vtk_image)
     
     def calculate_axes(self, index):
         
@@ -367,34 +422,30 @@ class ReslicerWithImageActor(Reslicer):
         #return [self.border_actor]
     
     def _poly_data_point_list_to_4xN_numpy_matrix(self, points):
-
         n_points = points.GetNumberOfPoints()
+        if n_points == 0:
+            return np.ones((4, 0))
 
-        # Allocate a 3xN numpy array
-        points_array = np.ones((3, n_points))
+        import vtk.util.numpy_support as numpy_support
+        # vtkPoints -> Nx3 numpy array in one call, instead of a per-point
+        # GetPoint() Python loop (this runs once per visible segmentation
+        # layer per slice change, so the loop overhead compounds badly with
+        # 100+ layers).
+        points_array = numpy_support.vtk_to_numpy(points.GetData()).T  # (3, N)
 
-        for i in range(n_points):
-            pt = points.GetPoint(i)  # Returns a tuple of (x, y, z)
-            points_array[:, i] = pt
-
-        #print(points_array.shape)  # (3, N)
-
-        #N = points_array.shape[1]
-
-        # Create a new 4xN array
         points_homogeneous = np.vstack((points_array, np.ones((1, n_points))))
-
-        #print(points_homogeneous.shape)  # (4, N)
-
         return points_homogeneous
 
 
     def _4xN_numpy_matrix_to_poly_data_point_list(self, PT):
-        N = PT.shape[1]
         new_points = vtk.vtkPoints()
-        for i in range(N):
-            x, y, z = PT[0:3, i]  # Extract x, y, z
-            new_points.InsertNextPoint(x, y, z)
+        if PT.shape[1] == 0:
+            return new_points
+
+        import vtk.util.numpy_support as numpy_support
+        xyz = np.ascontiguousarray(PT[0:3, :].T)  # (N, 3)
+        vtk_array = numpy_support.numpy_to_vtk(xyz, deep=True)
+        new_points.SetData(vtk_array)
         return new_points
 
 
@@ -442,6 +493,20 @@ class ReslicerWithImageActor(Reslicer):
             print(f"Point {i*skip}: {point}")
 
     def set_slice_index_and_update_slice_actor(self, index):
+        # This layer has no voxels at all at this slice index — skip the
+        # vtkImageReslice + vtkContourFilter passes entirely rather than
+        # running them just to produce an empty result. With 100+ label
+        # layers, most are absent from any given slice, so this is the
+        # dominant cost of slice scrolling.
+        if not self.slice_has_data(index):
+            self.slice_actor.SetVisibility(False)
+            self.border_actor.SetVisibility(False)
+            self.slice_index = index
+            return
+
+        self.slice_actor.SetVisibility(True)
+        self.border_actor.SetVisibility(True)
+
         slice = super().get_slice_image(index)
 
         # Update image slice
