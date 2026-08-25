@@ -254,12 +254,24 @@ class SegmentationLayer(QObject):
 
     def get_image(self):
         return self._segmentation_image
-    
+
     def set_image(self, image):
         if image is not self._segmentation_image:
             self._modified = True
             self._segmentation_image = image
             self.image_changed.emit(self)
+
+    def is_empty(self):
+        """True if this layer has no labeled (non-background) voxels, or no image at all."""
+        image = self._segmentation_image
+        if image is None:
+            return True
+        scalars = image.GetPointData().GetScalars()
+        if scalars is None:
+            return True
+        from vtk.util import numpy_support
+        arr = numpy_support.vtk_to_numpy(scalars)
+        return not bool(np.any(arr != 0))
 
     def set_name(self, name):
         
@@ -456,15 +468,22 @@ class SegmentationListItemWidget(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(True)
         self.checkbox.stateChanged.connect(self.visible_checkbox_clicked)
+        self.checkbox.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.checkbox.customContextMenuRequested.connect(self.show_checkbox_context_menu)
         layout.addWidget(self.checkbox)
 
         # Color patch for layer
         self.color_patch = QLabel()
         self.color_patch.setFixedSize(16, 16)  # Small square
-        self.color_patch.setStyleSheet(f"background-color: {self.get_layer_color_hex()}; border: 1px solid black;")
         self.color_patch.setCursor(Qt.PointingHandCursor)
         self.color_patch.mousePressEvent = self.change_color_clicked  # Assign event for color change
         layout.addWidget(self.color_patch)
+        self._update_color_patch_style()
+
+        # Refresh the swatch (filled vs. outline-only) whenever this layer's
+        # voxel data changes — covers whole-image replacement and the
+        # in-place "Clear" path, both of which emit image_changed.
+        self.layer.image_changed.connect(lambda _sender: self._update_color_patch_style())
 
         # Label for the layer name (stretch so action buttons stay fully visible)
         self.label = QLabel(self.layer.get_name())
@@ -660,10 +679,48 @@ class SegmentationListItemWidget(QWidget):
         visibility = state == Qt.Checked
         self.layer.set_visible(visibility)
 
+    def show_checkbox_context_menu(self, pos):
+        from PyQt5.QtWidgets import QMenu
+        menu = QMenu(self)
+        show_all_action = menu.addAction("Show All")
+        hide_all_action = menu.addAction("Hide All")
+        action = menu.exec_(self.checkbox.mapToGlobal(pos))
+        if action == show_all_action:
+            self._set_all_layers_checked(True)
+        elif action == hide_all_action:
+            self._set_all_layers_checked(False)
+
+    def _set_all_layers_checked(self, checked):
+        """Check/uncheck every layer's visibility checkbox (goes through the
+        normal stateChanged -> visible_checkbox_clicked path for each, so
+        layer visibility and the UI stay in sync)."""
+        list_widget = self.list_widget
+        if list_widget is None:
+            return
+        for i in range(list_widget.count()):
+            item = list_widget.item(i)
+            item_widget = list_widget.itemWidget(item)
+            if isinstance(item_widget, SegmentationListItemWidget):
+                item_widget.checkbox.setChecked(checked)
+
     def get_layer_color_hex(self):
         """Convert the layer's color (numpy array) to a hex color string."""
         color = self.layer.get_color()
         return f"rgb({color[0]}, {color[1]}, {color[2]})"
+
+    def _update_color_patch_style(self):
+        """Solid-filled swatch normally; when the layer has no labeled voxels
+        yet, show only an outline in the layer's color so an empty layer
+        doesn't look identical to a fully painted one in the list."""
+        color_hex = self.get_layer_color_hex()
+        if self.layer.is_empty():
+            self.color_patch.setStyleSheet(
+                f"background-color: transparent; border: 2px solid {color_hex};"
+            )
+        else:
+            self.color_patch.setStyleSheet(
+                f"background-color: {color_hex}; border: 1px solid black;"
+            )
 
     def change_color_clicked(self, event):
         
@@ -680,7 +737,7 @@ class SegmentationListItemWidget(QWidget):
             self.layer.set_color(c)
 
             # Update color patch
-            self.color_patch.setStyleSheet(f"background-color: {self.get_layer_color_hex()}; border: 1px solid black;")
+            self._update_color_patch_style()
 
     def alpha_changed(self, value, sender):
         self.layer.set_alpha(value)
@@ -3601,7 +3658,17 @@ class SegmentationListManager(QObject):
         layer_item_widget.list_widget_item = layer_item
         layer_item_widget.list_widget = self.list_widget
         layer_item_widget.manager = self
-        
+
+        # In-place edits (paint, scribble graphcut, boolean ops, polygon/
+        # interpolation fill, ...) go through layer_image_modified rather
+        # than layer.image_changed — refresh the swatch (filled vs.
+        # outline-only) on those too, filtered to this row's own layer.
+        self.layer_image_modified.connect(
+            lambda modified_layer, sender, w=layer_item_widget: (
+                w._update_color_patch_style() if modified_layer is w.layer else None
+            )
+        )
+
         layer_item.setSizeHint(layer_item_widget.sizeHint())
         self.list_widget.addItem(layer_item)
         self.list_widget.setItemWidget(layer_item, layer_item_widget) # This replaces the default text-based display with the custom widget that includes the checkbox and label.
