@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 import uuid
 
 from PyQt5.QtCore import Qt, QTimer
@@ -50,6 +51,17 @@ def _labels_from_dataset_json(dataset_json: dict) -> dict:
         return {}
     labels = dataset_json.get("labels") or {}
     return labels if isinstance(labels, dict) else {}
+
+
+def _format_duration(seconds: float) -> str:
+    seconds = max(0, int(round(seconds)))
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 
 class NnUNetPredictionToolDialog(QDialog):
@@ -348,6 +360,7 @@ class NnUNetPredictionToolDialog(QDialog):
             "labels": labels,
             "base_url": base_url,
             "out_dir": out_dir,
+            "submitted_at": time.monotonic(),
         }
         ahead = submit.get("number_of_jobs_ahead", "?")
         self._append_status(
@@ -438,10 +451,13 @@ class NnUNetPredictionToolDialog(QDialog):
             QMessageBox.critical(self, "Result Failed", str(e))
             return
 
+        elapsed = time.monotonic() - job.get("submitted_at", time.monotonic())
+        elapsed_str = _format_duration(elapsed)
+
         self.run_button.setEnabled(True)
         self._refresh_context_labels()
         self._append_status(
-            f"Done. Added layer(s): {', '.join(added) if added else '(none)'}"
+            f"Done in {elapsed_str}. Added layer(s): {', '.join(added) if added else '(none)'}"
         )
         if added:
             # A composite label with many organs (e.g. TotalSegmentator-style
@@ -453,14 +469,14 @@ class NnUNetPredictionToolDialog(QDialog):
             box = QMessageBox(self)
             box.setIcon(QMessageBox.Information)
             box.setWindowTitle("Auto Segment Complete")
-            box.setText(f"Prediction finished. Added {len(added)} layer(s).")
+            box.setText(f"Prediction finished in {elapsed_str}. Added {len(added)} layer(s).")
             box.setDetailedText("\n".join(added))
             box.exec_()
         else:
             QMessageBox.information(
                 self,
                 "Auto Segment Complete",
-                "Prediction finished, but no label layers were added.",
+                f"Prediction finished in {elapsed_str}, but no label layers were added.",
             )
 
     def _add_prediction_layers(self, labels_path, labels_map):
