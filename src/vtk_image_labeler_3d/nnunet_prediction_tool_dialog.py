@@ -444,11 +444,18 @@ class NnUNetPredictionToolDialog(QDialog):
             f"Done. Added layer(s): {', '.join(added) if added else '(none)'}"
         )
         if added:
-            QMessageBox.information(
-                self,
-                "Auto Segment Complete",
-                "Prediction finished.\nAdded layers:\n- " + "\n- ".join(added),
-            )
+            # A composite label with many organs (e.g. TotalSegmentator-style
+            # datasets, 50-100+ layers) makes a fully-expanded layer list too
+            # tall for a plain QMessageBox — there's no cap or scrollbar, so
+            # it grows past the screen. setDetailedText() renders as a
+            # collapsed, scrollable "Show Details..." panel instead of
+            # inflating the dialog itself.
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Information)
+            box.setWindowTitle("Auto Segment Complete")
+            box.setText(f"Prediction finished. Added {len(added)} layer(s).")
+            box.setDetailedText("\n".join(added))
+            box.exec_()
         else:
             QMessageBox.information(
                 self,
