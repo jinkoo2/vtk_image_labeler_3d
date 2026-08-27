@@ -94,8 +94,7 @@ class NnUNetPredictionToolDialog(QDialog):
         self.model_combo.setToolTip("Approved prediction models from the nnU-Net server")
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
 
-        self.model_docs_button = QPushButton("?")
-        self.model_docs_button.setFixedWidth(28)
+        self.model_docs_button = QPushButton("Model Info")
         self.model_docs_button.setToolTip("Open this model's documentation (expected input, output labels, training dataset)")
         self.model_docs_button.setEnabled(False)
         self.model_docs_button.clicked.connect(self._open_model_docs)
