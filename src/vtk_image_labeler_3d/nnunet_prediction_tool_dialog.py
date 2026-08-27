@@ -6,8 +6,10 @@ import os
 import tempfile
 import time
 import uuid
+from urllib.parse import urlsplit
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QUrl
+from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (
     QComboBox,
     QDialog,
@@ -91,7 +93,17 @@ class NnUNetPredictionToolDialog(QDialog):
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("Approved prediction models from the nnU-Net server")
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
-        form.addRow("Model:", self.model_combo)
+
+        self.model_docs_button = QPushButton("?")
+        self.model_docs_button.setFixedWidth(28)
+        self.model_docs_button.setToolTip("Open this model's documentation (expected input, output labels, training dataset)")
+        self.model_docs_button.setEnabled(False)
+        self.model_docs_button.clicked.connect(self._open_model_docs)
+
+        model_row = QHBoxLayout()
+        model_row.addWidget(self.model_combo, 1)
+        model_row.addWidget(self.model_docs_button)
+        form.addRow("Model:", model_row)
 
         self.input_dataset_label = QLabel("-")
         self.input_dataset_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -237,9 +249,26 @@ class NnUNetPredictionToolDialog(QDialog):
         data = self.model_combo.currentData()
         return data if isinstance(data, dict) else None
 
+    def _open_model_docs(self):
+        model = self._selected_model()
+        if not model:
+            return
+        docs_url = (self._model_detail or {}).get("docs_url") or model.get("docs_url")
+        if not docs_url:
+            return
+        ctx = self._context()
+        base_url = ctx.get("server_url") or ""
+        # server_url is the versioned API root (e.g. ".../api/v3") but docs_url
+        # is a root-relative path outside that prefix (/models-catalog/...) —
+        # only the scheme+host part of base_url is reusable here.
+        parsed = urlsplit(base_url)
+        host_root = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+        QDesktopServices.openUrl(QUrl(host_root + docs_url))
+
     def _on_model_changed(self, index):
         model = self._selected_model()
         self._model_detail = None
+        self.model_docs_button.setEnabled(bool(model and model.get("docs_url")))
         if not model:
             self.channels_label.setText("-")
             self._refresh_context_labels()
