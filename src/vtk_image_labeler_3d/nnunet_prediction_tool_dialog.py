@@ -167,11 +167,32 @@ class NnUNetPredictionToolDialog(QDialog):
         has_case = case.get("dataset_id") is not None and case.get("num") is not None
         self.run_button.setEnabled(bool(has_image and has_case and self.model_combo.count() > 0 and self._selected_model()))
 
+    def _model_license_tag(self, model: dict) -> str:
+        """Short bracketed suffix for the combo text — full license string goes in the tooltip instead,
+        since it's often too long to fit inline (e.g. the NCLS v1 non-commercial notice)."""
+        license_ = model.get("license")
+        if not license_:
+            return ""
+        if model.get("required_scope"):
+            return " [research-only]"
+        return " [open license]"
+
+    def _model_tooltip(self, model: dict) -> str:
+        license_ = model.get("license")
+        if not license_:
+            return "No external license — locally trained model."
+        lines = [f"License: {license_}"]
+        scope = model.get("required_scope")
+        if scope:
+            lines.append(f"Requires the '{scope}' scope/role on your account.")
+        return "\n".join(lines)
+
     def _model_display_name(self, model: dict) -> str:
         return (
             f"{model.get('dataset_id', '?')} | "
             f"{model.get('configuration', '?')} | "
             f"{model.get('trainer', '?')}"
+            f"{self._model_license_tag(model)}"
         )
 
     def _load_approved_models(self):
@@ -200,6 +221,8 @@ class NnUNetPredictionToolDialog(QDialog):
             else:
                 for m in self._models:
                     self.model_combo.addItem(self._model_display_name(m), m)
+                    idx = self.model_combo.count() - 1
+                    self.model_combo.setItemData(idx, self._model_tooltip(m), Qt.ToolTipRole)
                 self._set_status(f"Loaded {len(self._models)} approved model(s).")
                 self.model_combo.setCurrentIndex(0)
                 self._on_model_changed(0)
