@@ -450,6 +450,11 @@ class MainWindow3D(QMainWindow):
         bug_action.triggered.connect(self.show_bug_report_dialog)
         help_menu.addAction(bug_action)
 
+        catalog_action = _iconize_action(QAction("nnU-Net Model Catalog...", self))
+        catalog_action.setToolTip("Browse available prediction models: expected input, output labels, training dataset")
+        catalog_action.triggered.connect(self.open_model_catalog)
+        help_menu.addAction(catalog_action)
+
         about_action = _iconize_action(QAction("About...", self))
         about_action.triggered.connect(self.show_about_dialog)
         help_menu.addAction(about_action)
@@ -466,8 +471,30 @@ class MainWindow3D(QMainWindow):
         from feedback_dialog import show_feedback_dialog
         show_feedback_dialog("bug", parent=self)
 
+    def _model_catalog_url(self):
+        """Root-relative /models-catalog page lives on the nnU-Net server host, but
+        nnunet_server_url() is the versioned API root (.../api/v3) - only the
+        scheme+host part of it is reusable here."""
+        from urllib.parse import urlsplit
+        from nnunet_image_dataset_listwidget import nnunet_server_url
+        parsed = urlsplit(nnunet_server_url() or "")
+        if not (parsed.scheme and parsed.netloc):
+            return None
+        return f"{parsed.scheme}://{parsed.netloc}/models-catalog/"
+
+    def open_model_catalog(self):
+        from PyQt5.QtGui import QDesktopServices
+        from PyQt5.QtCore import QUrl
+        url = self._model_catalog_url()
+        if not url:
+            QMessageBox.warning(self, "Model Catalog", "nnU-Net server URL is not configured (see Edit > Preferences).")
+            return
+        QDesktopServices.openUrl(QUrl(url))
+
     def show_about_dialog(self):
         from version_info import GITHUB_RELEASES_URL, get_version
+        catalog_url = self._model_catalog_url()
+        catalog_line = f'<br>nnU-Net Model Catalog: <a href="{catalog_url}">{catalog_url}</a>' if catalog_url else ""
         QMessageBox.about(
             self,
             "About Image Labeler 3D",
@@ -475,6 +502,7 @@ class MainWindow3D(QMainWindow):
                 "<b>Image Labeler 3D</b><br>"
                 f"Version {get_version()}<br><br>"
                 f'Releases: <a href="{GITHUB_RELEASES_URL}">{GITHUB_RELEASES_URL}</a>'
+                f"{catalog_line}"
             ),
         )
 
