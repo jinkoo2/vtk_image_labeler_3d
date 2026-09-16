@@ -1,4 +1,67 @@
 import vtk
+import numpy as np
+
+
+def create_image_outline_polydata(vtk_image):
+    """Build a wireframe box of the image volume in world coordinates.
+
+    ``vtkOutlineFilter`` uses axis-aligned bounds and historically ignored
+    ``vtkImageData`` direction matrices, so NIfTI-style flips/rotations made
+    the 3D outline disagree with the resliced slices. This builds the 12 edges
+    from the eight index-extent corners transformed by origin/spacing/direction.
+    """
+    if vtk_image is None:
+        raise ValueError("vtk_image is required")
+
+    dims = vtk_image.GetDimensions()
+    spacing = np.asarray(vtk_image.GetSpacing(), dtype=float)
+    origin = np.asarray(vtk_image.GetOrigin(), dtype=float)
+
+    direction = np.eye(3)
+    if hasattr(vtk_image, "GetDirectionMatrix"):
+        mat = vtk_image.GetDirectionMatrix()
+        if mat is not None:
+            direction = np.array(
+                [[mat.GetElement(i, j) for j in range(3)] for i in range(3)],
+                dtype=float,
+            )
+
+    # Corner voxel indices of the extent (matches vtkImageData bounds corners).
+    i_vals = (0, max(dims[0] - 1, 0))
+    j_vals = (0, max(dims[1] - 1, 0))
+    k_vals = (0, max(dims[2] - 1, 0))
+    corners = []
+    for k in k_vals:
+        for j in j_vals:
+            for i in i_vals:
+                index_offset = np.array(
+                    [i * spacing[0], j * spacing[1], k * spacing[2]], dtype=float
+                )
+                corners.append(origin + direction @ index_offset)
+
+    # Binary corner order: bit0=i, bit1=j, bit2=k  -> edges along each axis.
+    edges = (
+        (0, 1), (2, 3), (4, 5), (6, 7),  # i
+        (0, 2), (1, 3), (4, 6), (5, 7),  # j
+        (0, 4), (1, 5), (2, 6), (3, 7),  # k
+    )
+
+    points = vtk.vtkPoints()
+    for c in corners:
+        points.InsertNextPoint(float(c[0]), float(c[1]), float(c[2]))
+
+    lines = vtk.vtkCellArray()
+    for a, b in edges:
+        line = vtk.vtkLine()
+        line.GetPointIds().SetId(0, a)
+        line.GetPointIds().SetId(1, b)
+        lines.InsertNextCell(line)
+
+    poly = vtk.vtkPolyData()
+    poly.SetPoints(points)
+    poly.SetLines(lines)
+    return poly
+
 
 def to_vtk_color(c):
     return [c[0]/255, c[1]/255, c[2]/255]

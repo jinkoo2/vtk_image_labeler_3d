@@ -1207,7 +1207,11 @@ class nnUNetDatasetManager(BaseObject):
     def handle_image_dataset_downloaded(self, image_path, labels_path, list_widget):
         self._pending_load_window_level = getattr(list_widget, "_pending_load_window_level", None)
         self._pending_load_case = getattr(list_widget, "_pending_load_case", None)
+        self._load_completed = False
         self.image_dataset_downloaded.emit(image_path, labels_path, self)
+        # Propagate success back to the list widget (it owns the optional label prompt).
+        if list_widget is not None:
+            list_widget._load_completed = bool(getattr(self, "_load_completed", False))
 
     def handle_label_dataset_downloaded(self, labels_path, list_widget):
         self.label_dataset_downloaded.emit(labels_path, self)

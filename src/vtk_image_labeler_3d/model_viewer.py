@@ -122,30 +122,28 @@ class ModelViewer(QWidget):
         return self.render_window
     
     def _add_image_boundary_surface_model(self):
-        # Create outline filter
-        outline_filter = vtk.vtkOutlineFilter()
-        outline_filter.SetInputData(self.vtk_image)
+        # Direction-aware outline (vtkOutlineFilter ignores DirectionMatrix).
+        import vtk_tools
+        outline_poly = vtk_tools.create_image_outline_polydata(self.vtk_image)
 
-        # Mapper and actor
         mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(outline_filter.GetOutputPort())
+        mapper.SetInputData(outline_poly)
 
         outline_actor = vtk.vtkActor()
         outline_actor.SetMapper(mapper)
-        outline_actor.GetProperty().SetColor(0.8, 0.8, 0.8)  
+        outline_actor.GetProperty().SetColor(0.8, 0.8, 0.8)
         outline_actor.GetProperty().SetLineWidth(2.0)
 
         return self.add_actor_as_model("image", outline_actor)
 
-        
-
     def set_vtk_image(self, vtk_image):
+        if self._image_boundary_model:
+            self.get_renderer().RemoveActor(self._image_boundary_model.get_actor())
+            self._image_boundary_model = None
+
         self.vtk_image = vtk_image
-        
         self._image_boundary_model = self._add_image_boundary_surface_model()
-        
         self.renderer.ResetCamera()
-        
         self.render_window.Render()
 
     def add_actor_as_model(self, name, actor):

@@ -139,6 +139,26 @@ class Panning(QObject):
                 last_world_position[2] - current_world_position[2],
             ]
 
+            # Keep pan strictly in the view plane. Crosshair lines are drawn on
+            # the camera near plane, so picking them otherwise injects a large
+            # view-axis delta that clips the image out of range (gray view).
+            fp = camera.GetFocalPoint()
+            pos = camera.GetPosition()
+            view_dir = [pos[i] - fp[i] for i in range(3)]
+            view_norm = (view_dir[0] ** 2 + view_dir[1] ** 2 + view_dir[2] ** 2) ** 0.5
+            if view_norm > 0.0:
+                view_dir = [d / view_norm for d in view_dir]
+                along_view = (
+                    delta_world[0] * view_dir[0]
+                    + delta_world[1] * view_dir[1]
+                    + delta_world[2] * view_dir[2]
+                )
+                delta_world = [
+                    delta_world[0] - along_view * view_dir[0],
+                    delta_world[1] - along_view * view_dir[1],
+                    delta_world[2] - along_view * view_dir[2],
+                ]
+
             # Update the camera position and focal point
             camera.SetFocalPoint(
                 camera.GetFocalPoint()[0] + delta_world[0],

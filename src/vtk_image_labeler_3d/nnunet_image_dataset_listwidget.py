@@ -463,7 +463,7 @@ class nnUnetImageDataSetListWidget(BaseWidget):
         button_layout = flowlayout.FlowLayout()
         self.download_image_button = QPushButton("Load")
         self.download_image_button.setToolTip(
-            "Load the selected case image and its label (if available)."
+            "Load the selected case image, then optionally load its labels if present."
         )
         # Kept for backward compatibility; not shown in the UI.
         self.download_label_button = None
@@ -712,19 +712,19 @@ class nnUnetImageDataSetListWidget(BaseWidget):
             self.renumber_image_dataset()
 
     def load_selected_case(self):
-        """Load selected case image and label (when available)."""
+        """Load selected case image, then optionally its labels when present."""
         number = self._selected_image_number()
         if number is None:
             print("No image selected.")
             return
 
         try:
+            out_dir = os.path.join("./_downloads", str(uuid.uuid4()))
             with qt_tools.busy_progress(
                 self,
                 title="Loading",
                 label=f"Downloading image for case {number}...",
             ):
-                out_dir = os.path.join("./_downloads", str(uuid.uuid4()))
                 result = nnunet_service.download_dataset_image(
                     BASE_URL=self._base_url or nnunet_server_url(),
                     dataset_id=self._dataset_id,
@@ -734,29 +734,6 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                 )
                 print("Image download complete:", result)
                 image_path = result["downloaded_base_image_path"]
-                labels_path = ""
-
-                if self._selected_case_has_label():
-                    try:
-                        qt_tools.update_busy_progress(
-                            label=f"Downloading label for case {number}..."
-                        )
-                        label_result = nnunet_service.download_dataset_label(
-                            BASE_URL=self._base_url or nnunet_server_url(),
-                            dataset_id=self._dataset_id,
-                            images_for=self.images_for,
-                            num=number,
-                            out_dir=out_dir,
-                        )
-                        print("Label download complete:", label_result)
-                        labels_path = label_result.get("downloaded_labels_image_path") or ""
-                    except Exception as label_err:
-                        print(f"Error downloading label for case {number}: {label_err}")
-                        QMessageBox.warning(
-                            self,
-                            "Load Label Failed",
-                            f"Image will still load, but label download failed:\n{label_err}",
-                        )
 
                 self._pending_load_window_level = None
                 self._pending_load_case = {
@@ -781,17 +758,56 @@ class nnUnetImageDataSetListWidget(BaseWidget):
                     print(f"Could not fetch image meta for window/level: {meta_err}")
 
                 qt_tools.update_busy_progress(label="Opening image in viewer...")
-                self.image_dataset_downloaded.emit(image_path, labels_path, self)
+                # Image only first; labels are offered after the viewer opens.
+                self._load_completed = False
+                self.image_dataset_downloaded.emit(image_path, "", self)
+
+            # Workspace close may have been cancelled — skip the label prompt.
+            if not getattr(self, "_load_completed", False):
+                return
+
+            if not self._selected_case_has_label():
+                return
+
+            reply = QMessageBox.question(
+                self,
+                "Load Labels",
+                f"Case {number} has labels. Load them into the viewer?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+
+            with qt_tools.busy_progress(
+                self,
+                title="Loading Labels",
+                label=f"Downloading label for case {number}...",
+            ):
+                label_result = nnunet_service.download_dataset_label(
+                    BASE_URL=self._base_url or nnunet_server_url(),
+                    dataset_id=self._dataset_id,
+                    images_for=self.images_for,
+                    num=number,
+                    out_dir=out_dir,
+                )
+                print("Label download complete:", label_result)
+                labels_path = label_result.get("downloaded_labels_image_path") or ""
+                if not labels_path:
+                    raise RuntimeError("Label download returned no file path.")
+                qt_tools.update_busy_progress(label="Applying label layers...")
+                self.label_dataset_downloaded.emit(labels_path, self)
+
         except Exception as e:
             print("Error loading case:", str(e))
             QMessageBox.critical(self, "Load Failed", str(e))
 
     def download_image_dataset(self):
-        """Backward-compatible alias for Load. """
+        """ Backward-compatible alias for Load. """
         self.load_selected_case()
 
     def download_label_dataset(self):
-        """ Backward-compatible alias: Load now includes label when available. """
+        """ Backward-compatible alias for Load. """
         self.load_selected_case()
 
     def get_image_dataset(self):

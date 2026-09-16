@@ -245,7 +245,10 @@ class SliceIndicator():
         actor = vtk.vtkActor()
         actor.SetMapper(mapper)
         actor.GetProperty().SetLineWidth(1)
-        actor.GetProperty().SetColor(1, 1, 1) 
+        actor.GetProperty().SetColor(1, 1, 1)
+        # Crosshairs sit on the near plane; keep them out of picking so pan
+        # does not sample a different depth than the image plane.
+        actor.SetPickable(False)
 
         self.line_source = line_source
         self.mapper = mapper
@@ -1104,22 +1107,12 @@ class VTKViewer3D(QWidget):
 
     def set_vtk_image(self, vtk_image, window, level):
 
-        import vtk
-        import numpy as np
-
         # reset first
         self.clear()
 
-        #######################################
-        # set primary image origin to zero
-        vtk_image.SetOrigin([0.0, 0.0, 0.0])
-        
-        ########################
-        # set itendity matrix for the primary image. vtkOutlineFilter seems does not take it into account.
-        identity_matrix = vtk.vtkMatrix3x3()
-        identity_matrix.Identity()
-        vtk_image.SetDirectionMatrix(identity_matrix)
-
+        # Keep the file origin/direction. The 3D outline is built in a
+        # direction-aware way (see vtk_tools.create_image_outline_polydata),
+        # so we no longer force identity + zero origin for vtkOutlineFilter.
         self.vtk_image = vtk_image
 
         for v in self.viewers_2d:

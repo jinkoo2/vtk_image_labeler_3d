@@ -11,7 +11,10 @@ class ContourWorker(QObject):
         self.segmentation_volume = segmentation_volume
 
     def run(self):
-        contour = vtk.vtkContourFilter()
+        # vtkContourFilter ignores vtkImageData DirectionMatrix (points stay in
+        # origin+spacing axes). FlyingEdges applies IndexToPhysical, matching
+        # the direction-aware 3D outline and slice planes.
+        contour = vtk.vtkFlyingEdges3D()
         contour.SetInputData(self.segmentation_volume)
         contour.SetValue(0, 0.5)
         contour.Update()

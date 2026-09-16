@@ -1216,6 +1216,10 @@ class MainWindow3D(QMainWindow):
             # Creating layers on load flags managers dirty; restoring W/L is not an edit.
             self.reset_modified()
 
+            # Let the dashboard know the image actually opened (close was not cancelled).
+            if sender is not None:
+                sender._load_completed = True
+
     def nnunet_client_manager_label_dataset_downloaded(self, labels_path, sender):
         if self.modified():
             if not self.ensure_changes_saved():

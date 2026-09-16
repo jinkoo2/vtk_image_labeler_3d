@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import webbrowser
 
-from PyQt5.QtCore import Qt, QSettings, QUrl
+from PyQt5.QtCore import Qt, QSettings, QTimer, QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (
     QDialog,
@@ -111,9 +111,9 @@ class NnUNetLoginDialog(QDialog):
         layout.addLayout(reg_row)
 
         self.email_edit.returnPressed.connect(self.password_edit.setFocus)
-        # Explicit Enter-on-password -> Login. _login_in_progress guards double-fire
-        # if the dialog default button also activates.
-        self.password_edit.returnPressed.connect(self._on_login_clicked)
+        # Do not also connect password returnPressed -> login. Login is the
+        # dialog default button, so Enter already fires accepted once; wiring
+        # both caused a second attempt after the error QMessageBox nested loop.
         self._login_in_progress = False
 
     def login_result(self):
@@ -132,6 +132,9 @@ class NnUNetLoginDialog(QDialog):
         ok = QDesktopServices.openUrl(QUrl(url))
         if not ok:
             webbrowser.open(url)
+
+    def _clear_login_in_progress(self):
+        self._login_in_progress = False
 
     def _on_login_clicked(self):
         import nnunet_service
@@ -165,4 +168,5 @@ class NnUNetLoginDialog(QDialog):
             settings.setValue("last_login_email", email)
             self.accept()
         finally:
-            self._login_in_progress = False
+            # Defer clear so a second accepted/click in this event cycle is ignored.
+            QTimer.singleShot(0, self._clear_login_in_progress)
