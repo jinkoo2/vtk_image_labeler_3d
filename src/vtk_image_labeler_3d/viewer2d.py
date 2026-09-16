@@ -27,6 +27,34 @@ class Panning(QObject):
         self.last_mouse_position = None
         self.enabled = False
 
+    def _apply_cursor(self, enabled: bool):
+        """Apply/reset the pan cursor on both the Qt VTK widget and VTK window.
+
+        Setting only the outer viewer QWidget is unreliable: the mouse is over
+        the child QVTKRenderWindowInteractor, and VTK may keep/reset its own
+        cursor there (which made pan look broken on some views).
+        """
+        cursor = Qt.OpenHandCursor if enabled else Qt.ArrowCursor
+        try:
+            self.viewer.setCursor(cursor)
+        except Exception:
+            pass
+        vtk_widget = getattr(self.viewer, "vtk_widget", None)
+        if vtk_widget is not None:
+            try:
+                vtk_widget.setCursor(cursor)
+            except Exception:
+                pass
+        # Also drive VTK's render-window cursor when available.
+        try:
+            rw = self.viewer.get_render_window()
+            if rw is not None and hasattr(rw, "SetCurrentCursor"):
+                rw.SetCurrentCursor(
+                    vtk.VTK_CURSOR_HAND if enabled else vtk.VTK_CURSOR_ARROW
+                )
+        except Exception:
+            pass
+
     def enable(self, enabled=True):
         self.enabled = enabled
 
@@ -40,10 +68,7 @@ class Panning(QObject):
             self.interactor.RemoveObserver(self.left_button_release_observer)   
             self.last_mouse_position = None
 
-        if enabled:
-            self.viewer.setCursor(Qt.OpenHandCursor)  # Change cursor for panning mode
-        else:
-            self.viewer.setCursor(Qt.ArrowCursor)  # Reset cursor
+        self._apply_cursor(enabled)
         
         print(f"Panning mode: {'enabled' if enabled else 'disabled'}")
     
@@ -53,10 +78,22 @@ class Panning(QObject):
         
         self.left_button_is_pressed = True
         self.last_mouse_position = self.interactor.GetEventPosition()
+        # Closed hand while dragging.
+        try:
+            vtk_widget = getattr(self.viewer, "vtk_widget", None)
+            if vtk_widget is not None:
+                vtk_widget.setCursor(Qt.ClosedHandCursor)
+            self.viewer.setCursor(Qt.ClosedHandCursor)
+        except Exception:
+            pass
 
     def on_mouse_move(self, obj, event):
         if not self.enabled:
             return
+
+        # Keep the hand cursor — VTK styles often reset it on move.
+        if not self.left_button_is_pressed:
+            self._apply_cursor(True)
 
         if self.left_button_is_pressed:
             self.perform_panning()
@@ -71,6 +108,7 @@ class Panning(QObject):
 
         self.left_button_is_pressed = False
         self.last_mouse_position = None
+        self._apply_cursor(True)
 
     def perform_panning(self):
         """Perform panning based on mouse movement, keeping the pointer fixed on the same point in the image."""
@@ -196,7 +234,7 @@ class Zooming(QObject):
         self.zoom('reset', emit_event)
 
 class LineWidget:
-    def __init__(self, vtk_image, pt1_w, pt2_w, line_color_vtk=[1,0,0], line_width=2, renderer=None):
+    def __init__(self, vtk_image, pt1_w, pt2_w, line_color_vtk=[1,0,0], line_width=2, renderer=None, on_activated=None):
         # Create a ruler using vtkLineWidget2
         widget = vtk.vtkLineWidget2()
         representation = vtk.vtkLineRepresentation()
@@ -228,9 +266,12 @@ class LineWidget:
         self.color_vtk = line_color_vtk
         self.line_width = line_width
         self.vtk_image = vtk_image
+        self._on_activated = on_activated
+        self._removed = False
 
         # Attach a callback to update distance when the ruler is moved
-        widget.AddObserver("InteractionEvent", lambda obj, event: self.update_ruler_distance())
+        widget.AddObserver("StartInteractionEvent", self._on_start_interaction)
+        widget.AddObserver("InteractionEvent", self._on_interaction)
 
         # Attach the camera observer
         self.renderer.GetActiveCamera().AddObserver("ModifiedEvent", lambda obj, event: self.update_ruler_distance())
@@ -238,6 +279,16 @@ class LineWidget:
         # Attach the window resize observer
         self.renderer.GetRenderWindow().AddObserver("WindowResizeEvent", lambda obj, event: self.update_ruler_distance())
 
+        self.update_ruler_distance()
+
+    def _on_start_interaction(self, obj, event):
+        if callable(self._on_activated):
+            self._on_activated(self)
+        self.update_ruler_distance()
+
+    def _on_interaction(self, obj, event):
+        if callable(self._on_activated):
+            self._on_activated(self)
         self.update_ruler_distance()
     
     def world_to_display(self, renderer, world_coordinates):
@@ -249,6 +300,8 @@ class LineWidget:
         return display_coordinates
 
     def update_ruler_distance(self):
+        if self._removed:
+            return
 
         representation = self.representation
 
@@ -265,7 +318,25 @@ class LineWidget:
         midpoint_w = [(point1[i] + point2[i]) / 2 for i in range(3)]
         midpoint_screen = self.world_to_display(self.renderer, midpoint_w)
         representation.text_actor.SetInput(f"{distance:.2f} mm")
-        representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])       
+        representation.text_actor.SetPosition(midpoint_screen[0], midpoint_screen[1])
+
+    def remove(self):
+        """Disable the widget and remove its distance label from the renderer."""
+        if self._removed:
+            return
+        self._removed = True
+        try:
+            if self.widget is not None:
+                self.widget.Off()
+                self.widget.SetInteractor(None)
+        except Exception:
+            pass
+        try:
+            text_actor = getattr(self.representation, "text_actor", None)
+            if text_actor is not None and self.renderer is not None:
+                self.renderer.RemoveActor2D(text_actor)
+        except Exception:
+            pass
 
 class TextArea():
     def __init__(self, renderer, render_window, position="bottom_left", margins=[10, 10], font_size=16, color=[1.0, 1.0, 1.0], text="hello"):
@@ -374,8 +445,10 @@ class VTKViewer2D(QWidget):
         self.interactor.AddObserver("RightButtonPressEvent", self.on_right_button_press)
         self.interactor.AddObserver("RightButtonReleaseEvent", self.on_right_button_release)
         self.interactor.AddObserver("MouseMoveEvent", self.on_mouse_move)
+        self.interactor.AddObserver("KeyPressEvent", self.on_key_press)
 
         self.rulers = []
+        self._active_ruler = None
         self.vtk_image = None
 
         self.zooming = Zooming(viewer=self)
@@ -447,6 +520,9 @@ class VTKViewer2D(QWidget):
             del self.render_window
 
     def clear(self):
+        # Always drop rulers, even if no image is loaded.
+        self.remove_all_rulers()
+
         if self.vtk_image == None:
             return
 
@@ -651,14 +727,59 @@ class VTKViewer2D(QWidget):
             pt2_w=pt1_w, 
             line_color_vtk=[0,1,0], 
             line_width=2, 
-            renderer=self.get_renderer())
+            renderer=self.get_renderer(),
+            on_activated=self._set_active_ruler,
+        )
         
         line_widget.widget.On()
 
         # Add the ruler to the list for management
         self.rulers.append(line_widget)
+        self._set_active_ruler(line_widget)
 
         self.render()
+
+    def _set_active_ruler(self, ruler):
+        """Remember the last interacted / selected ruler for Delete."""
+        if ruler is None or ruler not in self.rulers:
+            return
+        self._active_ruler = ruler
+
+    def remove_ruler(self, ruler):
+        """Remove one ruler widget from this viewer."""
+        if ruler is None or ruler not in self.rulers:
+            return False
+        try:
+            ruler.remove()
+        except Exception as e:
+            print(f"Failed to remove ruler: {e}")
+        self.rulers = [r for r in self.rulers if r is not ruler]
+        if self._active_ruler is ruler:
+            self._active_ruler = self.rulers[-1] if self.rulers else None
+        self.render()
+        return True
+
+    def remove_active_ruler(self):
+        """Remove the currently selected/active ruler, if any."""
+        return self.remove_ruler(self._active_ruler)
+
+    def remove_all_rulers(self):
+        """Remove every ruler from this viewer."""
+        for ruler in list(self.rulers):
+            try:
+                ruler.remove()
+            except Exception:
+                pass
+        self.rulers = []
+        self._active_ruler = None
+        self.render()
+
+    def on_key_press(self, obj, event):
+        key = self.interactor.GetKeySym() if self.interactor else ""
+        # Delete / BackSpace remove the active ruler.
+        if key in ("Delete", "BackSpace", "KP_Delete"):
+            if self.remove_active_ruler():
+                return
 
     def on_left_button_press(self, obj, event):
         self.left_button_is_pressed = True

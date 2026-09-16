@@ -16,7 +16,7 @@ import nnunet_service
 import qt_tools 
 import requests
 
-from config import get_config
+from config import get_config, get_nnunet_server_url, get_nnunet_server_urls, set_nnunet_selected_server_url
 conf = get_config()
 
 
@@ -290,16 +290,28 @@ class nnUNetDatasetManager(BaseObject):
         # Wrap URL / Connect / Ping / status onto extra lines when the dock is narrow.
         layout = flowlayout.FlowLayout(margin=0, spacing=6)
 
-        self.server_url_input = QLineEdit()
-        self.server_url_input.setText(conf['nnunet_server_url'])
-        self.server_url_input.setPlaceholderText("Server URL here")
-        self.server_url_input.setMinimumWidth(180)
-        self.server_url_input.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        layout.addWidget(self.server_url_input)
+        self.server_url_combo = QComboBox()
+        self.server_url_combo.setEditable(False)
+        self.server_url_combo.setMinimumWidth(260)
+        self.server_url_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.server_url_combo.setToolTip(
+            "Select an nnU-Net server. Switching while connected disconnects first."
+        )
+        self._reload_server_url_combo()
+        self.server_url_combo.activated.connect(self._on_server_url_activated)
+        # Keep old attribute name for any external code that still expects it.
+        self.server_url_input = self.server_url_combo
+        layout.addWidget(self.server_url_combo)
 
         self.connect_button = QPushButton("Connect")
         self.connect_button.clicked.connect(self.connect_to_server_clicked)
         layout.addWidget(self.connect_button)
+
+        self.disconnect_button = QPushButton("Disconnect")
+        self.disconnect_button.setEnabled(False)
+        self.disconnect_button.setToolTip("Sign out and clear all data loaded from this server.")
+        self.disconnect_button.clicked.connect(self.disconnect_from_server_clicked)
+        layout.addWidget(self.disconnect_button)
 
         self.ping_button = QPushButton("Ping")
         self.ping_button.clicked.connect(self.ping_clicked)
@@ -310,7 +322,37 @@ class nnUNetDatasetManager(BaseObject):
         self.auth_status_label.setWordWrap(True)
         layout.addWidget(self.auth_status_label)
 
+        self._server_connected = False
+        self.on_server_disconnected = None  # optional callback: () -> None
+
         return layout
+
+    def _reload_server_url_combo(self):
+        """Populate server combo from settings; preserve selection when possible."""
+        combo = getattr(self, "server_url_combo", None)
+        if combo is None:
+            return
+        urls = get_nnunet_server_urls()
+        selected = get_nnunet_server_url()
+        combo.blockSignals(True)
+        try:
+            combo.clear()
+            for url in urls:
+                combo.addItem(url)
+            idx = combo.findText(selected)
+            combo.setCurrentIndex(idx if idx >= 0 else 0)
+        finally:
+            combo.blockSignals(False)
+
+    def _on_server_url_activated(self, index):
+        """User picked another server from the dropdown."""
+        url = self.server_url_combo.itemText(index).strip()
+        if not url:
+            return
+        if self._server_connected and url != get_nnunet_server_url():
+            # Switching servers requires a clean disconnect first.
+            self.disconnect_from_server(clear_viewer=True)
+        set_nnunet_selected_server_url(url, persist=True)
 
     def _create_dataset_layout(self):
         layout = QVBoxLayout()
@@ -325,6 +367,7 @@ class nnUNetDatasetManager(BaseObject):
         self.dataset_dropdown.setToolTip("Connect to the server first.")
         self._active_dataset_index = -1
         self.before_dataset_change = None  # optional callback: () -> bool
+        self.on_case_deleted = None  # optional callback: (dataset_id, images_for, num) -> None
         self.dataset_dropdown.currentIndexChanged.connect(self._on_dataset_dropdown_changed)
         layout.addWidget(self.dataset_dropdown)
         self._update_dataset_selection_required_style()
@@ -1508,6 +1551,14 @@ class nnUNetDatasetManager(BaseObject):
                 self.datasets[selected_index] = merged
                 self._on_dataset_selected(selected_index)
 
+            # Close the viewer if the deleted case is currently open.
+            callback = getattr(self, "on_case_deleted", None)
+            if callable(callback):
+                try:
+                    callback(dataset_id, images_for, int(num))
+                except Exception as e:
+                    print(f"on_case_deleted failed: {e}")
+
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
             self.log_message.emit("ERROR", f"Server error: {e}")
@@ -1669,8 +1720,11 @@ class nnUNetDatasetManager(BaseObject):
             print(f"Request failed: {e}")
             self.log_message.emit("ERROR", f"Request failed: {e}")
     def get_server_url(self):
-        """Retrieve the current server URL from the input field."""
-        return self.server_url_input.text()
+        """Retrieve the currently selected nnU-Net server URL."""
+        combo = getattr(self, "server_url_combo", None)
+        if combo is not None and combo.currentText().strip():
+            return combo.currentText().strip().rstrip("/")
+        return get_nnunet_server_url()
 
     def _set_server_command_buttons_enabled(self, enabled):
         """Enable/disable dataset commands that require an active server session."""
@@ -1689,11 +1743,26 @@ class nnUNetDatasetManager(BaseObject):
                 dropdown.setToolTip("Connect to the server first.")
             self._update_dataset_selection_required_style()
 
+    def _set_connection_ui_state(self, connected: bool):
+        """Update Connect/Disconnect/server-selector enabled state."""
+        self._server_connected = bool(connected)
+        if hasattr(self, "connect_button") and self.connect_button is not None:
+            self.connect_button.setEnabled(not connected)
+            self.connect_button.setToolTip(
+                "Already connected. Disconnect first to switch users/servers."
+                if connected
+                else "Sign in and load datasets from the selected server."
+            )
+        if hasattr(self, "disconnect_button") and self.disconnect_button is not None:
+            self.disconnect_button.setEnabled(connected)
+        combo = getattr(self, "server_url_combo", None)
+        if combo is not None:
+            # Allow picking another server anytime; switching while connected disconnects.
+            combo.setEnabled(True)
+
     def apply_settings_from_config(self):
         """Refresh connection UI from the shared settings singleton."""
-        url = (conf.get("nnunet_server_url") or "").strip()
-        if hasattr(self, "server_url_input") and self.server_url_input is not None and url:
-            self.server_url_input.setText(url)
+        self._reload_server_url_combo()
 
     def _registration_url(self):
         from nnunet_login_dialog import default_registration_url
@@ -1783,6 +1852,18 @@ class nnUNetDatasetManager(BaseObject):
 
     def connect_to_server_clicked(self):
         """Login (Keycloak), then fetch datasets and populate dropdown list."""
+        selected_url = self.get_server_url().strip()
+        if not selected_url:
+            self.show_msgbox_error(
+                title="Connect",
+                msg="Select an nnU-Net server URL first.",
+                parent=self.main_widget,
+            )
+            return
+
+        # Persist selection before login so helpers/other widgets use the same URL.
+        set_nnunet_selected_server_url(selected_url, persist=True)
+
         if not self._prompt_login():
             return
 
@@ -1797,12 +1878,7 @@ class nnUNetDatasetManager(BaseObject):
             ):
                 self.datasets = nnunet_service.get_dataset_json_list(self.get_server_url(), 5)
 
-            # Connected successfully — prevent repeated Connect/login.
-            if hasattr(self, "connect_button") and self.connect_button is not None:
-                self.connect_button.setEnabled(False)
-                self.connect_button.setToolTip(
-                    "Already connected. Restart the app to sign in as a different user."
-                )
+            self._set_connection_ui_state(True)
             self._set_server_command_buttons_enabled(True)
 
             if not self.datasets:
@@ -1822,14 +1898,59 @@ class nnUNetDatasetManager(BaseObject):
             self.details_label.setText("<b>Select a dataset.</b>")
             self._clear_dataset_views()
             self._update_dataset_selection_required_style()
+            self.log_message.emit("INFO", f"Connected to {selected_url}")
 
         except nnunet_service.ServerError as e:
             self.show_msgbox_error(title="Error", msg=f"Server error: {e}", parent=self.main_widget)
+            self.disconnect_from_server(clear_viewer=False)
         except requests.exceptions.RequestException as e:
             self.show_msgbox_error(title="Error", msg=f"Request failed: {e}", parent=self.main_widget)
+            self.disconnect_from_server(clear_viewer=False)
         finally:
             self.dataset_dropdown.blockSignals(False)
             self._update_dataset_selection_required_style()
+
+    def disconnect_from_server_clicked(self):
+        self.disconnect_from_server(clear_viewer=True)
+
+    def disconnect_from_server(self, clear_viewer=True):
+        """Sign out and remove all server-associated UI/data."""
+        nnunet_service.clear_auth_session()
+
+        self.datasets = []
+        self._current_datast = None
+        self._active_dataset_index = -1
+        self.plan_preprocess_job_id = None
+
+        dropdown = getattr(self, "dataset_dropdown", None)
+        if dropdown is not None:
+            dropdown.blockSignals(True)
+            try:
+                dropdown.clear()
+                dropdown.setCurrentIndex(-1)
+            finally:
+                dropdown.blockSignals(False)
+
+        details = getattr(self, "details_label", None)
+        if details is not None:
+            details.setText("Dataset details will appear here.")
+
+        self._clear_all_server_data_views()
+        self._set_server_command_buttons_enabled(False)
+        self._set_connection_ui_state(False)
+        self._update_auth_status_label()
+        self._update_train_role_tabs_visibility()
+        self._update_dataset_selection_required_style()
+
+        if clear_viewer:
+            callback = getattr(self, "on_server_disconnected", None)
+            if callable(callback):
+                try:
+                    callback()
+                except Exception as e:
+                    print(f"on_server_disconnected failed: {e}")
+
+        self.log_message.emit("INFO", "Disconnected from nnU-Net server.")
 
     def get_dataset_image_list(self, dataset_id):
         """Fetch dataset list from nnUNet server."""
@@ -1860,6 +1981,41 @@ class nnUNetDatasetManager(BaseObject):
                 self.predictions_list_widget.set_dataset("", [])
         except Exception as e:
             print(f"_clear_dataset_views: {e}")
+
+    def _clear_all_server_data_views(self):
+        """Clear datasets, image lists, predictions, preprocess/train UI from this server."""
+        self._clear_dataset_views()
+
+        for name in ("preprocessed_files_list", "training_log_files_list"):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                try:
+                    widget.clear()
+                except Exception:
+                    pass
+
+        combo = getattr(self, "training_model_folder_combo", None)
+        if combo is not None:
+            try:
+                combo.clear()
+                combo.setEnabled(False)
+            except Exception:
+                pass
+
+        for name, default in (
+            ("worker_status_label", "Worker Status: Not started"),
+            ("train_status_label", "Training Status: Not started"),
+        ):
+            label = getattr(self, name, None)
+            if label is None:
+                continue
+            try:
+                if hasattr(label, "setPlainText"):
+                    label.setPlainText(default)
+                elif hasattr(label, "setText"):
+                    label.setText(default)
+            except Exception:
+                pass
 
     def _update_dataset_selection_required_style(self):
         """Light-red border when datasets exist but none is selected."""

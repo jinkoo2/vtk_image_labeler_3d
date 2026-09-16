@@ -1,0 +1,20 @@
+[
+  { "name": "Default (Full Range)", "window": null, "level": null, "auto": true },
+  { "name": "─────────────────", "window": null, "level": null, "separator": true },
+  { "name": "Abdomen",          "window": 400,  "level": 40   },
+  { "name": "Bone",             "window": 1500, "level": 300  },
+  { "name": "Brain",            "window": 80,   "level": 40   },
+  { "name": "Chest (Lung)",     "window": 1500, "level": -600 },
+  { "name": "Chest (Mediastinum)", "window": 350, "level": 50 },
+  { "name": "Head & Neck",      "window": 400,  "level": 60   },
+  { "name": "Kidney",           "window": 300,  "level": 60   },
+  { "name": "Liver",            "window": 150,  "level": 60   },
+  { "name": "Pelvis",           "window": 400,  "level": 40   },
+  { "name": "Soft Tissue",      "window": 400,  "level": 40   },
+  { "name": "Spine",            "window": 500,  "level": 50   },
+  { "name": "─────────────────", "window": null, "level": null, "separator": true },
+  { "name": "Angio (CTA)",      "window": 600,  "level": 300  },
+  { "name": "Cardiac",         "window": 350,  "level": 40   },
+  { "name": "Coronary CTA",    "window": 1000, "level": 300  },
+  { "name": "PET (SUV)",       "window": 10,   "level": 5    }
+]

@@ -28,6 +28,7 @@ ACTION_ICONS = {
     "Flip X": "mdi.flip-horizontal",
     "Flip Y": "mdi.flip-vertical",
     "Add Ruler": "mdi.ruler",
+    "Remove All Rulers": "mdi.delete-sweep-outline",
     "Paint Tool": "mdi.brush",
     "Pencil Tool": "mdi.pencil-outline",
     "Threshold Tool": "mdi.chart-bell-curve",

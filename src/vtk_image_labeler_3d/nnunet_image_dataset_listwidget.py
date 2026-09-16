@@ -37,7 +37,8 @@ def extract_image_number(filename):
     raise ValueError(f"Could not extract number from filename: {filename}")
 
 def nnunet_server_url():
-    return conf['nnunet_server_url']
+    from config import get_nnunet_server_url
+    return get_nnunet_server_url()
 
 LABEL_AUTO_FIELDS = {
     "filename", "shape", "spacing", "label_stats", "error", "modified_at", "modified_by"

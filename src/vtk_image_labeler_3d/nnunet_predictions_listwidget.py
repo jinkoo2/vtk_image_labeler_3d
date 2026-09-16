@@ -22,7 +22,8 @@ def extract_req_id(listitem_text):
 
 
 def nnunet_server_url():
-    return conf['nnunet_server_url']
+    from config import get_nnunet_server_url
+    return get_nnunet_server_url()
 
 from base_widget import BaseWidget
 class nnUnetPredictionsListWidget(BaseWidget):

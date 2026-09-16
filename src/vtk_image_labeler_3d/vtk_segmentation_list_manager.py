@@ -507,6 +507,18 @@ class SegmentationListItemWidget(QWidget):
         btn_style = "QPushButton { padding: 0; margin: 0; border: none; background: transparent; }"
         btn_size = 24
 
+        # Go-to-center (bull's-eye) button
+        self.goto_center_button = QPushButton()
+        self.goto_center_button.setFixedSize(btn_size, btn_size)
+        self.goto_center_button.setIcon(material_icon("mdi.bullseye", color="#616161"))
+        self.goto_center_button.setIconSize(self.goto_center_button.size() * 0.7)
+        self.goto_center_button.setStyleSheet(btn_style)
+        self.goto_center_button.setToolTip("Go to the center of this layer (navigate all slices to the layer centroid)")
+        self.goto_center_button.setAutoDefault(False)
+        self.goto_center_button.setDefault(False)
+        self.goto_center_button.clicked.connect(self.goto_center_clicked)
+        layout.addWidget(self.goto_center_button, 0, Qt.AlignVCenter)
+
         # Remove button
         self.remove_button = QPushButton()
         self.remove_button.setFixedSize(btn_size, btn_size)
@@ -668,6 +680,20 @@ class SegmentationListItemWidget(QWidget):
 
     #     run_button.clicked.connect(run_operation)
     #     dialog.show()
+
+    def goto_center_clicked(self):
+        """Navigate all slice viewers to the centroid of this layer's non-zero voxels."""
+        image = self.layer.get_image()
+        if image is None:
+            return
+        # Walk up to the manager via the list widget's manager reference
+        manager = getattr(self, "manager", None)
+        if manager is None:
+            return
+        vtk_viewer = getattr(manager, "vtk_viewer", None)
+        if vtk_viewer is None:
+            return
+        vtk_viewer.goto_layer_center(image)
 
     def remove_layer_clicked(self):
         """Remove the layer when the 'x' button is clicked."""

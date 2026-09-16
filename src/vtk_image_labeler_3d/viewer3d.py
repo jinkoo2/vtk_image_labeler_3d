@@ -345,6 +345,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         self.slice_plane_object = SlicePlaneObject(slice_plane_color)
         self.slice_indicators_of_other_views = {}
+        self._crosshair_visible = True
 
     def clear(self):
         if self.vtk_image_3d == None:
@@ -415,7 +416,8 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             
         slice_indicator.set_points(pt0_w, pt1_w)
         slice_indicator.set_color(color)
-         
+        slice_indicator.actor.SetVisibility(self._crosshair_visible)
+
         self.render()
 
     def on_slice_changed(self, new_slice_index, old_slice_index, sender):
@@ -547,10 +549,10 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
 
         self.update_slice_plane_object()
 
-        # show slice indicators
+        # show slice indicators (respect current crosshair visibility flag)
         for name, slice_indicator in self.slice_indicators_of_other_views.items():
             if slice_indicator.actor:
-                slice_indicator.actor.SetVisibility(True)
+                slice_indicator.actor.SetVisibility(self._crosshair_visible)
 
 
         self.reset_camera()
@@ -961,6 +963,10 @@ class VTKViewer3D(QWidget):
             self.restore_view_panes()
             event.accept()
             return
+        if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+            if self.remove_active_ruler():
+                event.accept()
+                return
         super().keyPressEvent(event)
     def on_left_button_double_pressed_on_2d_viewer(self, sender):
         source_viewer: VTKViewer2DWithReslicer = sender
@@ -1176,6 +1182,58 @@ class VTKViewer3D(QWidget):
 
         self.viewer_surf.render()
 
+    def set_crosshair_visible(self, visible: bool):
+        """Show or hide the slice-position indicator lines on all 2-D viewers."""
+        for v in self.viewers_2d:
+            v._crosshair_visible = visible
+            for indicator in v.slice_indicators_of_other_views.values():
+                if indicator.actor:
+                    indicator.actor.SetVisibility(visible)
+            v.render()
+
+    def goto_layer_center(self, vtk_label_image):
+        """Navigate all three slice viewers to the centroid of non-zero voxels in vtk_label_image.
+
+        vtk_label_image: vtkImageData with scalar values > 0 marking the region.
+        Does nothing when the layer is empty or the viewer has no image loaded.
+        """
+        if self.vtk_image is None or vtk_label_image is None:
+            return
+        try:
+            import numpy as np
+            from vtk.util.numpy_support import vtk_to_numpy
+            from reslicer import AXIAL, CORONAL, SAGITTAL
+
+            scalars = vtk_label_image.GetPointData().GetScalars()
+            if scalars is None:
+                return
+            dims = vtk_label_image.GetDimensions()  # (nx, ny, nz)
+            arr = vtk_to_numpy(scalars).reshape(dims[2], dims[1], dims[0])  # (z, y, x)
+
+            nz_idx = np.argwhere(arr > 0)  # shape (N, 3) → rows are (iz, iy, ix)
+            if nz_idx.size == 0:
+                return
+
+            center_ijk = nz_idx.mean(axis=0)  # (iz_center, iy_center, ix_center)
+            iz, iy, ix = int(round(center_ijk[0])), int(round(center_ijk[1])), int(round(center_ijk[2]))
+
+            # reslicer axis constants: AXIAL=2→z dim, CORONAL=1→y dim, SAGITTAL=0→x dim
+            # dims = (nx, ny, nz) so max slice indices are nx-1, ny-1, nz-1
+            axis_to_index = {
+                AXIAL:    (iz, dims[2] - 1),   # z slices
+                CORONAL:  (iy, dims[1] - 1),   # y slices
+                SAGITTAL: (ix, dims[0] - 1),   # x slices
+            }
+
+            for v in self.viewers_2d:
+                entry = axis_to_index.get(v.reslicer.axis)
+                if entry is not None:
+                    target, max_idx = entry
+                    target = max(0, min(target, max_idx))
+                    v.set_slice_index(target)
+        except Exception as e:
+            print(f"goto_layer_center failed: {e}")
+
     def zoom_in(self):
         if not self.vtk_image:
             return 
@@ -1224,6 +1282,20 @@ class VTKViewer3D(QWidget):
         v = self.get_active_viewer()
         if v and hasattr(v, 'add_ruler'):
             v.add_ruler()
+
+    def remove_all_rulers(self):
+        """Remove rulers from all 2-D viewers."""
+        for v in getattr(self, "viewers_2d", []) or []:
+            if hasattr(v, "remove_all_rulers"):
+                v.remove_all_rulers()
+        self.render()
+
+    def remove_active_ruler(self):
+        """Remove the selected/active ruler on the active 2-D viewer."""
+        v = self.get_active_viewer()
+        if v and hasattr(v, "remove_active_ruler"):
+            return v.remove_active_ruler()
+        return False
 
     def on_left_button_press(self, obj, event):
         pass
@@ -1669,6 +1741,10 @@ class MainWindow(QMainWindow):
         add_ruler_action = QAction("Add Ruler", self)
         add_ruler_action.triggered.connect(self.vtk_viewer.add_ruler)
         toolbar.addAction(add_ruler_action)
+
+        remove_rulers_action = QAction("Remove All Rulers", self)
+        remove_rulers_action.triggered.connect(self.vtk_viewer.remove_all_rulers)
+        toolbar.addAction(remove_rulers_action)
 
     def rotate_plus_90_clicked(self):
         

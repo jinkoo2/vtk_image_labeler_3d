@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTextEdit,
@@ -89,6 +90,18 @@ class NnUNetPredictionToolDialog(QDialog):
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
+
+        self.model_filter_edit = QLineEdit()
+        self.model_filter_edit.setPlaceholderText(
+            "Filter by organ, configuration, description, model name…"
+        )
+        self.model_filter_edit.setClearButtonEnabled(True)
+        self.model_filter_edit.setToolTip(
+            "Case-insensitive filter over model fields "
+            "(dataset, configuration, trainer, plans, description, name, organ, etc.)."
+        )
+        self.model_filter_edit.textChanged.connect(self._on_model_filter_changed)
+        form.addRow("Filter:", self.model_filter_edit)
 
         self.model_combo = QComboBox()
         self.model_combo.setToolTip("Approved prediction models from the nnU-Net server")
@@ -199,22 +212,104 @@ class NnUNetPredictionToolDialog(QDialog):
         return "\n".join(lines)
 
     def _model_display_name(self, model: dict) -> str:
+        # Try several common key names the server may use.
+        dataset = (
+            model.get("dataset_id")
+            or model.get("dataset")
+            or model.get("name")
+            or model.get("model_name")
+            or model.get("folder")
+            or "?"
+        )
+        config = model.get("configuration") or model.get("config") or "?"
+        trainer = model.get("trainer") or "?"
         return (
-            f"{model.get('dataset_id', '?')} | "
-            f"{model.get('configuration', '?')} | "
-            f"{model.get('trainer', '?')}"
+            f"{dataset} | {config} | {trainer}"
             f"{self._model_license_tag(model)}"
         )
 
-    def _load_approved_models(self):
+    def _model_search_text(self, model: dict) -> str:
+        """Flatten ALL string values in the model dict (recursively) for case-insensitive filtering."""
+        def _collect(obj, depth=0):
+            if depth > 5:
+                return
+            if isinstance(obj, str):
+                yield obj
+            elif isinstance(obj, dict):
+                for v in obj.values():
+                    yield from _collect(v, depth + 1)
+            elif isinstance(obj, (list, tuple)):
+                for v in obj:
+                    yield from _collect(v, depth + 1)
+        return " ".join(_collect(model))
+
+    def _filtered_models(self):
+        query = (self.model_filter_edit.text() or "").strip().lower()
+        if not query:
+            return list(self._models)
+        return [m for m in self._models if query in self._model_search_text(m).lower()]
+
+    def _populate_model_combo(self, preferred_model=None):
+        """Fill the combo from the current filter. Preserve selection when possible."""
+        previous = preferred_model if isinstance(preferred_model, dict) else self._selected_model()
         self.model_combo.blockSignals(True)
-        self.model_combo.clear()
+        try:
+            self.model_combo.clear()
+            filtered = self._filtered_models()
+            if not self._models:
+                self.model_combo.addItem("(no approved models)")
+            elif not filtered:
+                self.model_combo.addItem("(no matching models)")
+            else:
+                select_index = 0
+                for i, m in enumerate(filtered):
+                    self.model_combo.addItem(self._model_display_name(m), m)
+                    idx = self.model_combo.count() - 1
+                    self.model_combo.setItemData(idx, self._model_tooltip(m), Qt.ToolTipRole)
+                    if previous and (
+                        previous.get("dataset_id") == m.get("dataset_id")
+                        and previous.get("trainer") == m.get("trainer")
+                        and previous.get("plans") == m.get("plans")
+                        and previous.get("configuration") == m.get("configuration")
+                    ):
+                        select_index = i
+                self.model_combo.setCurrentIndex(select_index)
+        finally:
+            self.model_combo.blockSignals(False)
+
+        selected = self._selected_model()
+        same_as_previous = bool(
+            previous
+            and selected
+            and previous.get("dataset_id") == selected.get("dataset_id")
+            and previous.get("trainer") == selected.get("trainer")
+            and previous.get("plans") == selected.get("plans")
+            and previous.get("configuration") == selected.get("configuration")
+        )
+        if selected and not same_as_previous:
+            self._on_model_changed(self.model_combo.currentIndex())
+        elif not selected:
+            self._model_detail = None
+            self.model_docs_button.setEnabled(False)
+            self.channels_label.setText("-")
+        else:
+            self.model_docs_button.setEnabled(bool(selected.get("docs_url") or (self._model_detail or {}).get("docs_url")))
+        self._refresh_context_labels()
+
+    def _on_model_filter_changed(self, _text: str = ""):
+        if not self._models:
+            return
+        self._populate_model_combo()
+    def _load_approved_models(self):
         self._models = []
         ctx = self._context()
         base_url = ctx.get("server_url")
         if not base_url:
-            self._set_status("No nnU-Net server URL available. Connect to the server first.")
+            self.model_combo.blockSignals(True)
+            self.model_combo.clear()
+            self.model_combo.addItem("(no server)")
             self.model_combo.blockSignals(False)
+            self._set_status("No nnU-Net server URL available. Connect to the server first.")
             self._refresh_context_labels()
             return
 
@@ -226,22 +321,27 @@ class NnUNetPredictionToolDialog(QDialog):
             ):
                 models = nnunet_service.get_approved_models(base_url)
             self._models = models or []
+            if self._models:
+                print(f"[PredictionTool] First model keys: {list(self._models[0].keys())}")
+                print(f"[PredictionTool] First model: {self._models[0]}")
+            self._populate_model_combo()
+            query = (self.model_filter_edit.text() or "").strip()
+            matched = len(self._filtered_models())
             if not self._models:
-                self.model_combo.addItem("(no approved models)")
                 self._set_status("No approved models found on the server.")
+            elif query:
+                self._set_status(
+                    f"Loaded {len(self._models)} approved model(s); "
+                    f"showing {matched} matching “{query}”."
+                )
             else:
-                for m in self._models:
-                    self.model_combo.addItem(self._model_display_name(m), m)
-                    idx = self.model_combo.count() - 1
-                    self.model_combo.setItemData(idx, self._model_tooltip(m), Qt.ToolTipRole)
                 self._set_status(f"Loaded {len(self._models)} approved model(s).")
-                self.model_combo.setCurrentIndex(0)
-                self._on_model_changed(0)
         except Exception as e:
+            self.model_combo.blockSignals(True)
+            self.model_combo.clear()
             self.model_combo.addItem("(failed to load models)")
-            self._set_status(f"Failed to load approved models:\n{e}")
-        finally:
             self.model_combo.blockSignals(False)
+            self._set_status(f"Failed to load approved models:\n{e}")
             self._refresh_context_labels()
 
     def _selected_model(self):

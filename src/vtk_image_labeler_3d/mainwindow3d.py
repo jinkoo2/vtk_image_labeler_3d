@@ -185,6 +185,8 @@ class MainWindow3D(QMainWindow):
         self.nnunet_client_manager.get_window_level = self.get_window_level_settings
         self.nnunet_client_manager.before_dataset_change = self.before_nnunet_dataset_change
         self.nnunet_client_manager.on_case_saved = self.reset_modified
+        self.nnunet_client_manager.on_case_deleted = self.on_nnunet_case_deleted
+        self.nnunet_client_manager.on_server_disconnected = self.on_nnunet_server_disconnected
         self.managers.append(self.nnunet_client_manager)
         self.nnunet_client_manager_widget = dock
         self.add_manager_visibility_toggle_menu(self.nnunet_client_manager, True)
@@ -728,7 +730,7 @@ class MainWindow3D(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
         # Add a label for context
-        toolbar.addWidget(QLabel("Window/Level:", self))
+        toolbar.addWidget(QLabel("W/L:", self))
 
         # Replace two QSliders with a RangeSlider for window and level
         self.range_slider = RangeSlider(self)
@@ -736,6 +738,25 @@ class MainWindow3D(QMainWindow):
         self.range_slider.rangeChanged.connect(self.update_window_level)
         self.range_slider.rangeReleased.connect(self.persist_window_level_settings)
         toolbar.addWidget(self.range_slider)
+
+        # Auto window/level button
+        auto_wl_btn = QPushButton("Auto", self)
+        auto_wl_btn.setToolTip(
+            "Automatically set Window/Level from image histogram\n"
+            "(uses the 1st–99th percentile of non-zero voxels)"
+        )
+        auto_wl_btn.setFixedWidth(46)
+        auto_wl_btn.clicked.connect(self.auto_window_level)
+        toolbar.addWidget(auto_wl_btn)
+
+        # CT Presets dropdown
+        from PyQt5.QtWidgets import QComboBox as _QCB
+        self.wl_preset_combo = _QCB(self)
+        self.wl_preset_combo.setToolTip("Apply a CT window/level preset")
+        self.wl_preset_combo.setFixedWidth(160)
+        self._load_wl_presets()
+        self.wl_preset_combo.activated.connect(self._apply_wl_preset)
+        toolbar.addWidget(self.wl_preset_combo)
         
         # zoom in action
         zoom_in_action = _iconize_action(QAction("Zoom In", self))
@@ -791,6 +812,19 @@ class MainWindow3D(QMainWindow):
         add_ruler_action = _iconize_action(QAction("Add Ruler", self))
         add_ruler_action.triggered.connect(self.vtk_viewer.add_ruler)
         toolbar.addAction(add_ruler_action)
+
+        remove_rulers_action = _iconize_action(QAction("Remove All Rulers", self))
+        remove_rulers_action.setToolTip("Remove all rulers from all views")
+        remove_rulers_action.triggered.connect(self.vtk_viewer.remove_all_rulers)
+        toolbar.addAction(remove_rulers_action)
+
+        # Crosshair show/hide toggle
+        crosshair_action = _iconize_action(QAction("Crosshair", self))
+        crosshair_action.setCheckable(True)
+        crosshair_action.setChecked(True)
+        crosshair_action.setToolTip("Show / hide the slice-position crosshair lines")
+        crosshair_action.toggled.connect(self.vtk_viewer.set_crosshair_visible)
+        toolbar.addAction(crosshair_action)
 
     def zoom_clicked(self, checked):
         self.vtk_viewer.enable_zooming(checked)
@@ -964,6 +998,116 @@ class MainWindow3D(QMainWindow):
             f"Restored Window: {self.range_slider.get_width()}, Level: {self.range_slider.get_center()}"
         )
 
+    # -----------------------------------------------------------------------
+    # Auto Window/Level
+    # -----------------------------------------------------------------------
+    def auto_window_level(self):
+        """Set W/L from the 1st–99th percentile of non-zero voxels in the image."""
+        if self.vtk_image is None:
+            return
+        try:
+            import numpy as np
+            from vtk.util.numpy_support import vtk_to_numpy
+
+            scalars = self.vtk_image.GetPointData().GetScalars()
+            if scalars is None:
+                return
+            arr = vtk_to_numpy(scalars).astype(np.float64)
+
+            # Exclude background (zero) voxels when they clearly dominate.
+            non_zero = arr[arr != 0]
+            data = non_zero if non_zero.size > arr.size * 0.05 else arr
+
+            lo = float(np.percentile(data, 1))
+            hi = float(np.percentile(data, 99))
+            if hi <= lo:
+                hi = lo + 1.0
+
+            self.range_slider.low_value = max(self.range_slider.range_min, lo)
+            self.range_slider.high_value = min(self.range_slider.range_max, hi)
+            self.range_slider.update()
+            self.vtk_viewer.set_window_level(
+                self.range_slider.get_width(),
+                self.range_slider.get_center(),
+            )
+            self.print_status(
+                f"Auto W/L → Window: {self.range_slider.get_width():.0f}, "
+                f"Level: {self.range_slider.get_center():.0f}"
+            )
+            self.persist_window_level_settings()
+        except Exception as e:
+            _err(f"Auto W/L failed: {e}")
+
+    # -----------------------------------------------------------------------
+    # CT Preset helpers
+    # -----------------------------------------------------------------------
+    def _load_wl_presets(self):
+        """Populate the CT preset combo from ct_window_level_presets.json."""
+        import json as _json
+        self._wl_presets = []
+        preset_file = os.path.join(os.getcwd(), "ct_window_level_presets.json")
+        try:
+            if os.path.exists(preset_file):
+                with open(preset_file, "r", encoding="utf-8") as fh:
+                    entries = _json.load(fh)
+            else:
+                entries = []
+        except Exception as e:
+            _err(f"Could not load CT presets: {e}")
+            entries = []
+
+        self.wl_preset_combo.clear()
+        self.wl_preset_combo.addItem("CT Presets…")  # placeholder
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name", "")
+            if entry.get("separator"):
+                # Use a disabled item as a visual separator
+                self.wl_preset_combo.addItem(name)
+                idx = self.wl_preset_combo.count() - 1
+                item = self.wl_preset_combo.model().item(idx)
+                if item:
+                    from PyQt5.QtCore import Qt as _Qt
+                    item.setFlags(item.flags() & ~_Qt.ItemIsEnabled & ~_Qt.ItemIsSelectable)
+                self._wl_presets.append(None)
+            else:
+                self.wl_preset_combo.addItem(name)
+                self._wl_presets.append(entry)
+
+    def _apply_wl_preset(self, index):
+        """Apply the selected CT preset (index 0 = placeholder, skip)."""
+        # index 0 is the placeholder "CT Presets…"
+        preset_index = index - 1  # offset by placeholder
+        if preset_index < 0 or preset_index >= len(self._wl_presets):
+            return
+        preset = self._wl_presets[preset_index]
+        if preset is None:
+            # separator row — reset combo back to placeholder
+            self.wl_preset_combo.setCurrentIndex(0)
+            return
+
+        if self.vtk_image is None:
+            self.wl_preset_combo.setCurrentIndex(0)
+            return
+
+        if preset.get("auto"):
+            self.auto_window_level()
+        else:
+            window = preset.get("window")
+            level = preset.get("level")
+            if window is None or level is None:
+                return
+            self.apply_window_level_settings({"window": float(window), "level": float(level)})
+            self.print_status(
+                f"Preset '{preset['name']}' → Window: {window}, Level: {level}"
+            )
+            self.persist_window_level_settings()
+
+        # Reset dropdown back to placeholder after applying
+        self.wl_preset_combo.setCurrentIndex(0)
+
     def persist_window_level_settings(self):
         """Write current window/level into image meta for the loaded nnU-Net case."""
         ref = self._nnunet_image_ref
@@ -1065,6 +1209,9 @@ class MainWindow3D(QMainWindow):
             wl = getattr(sender, "_pending_load_window_level", None)
             if isinstance(wl, dict):
                 self.apply_window_level_settings(wl)
+            else:
+                # No previously saved W/L in image meta: fall back to auto-histogram.
+                self.auto_window_level()
 
             # Creating layers on load flags managers dirty; restoring W/L is not an edit.
             self.reset_modified()
@@ -1156,6 +1303,9 @@ class MainWindow3D(QMainWindow):
         self.range_slider.update()  
         
         self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
+        # Default to auto W/L on image load; if saved metadata exists (nnU-Net case),
+        # caller will overwrite this by apply_window_level_settings().
+        self.auto_window_level()
 
         self.setWindowTitle(f"Image Labeler 3D - {os.path.basename(file_path)}")
         
@@ -1294,6 +1444,33 @@ class MainWindow3D(QMainWindow):
         if self.vtk_image is not None:
             self._clear_workspace_without_prompt()
         return True
+
+    def on_nnunet_case_deleted(self, dataset_id, images_for, num):
+        """Close the viewer when the currently open nnU-Net case was deleted."""
+        ref = self._nnunet_image_ref
+        if not isinstance(ref, dict):
+            return
+        try:
+            same_case = (
+                str(ref.get("dataset_id") or "") == str(dataset_id or "")
+                and str(ref.get("images_for") or "") == str(images_for or "")
+                and int(ref.get("num")) == int(num)
+            )
+        except (TypeError, ValueError):
+            return
+        if not same_case:
+            return
+        # Case is already gone on the server — clear without a save prompt.
+        self._clear_workspace_without_prompt()
+        self.print_status(f"Closed deleted case {num} ({images_for}) from viewer.")
+
+    def on_nnunet_server_disconnected(self):
+        """Clear any open nnU-Net case when disconnecting / switching servers."""
+        if self._nnunet_image_ref is not None or self.vtk_image is not None:
+            # Avoid save-to-server prompt: session is already gone.
+            self.reset_modified()
+            self._clear_workspace_without_prompt()
+            self.print_status("Closed workspace after nnU-Net server disconnect.")
 
     def _clear_workspace_without_prompt(self):
         if self.vtk_image is None and getattr(self, "image_path", None) is None:
