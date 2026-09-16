@@ -687,6 +687,42 @@ class MainWindow3D(QMainWindow):
         zoom_reset_action.triggered.connect(self.vtk_viewer.zoom_reset)
         view_menu.addAction(zoom_reset_action)
 
+        view_menu.addSeparator()
+
+        # Pan (shared with toolbar)
+        self.pan_action = _iconize_action(QAction("Pan", self))
+        self.pan_action.setCheckable(True)
+        self.pan_action.setToolTip("Pan 2D views")
+        self.pan_action.toggled.connect(self.pan_clicked)
+        view_menu.addAction(self.pan_action)
+
+        view_menu.addSeparator()
+
+        # Display-only patient-axis flips (shared with toolbar)
+        self.flip_lr_action = _iconize_action(QAction("Flip L/R", self))
+        self.flip_lr_action.setCheckable(True)
+        self.flip_lr_action.setToolTip(
+            "Mirror left/right in 2D views (display only; does not modify image data)"
+        )
+        self.flip_lr_action.toggled.connect(self.vtk_viewer.set_user_flip_lr)
+        view_menu.addAction(self.flip_lr_action)
+
+        self.flip_ap_action = _iconize_action(QAction("Flip A/P", self))
+        self.flip_ap_action.setCheckable(True)
+        self.flip_ap_action.setToolTip(
+            "Mirror anterior/posterior in 2D views (display only; does not modify image data)"
+        )
+        self.flip_ap_action.toggled.connect(self.vtk_viewer.set_user_flip_ap)
+        view_menu.addAction(self.flip_ap_action)
+
+        self.flip_si_action = _iconize_action(QAction("Flip S/I", self))
+        self.flip_si_action.setCheckable(True)
+        self.flip_si_action.setToolTip(
+            "Mirror superior/inferior in 2D views (display only; does not modify image data)"
+        )
+        self.flip_si_action.toggled.connect(self.vtk_viewer.set_user_flip_si)
+        view_menu.addAction(self.flip_si_action)
+
         self.create_toolbars_menu(view_menu)
         self.create_managers_menu(view_menu)
 
@@ -779,14 +815,44 @@ class MainWindow3D(QMainWindow):
         zoom_action.toggled.connect(self.zoom_clicked)
         toolbar.addAction(zoom_action)        
 
-        # pan toggle button
-        pan_action = _iconize_action(QAction("Pan", self))
-        pan_action.setCheckable(True)
-        pan_action.toggled.connect(self.pan_clicked)
-        toolbar.addAction(pan_action)        
+        # pan toggle button (same action as View menu)
+        if not hasattr(self, "pan_action") or self.pan_action is None:
+            self.pan_action = _iconize_action(QAction("Pan", self))
+            self.pan_action.setCheckable(True)
+            self.pan_action.setToolTip("Pan 2D views")
+            self.pan_action.toggled.connect(self.pan_clicked)
+        toolbar.addAction(self.pan_action)
+
+        # Display-only orientation flips (same actions as View menu)
+        if not hasattr(self, "flip_lr_action") or self.flip_lr_action is None:
+            self.flip_lr_action = _iconize_action(QAction("Flip L/R", self))
+            self.flip_lr_action.setCheckable(True)
+            self.flip_lr_action.setToolTip(
+                "Mirror left/right in 2D views (display only; does not modify image data)"
+            )
+            self.flip_lr_action.toggled.connect(self.vtk_viewer.set_user_flip_lr)
+        toolbar.addAction(self.flip_lr_action)
+
+        if not hasattr(self, "flip_ap_action") or self.flip_ap_action is None:
+            self.flip_ap_action = _iconize_action(QAction("Flip A/P", self))
+            self.flip_ap_action.setCheckable(True)
+            self.flip_ap_action.setToolTip(
+                "Mirror anterior/posterior in 2D views (display only; does not modify image data)"
+            )
+            self.flip_ap_action.toggled.connect(self.vtk_viewer.set_user_flip_ap)
+        toolbar.addAction(self.flip_ap_action)
+
+        if not hasattr(self, "flip_si_action") or self.flip_si_action is None:
+            self.flip_si_action = _iconize_action(QAction("Flip S/I", self))
+            self.flip_si_action.setCheckable(True)
+            self.flip_si_action.setToolTip(
+                "Mirror superior/inferior in 2D views (display only; does not modify image data)"
+            )
+            self.flip_si_action.toggled.connect(self.vtk_viewer.set_user_flip_si)
+        toolbar.addAction(self.flip_si_action)
 
         # pad is an exclusive
-        self.add_exclusive_actions([pan_action])
+        self.add_exclusive_actions([self.pan_action])
         
         # Add ruler toggle action
         add_ruler_action = _iconize_action(QAction("Add Ruler", self))
@@ -946,6 +1012,49 @@ class MainWindow3D(QMainWindow):
                 self.wl_preset_combo.addItem(name)
                 self._wl_presets.append(entry)
 
+    @staticmethod
+    def _is_valid_window_level(window_level):
+        if not isinstance(window_level, dict):
+            return False
+        window = window_level.get("window", window_level.get("width"))
+        level = window_level.get("level")
+        try:
+            return window is not None and level is not None and float(window) > 0
+        except (TypeError, ValueError):
+            return False
+
+    def _wl_preset_combo_index_for_name(self, name):
+        """Combo index for a preset name (accounts for the placeholder row), or -1."""
+        if not hasattr(self, "_wl_presets") or not hasattr(self, "wl_preset_combo"):
+            return -1
+        for i, preset in enumerate(self._wl_presets):
+            if preset and preset.get("name") == name:
+                return i + 1  # offset by "CT Presets…" placeholder
+        return -1
+
+    def _apply_soft_tissue_default(self):
+        """Default W/L when the loaded image has no saved window/level."""
+        if self.vtk_image is None:
+            return
+
+        idx = self._wl_preset_combo_index_for_name("Soft Tissue")
+        if idx >= 0:
+            preset = self._wl_presets[idx - 1]
+            window = float(preset["window"])
+            level = float(preset["level"])
+        else:
+            window, level = 400.0, 40.0
+
+        self.apply_window_level_settings({"window": window, "level": level})
+        if hasattr(self, "wl_preset_combo"):
+            self.wl_preset_combo.blockSignals(True)
+            self.wl_preset_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self.wl_preset_combo.blockSignals(False)
+        self.print_status(
+            f"Default Soft Tissue → Window: {window:.0f}, Level: {level:.0f}"
+        )
+        self.persist_window_level_settings()
+
     def _apply_wl_preset(self, index):
         """Apply the selected CT preset (index 0 = placeholder, skip)."""
         # index 0 is the placeholder "CT Presets…"
@@ -964,19 +1073,25 @@ class MainWindow3D(QMainWindow):
 
         if preset.get("auto"):
             self.auto_window_level()
-        else:
-            window = preset.get("window")
-            level = preset.get("level")
-            if window is None or level is None:
-                return
-            self.apply_window_level_settings({"window": float(window), "level": float(level)})
-            self.print_status(
-                f"Preset '{preset['name']}' → Window: {window}, Level: {level}"
-            )
-            self.persist_window_level_settings()
+            # Leave "Default (Full Range)" selected after auto apply.
+            self.wl_preset_combo.blockSignals(True)
+            self.wl_preset_combo.setCurrentIndex(index)
+            self.wl_preset_combo.blockSignals(False)
+            return
 
-        # Reset dropdown back to placeholder after applying
-        self.wl_preset_combo.setCurrentIndex(0)
+        window = preset.get("window")
+        level = preset.get("level")
+        if window is None or level is None:
+            return
+        self.apply_window_level_settings({"window": float(window), "level": float(level)})
+        self.print_status(
+            f"Preset '{preset['name']}' → Window: {window}, Level: {level}"
+        )
+        self.persist_window_level_settings()
+        # Keep the chosen preset selected in the combo.
+        self.wl_preset_combo.blockSignals(True)
+        self.wl_preset_combo.setCurrentIndex(index)
+        self.wl_preset_combo.blockSignals(False)
 
     def persist_window_level_settings(self):
         """Write current window/level into image meta for the loaded nnU-Net case."""
@@ -1077,11 +1192,15 @@ class MainWindow3D(QMainWindow):
 
             self._nnunet_image_ref = getattr(sender, "_pending_load_case", None)
             wl = getattr(sender, "_pending_load_window_level", None)
-            if isinstance(wl, dict):
+            if self._is_valid_window_level(wl):
                 self.apply_window_level_settings(wl)
+                if hasattr(self, "wl_preset_combo"):
+                    self.wl_preset_combo.blockSignals(True)
+                    self.wl_preset_combo.setCurrentIndex(0)
+                    self.wl_preset_combo.blockSignals(False)
             else:
-                # No previously saved W/L in image meta: fall back to auto-histogram.
-                self.auto_window_level()
+                # No previously saved W/L in image meta: Soft Tissue CT preset.
+                self._apply_soft_tissue_default()
 
             # Creating layers on load flags managers dirty; restoring W/L is not an edit.
             self.reset_modified()
@@ -1177,9 +1296,9 @@ class MainWindow3D(QMainWindow):
         self.range_slider.update()  
         
         self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-        # Default to auto W/L on image load; if saved metadata exists (nnU-Net case),
-        # caller will overwrite this by apply_window_level_settings().
-        self.auto_window_level()
+        # Default to Soft Tissue when no saved W/L; nnU-Net load path may
+        # overwrite with image-meta window/level afterward.
+        self._apply_soft_tissue_default()
 
         self.setWindowTitle(f"Image Labeler 3D - {os.path.basename(file_path)}")
         

@@ -660,6 +660,18 @@ class VTKViewer2D(QWidget):
 
         return window, level
     
+    def _resolve_user_display_flips(self):
+        """Find L/R·A/P·S/I toggles on VTKViewer3D (ViewPane reparents us)."""
+        provider = getattr(self, "_display_orientation_provider", None)
+        if provider is not None and hasattr(provider, "get_user_display_flips"):
+            return provider.get_user_display_flips()
+        widget = self.parent()
+        while widget is not None:
+            if hasattr(widget, "get_user_display_flips"):
+                return widget.get_user_display_flips()
+            widget = widget.parent()
+        return False, False, False
+
     def setup_top_left_origin_camera(self):
         if not self.vtk_image:
             print("No image loaded.")
@@ -699,6 +711,11 @@ class VTKViewer2D(QWidget):
         camera.SetViewUp(*view_up)
         camera.SetParallelScale(float(np.max(spacing[:2] * dims[:2]) / 2.0))
         camera.SetClippingRange(0.1, dist * 3.0)
+
+        flip_lr, flip_ap, flip_si = self._resolve_user_display_flips()
+        vtk_tools.apply_patient_axis_display_flips(
+            camera, flip_lr=flip_lr, flip_ap=flip_ap, flip_si=flip_si
+        )
 
         self._orientation_labels = vtk_tools.dicom_lps_screen_labels(camera)
         self.update_orientation_labels()

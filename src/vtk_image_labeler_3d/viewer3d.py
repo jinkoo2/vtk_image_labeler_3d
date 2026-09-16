@@ -527,6 +527,11 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         camera.SetParallelScale(float(np.max(spacing * dims) / 2.0))
         camera.SetClippingRange(0.1, dist * 3.0)
 
+        flip_lr, flip_ap, flip_si = self._resolve_user_display_flips()
+        vtk_tools.apply_patient_axis_display_flips(
+            camera, flip_lr=flip_lr, flip_ap=flip_ap, flip_si=flip_si
+        )
+
         # Always derive letters from the live camera so improper rotations
         # (det < 0) cannot desync stored labels from what is on screen.
         self._orientation_labels = vtk_tools.dicom_lps_screen_labels(camera)
@@ -879,6 +884,14 @@ class VTKViewer3D(QWidget):
 
         self.viewers_2d = [self.viewer_ax, self.viewer_cr, self.viewer_sg]
         self.viewers = [self.viewer_ax, self.viewer_cr, self.viewer_sg, self.viewer_surf]
+
+        # Render-only patient-axis mirrors for 2D views (do not alter voxels).
+        self._user_flip_lr = False
+        self._user_flip_ap = False
+        self._user_flip_si = False
+        # ViewPane reparents the viewers; keep an explicit provider handle.
+        for v in self.viewers_2d:
+            v._display_orientation_provider = self
         
         # listen to view chnages from viewers
         for v in self.viewers_2d:
@@ -1020,6 +1033,43 @@ class VTKViewer3D(QWidget):
     def enable_panning(self, enable):
         for v in self.viewers_2d:
             v.toggle_panning_mode(enable)
+
+    def get_user_display_flips(self):
+        return (
+            bool(self._user_flip_lr),
+            bool(self._user_flip_ap),
+            bool(self._user_flip_si),
+        )
+
+    def set_user_flip_lr(self, enabled):
+        self._user_flip_lr = bool(enabled)
+        self.reapply_2d_display_orientation()
+
+    def set_user_flip_ap(self, enabled):
+        self._user_flip_ap = bool(enabled)
+        self.reapply_2d_display_orientation()
+
+    def set_user_flip_si(self, enabled):
+        self._user_flip_si = bool(enabled)
+        self.reapply_2d_display_orientation()
+
+    def reapply_2d_display_orientation(self):
+        """Rebuild 2D cameras/labels from current display-flip toggles."""
+        for v in self.viewers_2d:
+            if getattr(v, "vtk_image_3d", None) is not None:
+                v.reset_camera()
+        # Crosshairs are projected onto each camera's near plane; refresh
+        # them after the camera flip so they don't vanish until the next scroll.
+        self.refresh_slice_indicators()
+
+    def refresh_slice_indicators(self):
+        """Reproject crosshair lines for the current 2D cameras."""
+        for source_viewer in self.viewers_2d:
+            if getattr(source_viewer, "vtk_image_3d", None) is None:
+                continue
+            for v in self.viewers_2d:
+                if v is not source_viewer and getattr(v, "vtk_image_3d", None) is not None:
+                    v.update_slice_indicator(source_viewer)
 
     def on_zoom_changed_event(self, type, sender):
         for v in self.viewers_2d:

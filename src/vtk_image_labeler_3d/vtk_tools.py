@@ -154,20 +154,57 @@ def dicom_lps_labels_from_slice_world(w_H_sliceo, flip_ud=False, flip_lr=False):
 
 
 def choose_dicom_display_flips(w_H_sliceo):
-    """Pick in-plane flips so labels match identity-CT viewport convention.
+    """Pick in-plane flips for radiologic LPS viewport convention.
 
-    Target: top in {A, S}, right in {R, P} (axial/coronal R, sagittal P).
+    Target (identity LPS and oriented volumes via flips):
+      - top in {A, S}
+      - right in {L, A}  → axial/coronal: R on screen-left; sagittal: A on screen-right
     """
     for flip_ud in (False, True):
         for flip_lr in (False, True):
             labels = dicom_lps_labels_from_slice_world(
                 w_H_sliceo, flip_ud=flip_ud, flip_lr=flip_lr
             )
-            if labels.get("top") in ("A", "S") and labels.get("right") in ("R", "P"):
+            if labels.get("top") in ("A", "S") and labels.get("right") in ("L", "A"):
                 return flip_ud, flip_lr, labels
     # Fallback: no flips
     labels = dicom_lps_labels_from_slice_world(w_H_sliceo)
     return False, False, labels
+
+
+def apply_patient_axis_display_flips(
+    camera, flip_lr=False, flip_ap=False, flip_si=False
+):
+    """Mirror 2D display about patient L/R, A/P, and/or S/I (camera only).
+
+    For each enabled pair, flips the screen axis that currently shows that
+    pair so anatomy and LPS edge letters stay consistent. Does not modify
+    image voxels. No-op for a view when that pair is not on-screen (e.g.
+    Flip L/R on a pure sagittal view).
+    """
+    if camera is None:
+        return
+
+    for enabled, pair in (
+        (flip_lr, ("L", "R")),
+        (flip_ap, ("A", "P")),
+        (flip_si, ("S", "I")),
+    ):
+        if not enabled:
+            continue
+        labels = dicom_lps_screen_labels(camera)
+        on_horizontal = labels.get("left") in pair or labels.get("right") in pair
+        on_vertical = labels.get("top") in pair or labels.get("bottom") in pair
+        # Horizontal: mirror through focal (reverse VPN) → swaps L/R-like edge.
+        # Vertical: reverse VPN *and* ViewUp so screen-right is unchanged
+        # (negating ViewUp alone also flips L/R via ViewUp × VPN).
+        if on_horizontal or on_vertical:
+            pos = np.asarray(camera.GetPosition(), dtype=float)
+            foc = np.asarray(camera.GetFocalPoint(), dtype=float)
+            camera.SetPosition(*(2.0 * foc - pos))
+        if on_vertical:
+            view_up = np.asarray(camera.GetViewUp(), dtype=float)
+            camera.SetViewUp((-view_up).tolist())
 
 
 def flatten_slice_geometry_for_display(vtk_image):
