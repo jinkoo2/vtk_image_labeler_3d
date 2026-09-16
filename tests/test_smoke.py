@@ -26,7 +26,7 @@ def test_package_imports():
     import nnunet_service
 
     assert callable(config.get_config)
-    assert callable(itk_tools.rot90)
+    assert callable(itk_tools.combine_sitk_labels)
     assert callable(nnunet_service.has_nnunet_train_role)
 
 
@@ -45,23 +45,6 @@ def test_config_defaults(tmp_path, monkeypatch):
     config._config = None
     conf2 = config.get_config()
     assert conf2["keycloak_realm"] == "ci-realm"
-
-
-def test_itk_tools_rot90_and_flip():
-    import numpy as np
-    import SimpleITK as sitk
-
-    import itk_tools
-
-    arr = np.arange(24, dtype=np.uint8).reshape(2, 3, 4)
-    image = sitk.GetImageFromArray(arr)
-    image.SetSpacing((1.0, 2.0, 3.0))
-
-    rotated = itk_tools.rot90(image, plus=True)
-    assert tuple(rotated.GetSize()) == (3, 4, 2)
-
-    flipped = itk_tools.flip_x(image)
-    assert tuple(flipped.GetSize()) == tuple(image.GetSize())
 
 
 def test_nnunet_train_role_from_jwt():

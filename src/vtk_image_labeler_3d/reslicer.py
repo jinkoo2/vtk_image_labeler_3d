@@ -225,102 +225,71 @@ class Reslicer():
         if self.vtk_image is not None:
             self._nonzero_index_range = self._compute_nonzero_index_range(self.vtk_image)
     
+    def _imgo_H_sliceo_np(self, index):
+        """Slice frame in volume spacing/index space (no direction, no origin)."""
+        spacing = self.vtk_image.GetSpacing()
+        offset = index * spacing[self.axis]
+        extent = self.vtk_image.GetExtent()
+
+        if self.axis == AXIAL:
+            return np.array(
+                [
+                    [1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, offset],
+                    [0, 0, 0, 1],
+                ],
+                dtype=np.float64,
+            )
+        if self.axis == CORONAL:
+            z_offset = extent[5] * spacing[2]
+            return np.array(
+                [
+                    [1, 0, 0, 0],
+                    [0, 0, 1, offset],
+                    [0, -1, 0, z_offset],
+                    [0, 0, 0, 1],
+                ],
+                dtype=np.float64,
+            )
+        if self.axis == SAGITTAL:
+            z_offset = extent[5] * spacing[2]
+            y_offset = extent[3] * spacing[1]
+            return np.array(
+                [
+                    [0, 0, 1, offset],
+                    [-1, 0, 0, y_offset],
+                    [0, -1, 0, z_offset],
+                    [0, 0, 0, 1],
+                ],
+                dtype=np.float64,
+            )
+        raise Exception(f"Invalid Axis ({self.axis})")
+
     def calculate_axes(self, index):
-        
-        # spacing = self.vtk_image.GetSpacing()
-        # offset = index * spacing[self.axis]
-        # #reslice = self.vtk_image_reslice
-        # imgo_H_sliceo = vtk.vtkMatrix4x4()
-
-        # extent = self.vtk_image.GetExtent()
-        
-        # if self.axis == AXIAL:
-        #     imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-        #                             0, 1, 0, 0,
-        #                             0, 0, 1, offset,
-        #                             0, 0, 0, 1))
-        # elif self.axis == CORONAL:
-        #     z_offset = extent[5] * spacing[2]
-        #     imgo_H_sliceo.DeepCopy((1, 0, 0, 0,
-        #                             0, 0,  1, offset,  
-        #                             0, -1, 0, z_offset,
-        #                             0, 0, 0, 1))
-        # elif self.axis == SAGITTAL:
-        #     z_offset = extent[5] * spacing[2]
-        #     y_offset = extent[3] * spacing[1]
-        #     imgo_H_sliceo.DeepCopy(( 0,  0, 1, offset,
-        #                             -1,  0, 0, y_offset,
-        #                              0, -1, 0, z_offset,
-        #                              0,  0, 0, 1))
-        # else:
-        #     raise Exception(f'Invalid Axis ({self.axis})')
-
-        # import itkvtk
-        # w_H_imgo = itkvtk.vtk_get_w_H_imageo(self.vtk_image)
-        # w_H_sliceo = vtk.vtkMatrix4x4()
-        # vtk.vtkMatrix4x4.Multiply4x4(w_H_imgo, imgo_H_sliceo, w_H_sliceo)
-
-        # return w_H_sliceo
-    
         w_H_sliceo = self.calculate_axes_np(index)
         return itkvtk.numpy_to_vtk_matrix4x4(w_H_sliceo)
 
     def calculate_axes_np(self, index):
-        
-        spacing = self.vtk_image.GetSpacing()
-        offset = index * spacing[self.axis]
-        extent = self.vtk_image.GetExtent()
-        
-        if self.axis == AXIAL:
-            imgo_H_sliceo = np.array([
-                [1, 0, 0, 0],
-                [0, 1, 0, 0],
-                [0, 0, 1, offset],
-                [0, 0, 0, 1]
-            ], dtype=np.float64)
-        elif self.axis == CORONAL:
-            z_offset = extent[5] * spacing[2]
-            imgo_H_sliceo = np.array([
-                [1,  0,  0,      0],
-                [0,  0,  1,  offset],
-                [0, -1,  0, z_offset],
-                [0,  0,  0,      1]
-            ], dtype=np.float64)
-        elif self.axis == SAGITTAL:
-            z_offset = extent[5] * spacing[2]
-            y_offset = extent[3] * spacing[1]
-            imgo_H_sliceo = np.array([
-                [ 0,  0,  1,      offset],
-                [-1,  0,  0,    y_offset],
-                [ 0, -1,  0,    z_offset],
-                [ 0,  0,  0,          1]
-            ], dtype=np.float64)
-        else:
-            raise Exception(f'Invalid Axis ({self.axis})')
-
+        """True LPS world pose of the slice frame (origin + direction @ spacing)."""
         import vtk_image_wrapper
+
+        imgo_H_sliceo = self._imgo_H_sliceo_np(index)
         image_wrapper = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
+        return image_wrapper.get_w_H_o() @ imgo_H_sliceo
 
-        w_H_imgo = image_wrapper.get_w_H_o()
-        w_H_sliceo = w_H_imgo @ imgo_H_sliceo
+    def calculate_reslice_axes_np(self, index):
+        """Deprecated helper kept for callers; prefer ``calculate_axes_np``."""
+        return self.calculate_axes_np(index)
 
-        return w_H_sliceo
-    
     def set_slice_index(self, index):
         
         min, max = self.get_slice_index_min_max()
         if not (min <= index <= max):
             print(f"slice index {index} is out of bounds ({min}, {max})")
 
-        w_H_sliceo = self.calculate_axes(index)
-
-        self.vtk_image_reslice.SetResliceAxes(w_H_sliceo)
-
-        self.vtk_image_reslice.Update()
-
-        self.slice_index = index 
-
-        return w_H_sliceo
+        self.slice_index = index
+        return self.calculate_axes(index)
 
     def get_slice_index_min_max(self):
         if not self.vtk_image:
@@ -342,20 +311,61 @@ class Reslicer():
         return self.get_slice_image(index), index
 
     def get_slice_image(self, index):
-        w_H_sliceo = self.set_slice_index(index)
+        """Extract a 2D slice with correct LPS origin/direction.
 
-        slice = self.vtk_image_reslice.GetOutput()
-        
-        # set slice direction & origin from w_H_sliceo,
-        # note: self.vtk_image_reslicer.SetOutputOrigin and SetOutputDirectionMatrix did not work somehow. So, setting here after obraining the slice image
+        ``vtkImageReslice.SetResliceAxes(w_H)`` double-applies DirectionMatrix
+        on NIfTI (e.g. diag(-1,-1,1)), which swapped every LPS edge letter
+        relative to anatomy. Extract voxels in index space, then stamp the
+        true slice pose from ``calculate_axes_np``.
+        """
+        self.set_slice_index(index)
+
+        import vtk.util.numpy_support as numpy_support
+
+        dims = self.vtk_image.GetDimensions()  # (nx, ny, nz)
+        spacing = self.vtk_image.GetSpacing()
+        scalars = self.vtk_image.GetPointData().GetScalars()
+        arr = numpy_support.vtk_to_numpy(scalars).reshape(dims[2], dims[1], dims[0])
+
+        if self.axis == AXIAL:
+            # out X <- vol X, out Y <- vol Y
+            slice2d = np.ascontiguousarray(arr[index, :, :].T)  # (nx, ny)
+            out_spacing = (spacing[0], spacing[1], 1.0)
+        elif self.axis == CORONAL:
+            # out X <- vol X, out Y <- vol Z (Y increases toward -Z in imgo)
+            plane = arr[:, index, :]  # (nz, nx)
+            slice2d = np.ascontiguousarray(np.flipud(plane).T)  # (nx, nz)
+            out_spacing = (spacing[0], spacing[2], 1.0)
+        elif self.axis == SAGITTAL:
+            # out X <- vol Y (increasing toward -Y), out Y <- vol Z (toward -Z)
+            plane = arr[:, :, index]  # (nz, ny)
+            slice2d = np.ascontiguousarray(np.flipud(np.fliplr(plane)).T)  # (ny, nz)
+            out_spacing = (spacing[1], spacing[2], 1.0)
+        else:
+            raise Exception(f"Invalid Axis ({self.axis})")
+
+        vtk_array = numpy_support.numpy_to_vtk(
+            slice2d.ravel(order="F"), deep=True, array_type=scalars.GetDataType()
+        )
+        slice_img = vtk.vtkImageData()
+        slice_img.SetDimensions(slice2d.shape[0], slice2d.shape[1], 1)
+        slice_img.SetSpacing(out_spacing)
+        slice_img.GetPointData().SetScalars(vtk_array)
+
+        w_H_sliceo = self.calculate_axes(index)
         direction, origin = itkvtk.vtk_matrix4x4_to_direction_and_origin_arrays(w_H_sliceo)
-        slice.SetOrigin(origin)
-        slice.SetDirectionMatrix(direction)
+        mat = vtk.vtkMatrix3x3()
+        for i in range(3):
+            for j in range(3):
+                mat.SetElement(i, j, direction[i * 3 + j])
+        slice_img.SetDirectionMatrix(mat)
+        slice_img.SetOrigin(origin)
 
-        # debug
-        #itkvtk.save_vtk_image_using_sitk(slice, f'slice_{self.axis}_{index}.mhd')
+        # Keep a reslice output available for any legacy pipeline readers.
+        if self.vtk_image_reslice is not None:
+            self.vtk_image_reslice.SetInputData(self.vtk_image)
 
-        return slice
+        return slice_img
 
  
 class ReslicerWithImageActor(Reslicer):
@@ -383,8 +393,10 @@ class ReslicerWithImageActor(Reslicer):
         self.slice_mapper = vtk.vtkImageMapToColors()
         self.slice_mapper.SetLookupTable(self.lookup_table)
 
-        self.slice_actor = vtk.vtkImageActor()
-        self.slice_actor.GetMapper().SetInputConnection(self.slice_mapper.GetOutputPort())
+        import vtk_tools
+        self.slice_actor = vtk_tools.create_oriented_image_slice(
+            input_connection=self.slice_mapper.GetOutputPort()
+        )
         self.slice_actor.GetProperty().SetOpacity(1.0)
 
     def _create_contour_border(self, border_line_color, border_line_width, border_line_opacity):
@@ -509,7 +521,7 @@ class ReslicerWithImageActor(Reslicer):
 
         slice = super().get_slice_image(index)
 
-        # Update image slice
+        # Update image slice (vtkImageSlice respects DirectionMatrix)
         self.slice_mapper.SetInputData(slice)
         self.slice_actor.Update()
 

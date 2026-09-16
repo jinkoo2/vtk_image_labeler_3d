@@ -441,7 +441,7 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # Connect reader to window/level filter
         self.window_level_filter.SetInputData(new_slice)
         self.window_level_filter.Update()
-    
+
         # update the segmentation reslicers
         for reslicer in self.segmentation_layer_reslicers.get_reslicers():
             if reslicer.layer.get_visible():
@@ -451,6 +451,13 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         self.update_slice_plane_object()
 
         self.slice_changed.emit(self)
+
+        # Keep LPS letters in sync with the live camera (pose is stable per axis).
+        import vtk_tools
+        self._orientation_labels = vtk_tools.dicom_lps_screen_labels(
+            self.renderer.GetActiveCamera()
+        )
+        self.update_orientation_labels()
 
         # display slice index
         if self.reslicer.axis == 2:
@@ -467,7 +474,9 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
     def update_slice_plane_object(self):
         import vtk_image_wrapper
         wrapper = vtk_image_wrapper.vtk_image_wrapper(self._get_slice())
-        self.slice_plane_object.update(self.window_level_filter.GetOutput(), wrapper.get_w_H_o())
+        self.slice_plane_object.update(
+            self.window_level_filter.GetOutput(), wrapper.get_w_H_o()
+        )
 
     def set_window_level(self, window, level):
         if self.window_level_filter:
@@ -483,53 +492,45 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
             print("No image loaded.")
             return
 
-        camera = self.renderer.GetActiveCamera()
-        camera.SetParallelProjection(True)
-
-        # set the camera position to the center of the volume
-        import vtk_image_wrapper
-        wrapper_image3d = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image_3d)
-
-        dims = wrapper_image3d.get_dimensions()
-        spacing = wrapper_image3d.get_spacing()
-        #w_H_imgo = wrapper.get_w_H_o() # homogenious transform for point transforms from o to w
-        #w_R_imgo = w_H_imgo[:3,:3] # rotation matrix for vector transforms from o to w
-
-        w_camera_position = wrapper_image3d.get_center_point_w()
-        camera.SetPosition(*w_camera_position)
-
+        import vtk_tools
         import numpy as np
 
-        # central slice coodinate system
-        center_slice_index = dims[self.reslicer.axis]//2
-        vkt_w_H_center_sliceo = self.reslicer.calculate_axes(center_slice_index)
-        import itkvtk
-        w_H_center_sliceo = itkvtk.vtk_matrix4x4_to_numpy(vkt_w_H_center_sliceo)
+        w_H = self.reslicer.calculate_axes_np(self.slice_index)
+        flip_ud, flip_lr, labels = vtk_tools.choose_dicom_display_flips(w_H)
+        self._orient_flip_ud = flip_ud
+        self._orient_flip_lr = flip_lr
+        self._orientation_labels = labels
 
-        # viewup and focal point in sliceo
-        sliceo_viewup = np.array([0.0, -1.0, 0.0]).reshape(3,1)
-        wrapper_slice = vtk_image_wrapper.vtk_image_wrapper(self.vtk_image)
-        sliceo_pt_center = wrapper_slice.get_center_point_o()
-        sliceo_focal_pt = np.array([sliceo_pt_center[0], sliceo_pt_center[1], 100.0 , 1.0]).reshape(4,1)
+        # Camera from the stamped slice pose (same frame ImageSlice uses).
+        dims = np.asarray(self.vtk_image.GetDimensions(), dtype=float)
+        spacing = np.asarray(self.vtk_image.GetSpacing(), dtype=float)
+        origin = np.asarray(self.vtk_image.GetOrigin(), dtype=float)
+        dm = self.vtk_image.GetDirectionMatrix()
+        R = np.array(
+            [[dm.GetElement(i, j) for j in range(3)] for i in range(3)], dtype=float
+        )
+        center = origin + R @ (spacing * (dims / 2.0))
+        forward = R[:, 2]
+        view_up = -R[:, 1]
+        dist = max(100.0, float(np.max(spacing * dims)))
+        if flip_ud:
+            view_up = -view_up
 
-        # set the view up vector
-        w_R_sliceo = w_H_center_sliceo[:3,:3]
-        w_viewup = w_R_sliceo @ sliceo_viewup
-        camera.SetViewUp(*w_viewup)
+        camera = self.renderer.GetActiveCamera()
+        camera.SetParallelProjection(True)
+        camera.SetFocalPoint(*center)
+        if flip_lr:
+            camera.SetPosition(*(center - forward * dist))
+        else:
+            camera.SetPosition(*(center + forward * dist))
+        camera.SetViewUp(*view_up)
+        camera.SetParallelScale(float(np.max(spacing * dims) / 2.0))
+        camera.SetClippingRange(0.1, dist * 3.0)
 
-        # set focal point to the far end of the image bound through the image center
-        focal_pt_w = (w_H_center_sliceo @ sliceo_focal_pt)[:3]
-        camera.SetFocalPoint(*focal_pt_w)
-        
-        # Set scale based on physical height of image in world space
-        max_half_size_physical = (spacing * dims / 2.0).max()
-        camera.SetParallelScale(max_half_size_physical)
-
-        # set clip range
-        z_near = max_half_size_physical * -3.0
-        z_far = max_half_size_physical * 3.0
-        camera.SetClippingRange([z_near, z_far])
-
+        # Always derive letters from the live camera so improper rotations
+        # (det < 0) cannot desync stored labels from what is on screen.
+        self._orientation_labels = vtk_tools.dicom_lps_screen_labels(camera)
+        self.update_orientation_labels()
         self.render_window.Render()
 
     def set_vtk_image_3d(self, vtk_image_3d, window, level):
@@ -545,6 +546,13 @@ class VTKViewer2DWithReslicer(viewer2d.VTKViewer2D):
         # save the slice & slice index
         self._set_slice(slice)
         self.slice_index = index
+
+        import vtk_tools
+        w_H = self.reslicer.calculate_axes_np(index)
+        flip_ud, flip_lr, labels = vtk_tools.choose_dicom_display_flips(w_H)
+        self._orient_flip_ud = flip_ud
+        self._orient_flip_lr = flip_lr
+        self._orientation_labels = labels
 
         self.slicing.set_slice_index(index)
 
@@ -1707,26 +1715,6 @@ class MainWindow(QMainWindow):
         pan_action.toggled.connect(self.vtk_viewer.toggle_panning_mode)
         toolbar.addAction(pan_action)        
 
-        # rotate plus 90 deg (x-->y)
-        rot_plus_90_action = QAction("Rot +90", self)
-        rot_plus_90_action.triggered.connect(self.rotate_plus_90_clicked)
-        toolbar.addAction(rot_plus_90_action)        
-
-        # rotate minus 90 deg (y-->x)
-        rot_minus_90_action = QAction("Rot -90", self)
-        rot_minus_90_action.triggered.connect(self.rotate_minus_90_clicked)
-        toolbar.addAction(rot_minus_90_action)        
-
-        # flip x
-        flip_x_action = QAction("Flip X", self)
-        flip_x_action.triggered.connect(self.flip_x_clicked)
-        toolbar.addAction(flip_x_action)      
-
-        # flip y
-        flip_y_action = QAction("Flip Y", self)
-        flip_y_action.triggered.connect(self.flip_y_clicked)
-        toolbar.addAction(flip_y_action)      
-
         # pad is an exclusive
         self.add_exclusive_actions([pan_action])
         
@@ -1738,115 +1726,6 @@ class MainWindow(QMainWindow):
         remove_rulers_action = QAction("Remove All Rulers", self)
         remove_rulers_action.triggered.connect(self.vtk_viewer.remove_all_rulers)
         toolbar.addAction(remove_rulers_action)
-
-    def rotate_plus_90_clicked(self):
-        
-        if self.vtk_image is None:
-            self.show_popup("Error", "Open an image first.")
-            return 
-
-        # Get image properties
-        # dims = self.vtk_image.GetDimensions()
-        # spacing = self.vtk_image.GetSpacing()
-        # original_origin = self.vtk_image.GetOrigin()
-        # direction = self.vtk_image.GetDirectionMatrix()
-        # print('dims: ', dims)
-        # print('spacing: ', spacing)
-        # print('original_origin: ', original_origin)
-        # print('direction: ', direction)
-
-        # to itk image
-        from itkvtk import vtk_to_sitk, sitk_to_vtk
-        sitk_image = vtk_to_sitk(self.vtk_image)
-
-        # rot 90
-        from itk_tools import rot90
-        sitk_image_rotated = rot90(sitk_image, plus=True)
-
-        # back to vtk image
-        self.vtk_image = sitk_to_vtk(sitk_image_rotated)
-
-       # Get image properties
-        # dims = self.vtk_image.GetDimensions()
-        # spacing = self.vtk_image.GetSpacing()
-        # original_origin = self.vtk_image.GetOrigin()
-        # direction = self.vtk_image.GetDirectionMatrix()
-        # print('dims: ', dims)
-        # print('spacing: ', spacing)
-        # print('original_origin: ', original_origin)
-        # print('direction: ', direction)
-
-        # set image
-        self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-        
-        self.vtk_viewer.render()
-
-    def rotate_minus_90_clicked(self):
-        
-        if self.vtk_image is None:
-            self.show_popup("Error", "Open an image first.")
-            return 
-
-        # to itk image
-        from itkvtk import vtk_to_sitk, sitk_to_vtk
-        sitk_image = vtk_to_sitk(self.vtk_image)
-
-        # rot 90
-        from itk_tools import rot90
-        sitk_image_rotated = rot90(sitk_image, plus=False)
-
-        # back to vtk image
-        self.vtk_image = sitk_to_vtk(sitk_image_rotated)
-
-        # set image
-        self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-        
-        self.vtk_viewer.render()
-
-    def flip_x_clicked(self):
-        
-        if self.vtk_image is None:
-            self.show_popup("Error", "Open an image first.")
-            return 
-
-        # to itk image
-        from itkvtk import vtk_to_sitk, sitk_to_vtk
-        sitk_image = vtk_to_sitk(self.vtk_image)
-
-        # rot 90
-        from itk_tools import flip_x
-        sitk_image_flipped = flip_x(sitk_image)
-
-        # back to vtk image
-        self.vtk_image = sitk_to_vtk(sitk_image_flipped)
-
-        # set image
-        self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-        
-        self.vtk_viewer.render()
-
-
-    def flip_y_clicked(self):
-        
-        if self.vtk_image is None:
-            self.show_popup("Error", "Open an image first.")
-            return 
-
-        # to itk image
-        from itkvtk import vtk_to_sitk, sitk_to_vtk
-        sitk_image = vtk_to_sitk(self.vtk_image)
-
-        # rot 90
-        from itk_tools import flip_y
-        sitk_image_flipped = flip_y(sitk_image)
-
-        # back to vtk image
-        self.vtk_image = sitk_to_vtk(sitk_image_flipped)
-
-        # set image
-        self.vtk_viewer.set_vtk_image(self.vtk_image, self.range_slider.get_width()/4, self.range_slider.get_center())
-        
-        self.vtk_viewer.render()
 
     def update_window_level(self):
         if self.vtk_image is not None:

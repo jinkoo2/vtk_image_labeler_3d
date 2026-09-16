@@ -63,6 +63,150 @@ def create_image_outline_polydata(vtk_image):
     return poly
 
 
+def create_oriented_image_slice(input_connection=None, input_data=None):
+    """Build a ``vtkImageSlice`` that respects DirectionMatrix.
+
+    ``vtkImageActor`` ignores direction cosines (and a UserMatrix workaround
+    collapses oriented coronal/sagittal planes to zero thickness). Prefer
+    ``vtkImageSlice`` + ``vtkImageSliceMapper`` for oriented medical slices.
+    """
+    mapper = vtk.vtkImageSliceMapper()
+    if input_connection is not None:
+        mapper.SetInputConnection(input_connection)
+    elif input_data is not None:
+        mapper.SetInputData(input_data)
+    prop = vtk.vtkImageSlice()
+    prop.SetMapper(mapper)
+    return prop
+
+
+def dicom_lps_screen_labels(camera):
+    """Map camera screen edges to DICOM LPS letters (R/L, A/P, I/S).
+
+    Patient axes in world coordinates (DICOM LPS):
+      +X = Left (L),  -X = Right (R)
+      +Y = Posterior (P), -Y = Anterior (A)
+      +Z = Superior (S), -Z = Inferior (I)
+    """
+    pos = np.asarray(camera.GetPosition(), dtype=float)
+    focal = np.asarray(camera.GetFocalPoint(), dtype=float)
+    view_up = np.asarray(camera.GetViewUp(), dtype=float)
+
+    # VTK view-plane normal points from focal point toward the camera.
+    vpn = pos - focal
+    vpn_norm = np.linalg.norm(vpn)
+    up_norm = np.linalg.norm(view_up)
+    if vpn_norm < 1e-12 or up_norm < 1e-12:
+        return {"left": "", "right": "", "top": "", "bottom": ""}
+
+    vpn = vpn / vpn_norm
+    view_up = view_up / up_norm
+    # Screen-right in VTK display space is ViewUp × ViewPlaneNormal
+    # (not VPN × ViewUp, which points screen-left).
+    view_right = np.cross(view_up, vpn)
+    right_norm = np.linalg.norm(view_right)
+    if right_norm < 1e-12:
+        return {"left": "", "right": "", "top": "", "bottom": ""}
+    view_right = view_right / right_norm
+
+    return dicom_lps_letters_for_screen_axes(view_right, view_up)
+
+
+def dicom_lps_letters_for_screen_axes(view_right, view_up):
+    """Map world-space screen-right / screen-up vectors to LPS edge letters."""
+    view_right = np.asarray(view_right, dtype=float)
+    view_up = np.asarray(view_up, dtype=float)
+    axis_letters = (("R", "L"), ("A", "P"), ("I", "S"))
+
+    def letter_for(direction):
+        abs_components = np.abs(direction)
+        axis = int(np.argmax(abs_components))
+        if abs_components[axis] < 1e-6:
+            return ""
+        neg, pos = axis_letters[axis]
+        return pos if direction[axis] >= 0.0 else neg
+
+    return {
+        "right": letter_for(view_right),
+        "left": letter_for(-view_right),
+        "top": letter_for(view_up),
+        "bottom": letter_for(-view_up),
+    }
+
+
+def dicom_lps_labels_from_slice_world(w_H_sliceo, flip_ud=False, flip_lr=False):
+    """LPS edge letters for the oriented slice camera used by the 2D viewers.
+
+    Camera convention before flips: look along +sliceZ (``R[:,2]``) with
+    ViewUp = -sliceY (``-R[:,1]``). Screen-right is ViewUp × VPN. Using
+    ``R @ (-1,0,0)`` for screen-right is wrong when ``det(R) < 0`` (e.g.
+    NIfTI ``diag(1,-1,1)``), which swapped L/R on Dataset510.
+    """
+    w_R = np.asarray(w_H_sliceo, dtype=float)[:3, :3]
+    view_up = -w_R[:, 1]
+    vpn = w_R[:, 2]
+    if flip_ud:
+        view_up = -view_up
+    if flip_lr:
+        vpn = -vpn
+    view_right = np.cross(view_up, vpn)
+    return dicom_lps_letters_for_screen_axes(view_right, view_up)
+
+
+def choose_dicom_display_flips(w_H_sliceo):
+    """Pick in-plane flips so labels match identity-CT viewport convention.
+
+    Target: top in {A, S}, right in {R, P} (axial/coronal R, sagittal P).
+    """
+    for flip_ud in (False, True):
+        for flip_lr in (False, True):
+            labels = dicom_lps_labels_from_slice_world(
+                w_H_sliceo, flip_ud=flip_ud, flip_lr=flip_lr
+            )
+            if labels.get("top") in ("A", "S") and labels.get("right") in ("R", "P"):
+                return flip_ud, flip_lr, labels
+    # Fallback: no flips
+    labels = dicom_lps_labels_from_slice_world(w_H_sliceo)
+    return False, False, labels
+
+
+def flatten_slice_geometry_for_display(vtk_image):
+    """Force identity direction and zero origin on a 2D reslice for display.
+
+    ``vtkImageReslice`` already samples along the oriented slice axes. Writing
+    the oriented ``w_H`` back onto the output (previous behavior) double-applies
+    NIfTI ``diag(-1,-1,1)`` and makes LPS edge letters disagree with anatomy.
+    """
+    if vtk_image is None:
+        return
+    identity = vtk.vtkMatrix3x3()
+    identity.Identity()
+    vtk_image.SetDirectionMatrix(identity)
+    vtk_image.SetOrigin(0.0, 0.0, 0.0)
+
+
+def apply_flattened_slice_camera(camera, vtk_image, flip_ud=False, flip_lr=False):
+    """Parallel camera for a flattened (identity-geometry) 2D slice."""
+    if camera is None or vtk_image is None:
+        return
+    dims = np.asarray(vtk_image.GetDimensions(), dtype=float)
+    spacing = np.asarray(vtk_image.GetSpacing(), dtype=float)
+    center = spacing * (dims / 2.0)
+    dist = max(500.0, float(np.max(spacing * dims)))
+    camera.SetParallelProjection(True)
+    camera.SetFocalPoint(float(center[0]), float(center[1]), 0.0)
+    if flip_lr:
+        camera.SetPosition(float(center[0]), float(center[1]), -dist)
+    else:
+        camera.SetPosition(float(center[0]), float(center[1]), dist)
+    if flip_ud:
+        camera.SetViewUp(0.0, 1.0, 0.0)
+    else:
+        camera.SetViewUp(0.0, -1.0, 0.0)
+    camera.SetParallelScale(float(np.max(spacing[:2] * dims[:2]) / 2.0))
+    camera.SetClippingRange(0.1, dist * 3.0)
+
+
 def to_vtk_color(c):
     return [c[0]/255, c[1]/255, c[2]/255]
 

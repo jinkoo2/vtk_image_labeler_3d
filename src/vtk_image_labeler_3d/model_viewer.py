@@ -102,6 +102,8 @@ class ModelViewer(QWidget):
 
         self.segmentation_surfaces = SegmentationLayerSurfaceList()
         self.models = ModelList()
+        self._orientation_marker = None
+        self._orientation_person = None
 
     def clear(self):
         if self._image_boundary_model:
@@ -117,10 +119,85 @@ class ModelViewer(QWidget):
 
     def get_renderer(self):
         return self.renderer
-    
+
     def get_render_window(self):
         return self.render_window
-    
+
+    def _make_sphere_actor(self, center, radius, color, phi_res=16, theta_res=16):
+        source = vtk.vtkSphereSource()
+        source.SetCenter(*center)
+        source.SetRadius(radius)
+        source.SetPhiResolution(phi_res)
+        source.SetThetaResolution(theta_res)
+        source.Update()
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(source.GetOutputPort())
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(*color)
+        actor.GetProperty().SetAmbient(0.35)
+        actor.GetProperty().SetDiffuse(0.75)
+        actor.GetProperty().SetSpecular(0.15)
+        return actor
+
+    def _create_orientation_person_prop(self):
+        """Build a simple sphere-mannequin in DICOM LPS axes.
+
+        +X = Left, +Y = Posterior, +Z = Superior.
+        Nose (red) faces Anterior (-Y); hands (red) mark L/R; feet (cyan) Inferior.
+        """
+        body = (0.15, 0.75, 0.25)
+        accent_red = (0.95, 0.15, 0.12)
+        accent_cyan = (0.25, 0.85, 0.95)
+
+        assembly = vtk.vtkAssembly()
+
+        # Torso / head (Superior = +Z)
+        assembly.AddPart(self._make_sphere_actor((0.0, 0.0, 0.15), 0.38, body, 20, 20))
+        assembly.AddPart(self._make_sphere_actor((0.0, 0.0, 0.72), 0.26, body, 18, 18))
+        # Nose / face marker: Anterior = -Y
+        assembly.AddPart(self._make_sphere_actor((0.0, -0.28, 0.74), 0.07, accent_red, 12, 12))
+
+        # Arms: Left = +X (red hand), Right = -X (body-colored hand)
+        for sign in (+1.0, -1.0):
+            for i, x in enumerate((0.42, 0.62, 0.82, 1.00)):
+                r = 0.10 if i < 3 else 0.09
+                # Only the left (+X) hand is red as an L marker.
+                color = accent_red if (i == 3 and sign > 0.0) else body
+                assembly.AddPart(
+                    self._make_sphere_actor((sign * x, 0.0, 0.28), r, color, 12, 12)
+                )
+
+        # Legs downward (Inferior = -Z), feet cyan
+        for sign in (+1.0, -1.0):
+            for i, z in enumerate((-0.20, -0.42, -0.64, -0.86)):
+                r = 0.11 if i < 3 else 0.10
+                color = body if i < 3 else accent_cyan
+                assembly.AddPart(
+                    self._make_sphere_actor((sign * 0.16, 0.0, z), r, color, 12, 12)
+                )
+
+        return assembly
+
+    def _ensure_orientation_marker(self):
+        """DICOM LPS person marker in the 3D view (+X=L, +Y=P, +Z=S)."""
+        if self._orientation_marker is not None:
+            return
+
+        person = self._create_orientation_person_prop()
+
+        marker = vtk.vtkOrientationMarkerWidget()
+        marker.SetOrientationMarker(person)
+        marker.SetInteractor(self.interactor)
+        marker.SetViewport(0.72, 0.0, 1.0, 0.28)
+        marker.SetEnabled(1)
+        marker.InteractiveOff()
+
+        self._orientation_person = person
+        self._orientation_marker = marker
+
     def _add_image_boundary_surface_model(self):
         # Direction-aware outline (vtkOutlineFilter ignores DirectionMatrix).
         import vtk_tools
@@ -143,6 +220,7 @@ class ModelViewer(QWidget):
 
         self.vtk_image = vtk_image
         self._image_boundary_model = self._add_image_boundary_surface_model()
+        self._ensure_orientation_marker()
         self.renderer.ResetCamera()
         self.render_window.Render()
 
