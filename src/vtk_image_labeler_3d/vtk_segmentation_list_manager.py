@@ -1128,12 +1128,12 @@ class SegmentationListManager(QObject):
             )
             return
 
-        if (
-            self.nnunet_prediction_tool_dialog is not None
-            and self.nnunet_prediction_tool_dialog.isVisible()
-        ):
-            self.nnunet_prediction_tool_dialog.raise_()
-            self.nnunet_prediction_tool_dialog.activateWindow()
+        dialog = getattr(self, "nnunet_prediction_tool_dialog", None)
+        if dialog is not None:
+            # Re-show a hidden dialog so background jobs remain attached.
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
             return
 
         from nnunet_prediction_tool_dialog import NnUNetPredictionToolDialog
@@ -1145,7 +1145,11 @@ class SegmentationListManager(QObject):
             parent=self.dock_widget,
         )
         self.nnunet_prediction_tool_dialog = dialog
+        dialog.finished.connect(lambda _=None: self._on_prediction_tool_finished())
         dialog.show()
+
+    def _on_prediction_tool_finished(self):
+        self.nnunet_prediction_tool_dialog = None
 
     # ------------------------------------------------------------------
     # Scribble Tool: FG/BG paintbrush + GraphCut+Histogram

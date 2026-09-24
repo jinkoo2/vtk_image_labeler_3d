@@ -1,5 +1,5 @@
 import json
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
 from PyQt5.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QWidget, 
                              QDockWidget, QHBoxLayout, QLineEdit, QComboBox, 
                              QTextEdit, QSizePolicy, QDialog, QListWidget, QListWidgetItem,
@@ -7,8 +7,6 @@ from PyQt5.QtWidgets import (QVBoxLayout, QPushButton, QLabel, QWidget,
 
 from PyQt5.QtWidgets import QTabWidget
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QTextEdit, QHBoxLayout, QDialog, QMessageBox
-
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
 
 from logger import logger
 from color_rotator import ColorRotator
@@ -350,22 +348,41 @@ class nnUNetDatasetManager(BaseObject):
         if not url:
             return
         if self._server_connected and url != get_nnunet_server_url():
-            # Switching servers requires a clean disconnect first.
+            # Switching servers: drop the session, but keep any open viewer data.
             self.disconnect_from_server(clear_viewer=True)
         set_nnunet_selected_server_url(url, persist=True)
 
     def _create_dataset_layout(self):
         layout = QVBoxLayout()
 
+        # Filter (same idea as nnUNet Prediction Tool model filter)
+        self.dataset_filter_edit = QLineEdit()
+        self.dataset_filter_edit.setPlaceholderText(
+            "Filter datasets by id, name, description, organ…"
+        )
+        self.dataset_filter_edit.setClearButtonEnabled(True)
+        self.dataset_filter_edit.setEnabled(False)
+        self.dataset_filter_edit.setToolTip(
+            "Case-insensitive filter over dataset fields "
+            "(id, name, description, labels, channel names, etc.). "
+            "Connect to the server first."
+        )
+        self._dataset_filter_debounce_timer = QTimer(self)
+        self._dataset_filter_debounce_timer.setSingleShot(True)
+        self._dataset_filter_debounce_timer.setInterval(300)
+        self._dataset_filter_debounce_timer.timeout.connect(self._apply_dataset_filter)
+        self.dataset_filter_edit.textChanged.connect(self._on_dataset_filter_changed)
+        layout.addWidget(self.dataset_filter_edit)
+
         # Label
         self.label = QLabel("Select a Dataset:")
         layout.addWidget(self.label)
 
-        # Dropdown (ComboBox)
+        # Dropdown (ComboBox) — items store the dataset dict in UserRole
         self.dataset_dropdown = QComboBox()
         self.dataset_dropdown.setEnabled(False)
         self.dataset_dropdown.setToolTip("Connect to the server first.")
-        self._active_dataset_index = -1
+        self._active_dataset_id = None
         self.before_dataset_change = None  # optional callback: () -> bool
         self.on_case_deleted = None  # optional callback: (dataset_id, images_for, num) -> None
         self.dataset_dropdown.currentIndexChanged.connect(self._on_dataset_dropdown_changed)
@@ -613,14 +630,11 @@ class nnUNetDatasetManager(BaseObject):
 
     def run_plan_and_preprocess_clicked(self):
         """Handle the Run Plan & Preprocess button click."""
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -717,14 +731,11 @@ class nnUNetDatasetManager(BaseObject):
 
     def run_training_clicked(self):
         """Handle the Run Training button click."""
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -821,14 +832,11 @@ class nnUNetDatasetManager(BaseObject):
 
     def refresh_training_model_folders(self):
         """Refresh the list of model folders for the selected dataset."""
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -898,12 +906,11 @@ class nnUNetDatasetManager(BaseObject):
 
     def refresh_training_log_files_list(self):
         """Refresh the list of training log files for the selected dataset and model folder."""
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
+        selected_text = dataset.get("id", "")
 
         # Check if model folder is selected
         model_folder_name = self.training_model_folder_combo.currentText()
@@ -911,7 +918,6 @@ class nnUNetDatasetManager(BaseObject):
             self.log_message.emit("INFO", "Please select a model folder first")
             return
 
-        dataset = self.datasets[selected_index]
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -958,9 +964,7 @@ class nnUNetDatasetManager(BaseObject):
             return
         
         selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        if not self._selected_dataset():
             self.log_message.emit("INFO", "Please select a dataset first")
             return
 
@@ -970,7 +974,7 @@ class nnUNetDatasetManager(BaseObject):
             self.log_message.emit("INFO", "Please select a model folder first")
             return
 
-        dataset = self.datasets[selected_index]
+        dataset = self._selected_dataset()
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -999,14 +1003,11 @@ class nnUNetDatasetManager(BaseObject):
 
     def refresh_preprocessed_files_list(self):
         """Refresh the list of preprocessed files and summary status for the selected dataset."""
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -1086,14 +1087,11 @@ class nnUNetDatasetManager(BaseObject):
         if not file_name or file_name.startswith("Error:") or file_name.startswith("No preprocessed") or file_name.startswith("Request failed"):
             return
         
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id", selected_text)
 
         try:
@@ -1136,9 +1134,9 @@ class nnUNetDatasetManager(BaseObject):
                     new_dataset = response_data["dataset"]
 
                     self.datasets.append(new_dataset)  # Add new dataset to list
-                    self.dataset_dropdown.addItem(new_dataset["id"])  # Add to dropdown
-                    self.dataset_dropdown.setCurrentIndex(len(self.datasets) - 1)  # Select new dataset
-                    self._on_dataset_selected(len(self.datasets) - 1)  # Show details
+                    self._populate_dataset_dropdown(preferred_dataset_id=new_dataset["id"])
+                    self._active_dataset_id = new_dataset.get("id")
+                    self._on_dataset_selected()  # Show details
                     self._update_dataset_selection_required_style()
 
                     print(f"response_data={response_data}")
@@ -1151,8 +1149,127 @@ class nnUNetDatasetManager(BaseObject):
                     self.log_message.emit("ERROR", f"Request failed: {e}")
     
     def get_selected_dataset_id(self):
-        selected_text = self.dataset_dropdown.currentText()
-        return selected_text
+        dataset = self._selected_dataset()
+        if dataset:
+            return dataset.get("id")
+        text = self.dataset_dropdown.currentText()
+        if text in ("", "No datasets available", "(no matching datasets)"):
+            return None
+        return text
+
+    def _dataset_search_text(self, dataset: dict) -> str:
+        """Flatten string values in a dataset dict for case-insensitive filtering."""
+        def _collect(obj, depth=0):
+            if depth > 5:
+                return
+            if isinstance(obj, str):
+                yield obj
+            elif isinstance(obj, dict):
+                for v in obj.values():
+                    yield from _collect(v, depth + 1)
+            elif isinstance(obj, (list, tuple)):
+                for v in obj:
+                    yield from _collect(v, depth + 1)
+            elif obj is not None and not isinstance(obj, (bool, bytes)):
+                yield str(obj)
+        return " ".join(_collect(dataset))
+
+    def _filtered_datasets(self):
+        query = (self.dataset_filter_edit.text() or "").strip().lower()
+        datasets = list(self.datasets or [])
+        if not query:
+            return datasets
+        return [d for d in datasets if query in self._dataset_search_text(d).lower()]
+
+    def _selected_dataset(self):
+        """Return the dataset dict currently selected in the dropdown, or None."""
+        data = self.dataset_dropdown.currentData()
+        if isinstance(data, dict):
+            return data
+        # Fallback: look up by displayed id in the full list.
+        text = self.dataset_dropdown.currentText()
+        if not text or text in ("No datasets available", "(no matching datasets)"):
+            return None
+        for dataset in self.datasets or []:
+            if dataset.get("id") == text:
+                return dataset
+        return None
+
+    def _replace_dataset_by_id(self, dataset_id, merged):
+        """Replace a dataset entry in self.datasets and refresh the combo item data."""
+        if not dataset_id:
+            return
+        for i, dataset in enumerate(self.datasets or []):
+            if dataset.get("id") == dataset_id:
+                self.datasets[i] = merged
+                break
+        # Keep combo item data in sync if that dataset is currently listed.
+        for i in range(self.dataset_dropdown.count()):
+            data = self.dataset_dropdown.itemData(i)
+            if isinstance(data, dict) and data.get("id") == dataset_id:
+                self.dataset_dropdown.setItemData(i, merged)
+                break
+
+    def _combo_index_for_dataset_id(self, dataset_id):
+        if not dataset_id:
+            return -1
+        for i in range(self.dataset_dropdown.count()):
+            data = self.dataset_dropdown.itemData(i)
+            if isinstance(data, dict) and data.get("id") == dataset_id:
+                return i
+            if self.dataset_dropdown.itemText(i) == dataset_id:
+                return i
+        return -1
+
+    def _populate_dataset_dropdown(self, preferred_dataset_id=None):
+        """Fill the dataset combo from the current filter; preserve selection when possible."""
+        preferred = preferred_dataset_id
+        if preferred is None:
+            current = self._selected_dataset()
+            if current:
+                preferred = current.get("id")
+            elif self._active_dataset_id:
+                preferred = self._active_dataset_id
+
+        self.dataset_dropdown.blockSignals(True)
+        try:
+            self.dataset_dropdown.clear()
+            filtered = self._filtered_datasets()
+            if not self.datasets:
+                self.dataset_dropdown.addItem("No datasets available")
+            elif not filtered:
+                self.dataset_dropdown.addItem("(no matching datasets)")
+            else:
+                for dataset in filtered:
+                    dataset_id = dataset.get("id", "?")
+                    self.dataset_dropdown.addItem(str(dataset_id), dataset)
+
+            target_index = self._combo_index_for_dataset_id(preferred)
+            self.dataset_dropdown.setCurrentIndex(target_index)
+        finally:
+            self.dataset_dropdown.blockSignals(False)
+
+        selected = self._selected_dataset()
+        selected_id = selected.get("id") if selected else None
+        if selected_id != self._active_dataset_id:
+            # Selection changed due to filter/repopulation — load it.
+            if selected_id is not None:
+                self._active_dataset_id = selected_id
+                self._on_dataset_selected()
+            elif preferred and self._combo_index_for_dataset_id(preferred) < 0:
+                # Active dataset filtered out of the list; keep loaded data but
+                # leave combo unselected.
+                pass
+        self._update_dataset_selection_required_style()
+
+    def _on_dataset_filter_changed(self, _text: str = ""):
+        # Debounce so filtering waits until typing pauses.
+        self._dataset_filter_debounce_timer.start()
+
+    def _apply_dataset_filter(self):
+        if not self.datasets:
+            return
+        self._populate_dataset_dropdown(preferred_dataset_id=self._active_dataset_id)
 
     def get_seletect_train_image_name(self):
         selected_item = self.train_image_list_widget.currentItem()
@@ -1237,14 +1354,11 @@ class nnUNetDatasetManager(BaseObject):
         self.delete_prediction(req_id)
 
     def post_image_and_labels(self, images_for):
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
 
         try:
             if "id" in dataset:
@@ -1278,8 +1392,8 @@ class nnUNetDatasetManager(BaseObject):
 
                 merged = dict(dataset)
                 merged.update(dataset_json or {})
-                self.datasets[selected_index] = merged
-                self._on_dataset_selected(selected_index)
+                self._replace_dataset_by_id(dataset.get("id"), merged)
+                self._on_dataset_selected()
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -1441,14 +1555,11 @@ class nnUNetDatasetManager(BaseObject):
         return image_path
 
     def update_image_and_labels(self, images_for, num, quiet=False):
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return False
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
 
         try:
             if "id" in dataset:
@@ -1523,14 +1634,11 @@ class nnUNetDatasetManager(BaseObject):
 
 
     def delete_image_and_labels(self, images_for, num):
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
 
         try:
             if "id" in dataset:
@@ -1552,8 +1660,8 @@ class nnUNetDatasetManager(BaseObject):
                 dataset_updated = delete_info["dataset_json"]
                 merged = dict(dataset)
                 merged.update(dataset_updated or {})
-                self.datasets[selected_index] = merged
-                self._on_dataset_selected(selected_index)
+                self._replace_dataset_by_id(dataset.get("id"), merged)
+                self._on_dataset_selected()
 
             # Close the viewer if the deleted case is currently open.
             callback = getattr(self, "on_case_deleted", None)
@@ -1571,14 +1679,11 @@ class nnUNetDatasetManager(BaseObject):
             self.log_message.emit("ERROR", f"Request failed: {e}")
 
     def renumber_image_sets(self, images_for):
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text == "" or selected_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first")
             return
-
-        dataset = self.datasets[selected_index]
+        selected_text = dataset.get("id", "")
         dataset_id = dataset.get("id") or selected_text
 
         confirm_msg = (
@@ -1609,8 +1714,8 @@ class nnUNetDatasetManager(BaseObject):
                 dataset_updated = (result or {}).get("dataset_json") or {}
                 merged = dict(dataset)
                 merged.update(dataset_updated)
-                self.datasets[selected_index] = merged
-                self._on_dataset_selected(selected_index)
+                self._replace_dataset_by_id(dataset.get("id"), merged)
+                self._on_dataset_selected()
 
             mapping = (result or {}).get("mapping") or []
             if mapping:
@@ -1633,14 +1738,11 @@ class nnUNetDatasetManager(BaseObject):
             self.show_msgbox_error(title="Renumber Failed", msg=str(e), parent=self.dock_widget)
 
     def post_image_for_prediction(self):
-        selected_text = self.dataset_dropdown.currentText()
-        selected_index = self.dataset_dropdown.currentIndex()
-
-        if selected_text=="" or selected_index==-1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset to add images to")
-            return 
-
-        dataset = self.datasets[selected_index]
+            return
+        selected_text = dataset.get("id", "")
 
         """updating the images and labels"""
         try:
@@ -1683,7 +1785,7 @@ class nnUNetDatasetManager(BaseObject):
             self.log_message.emit("INFO",f"dateset_updated={req_response}")
 
             # this is a rough way to refresh the prediction list (this will also update the train/terst image list as well)
-            self._on_dataset_selected(selected_index)
+            self._on_dataset_selected()
        
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -1694,14 +1796,11 @@ class nnUNetDatasetManager(BaseObject):
 
 
     def delete_prediction(self, req_id):
-        selected_dataset_text = self.dataset_dropdown.currentText()
-        selected_dataset_index = self.dataset_dropdown.currentIndex()
-
-        if selected_dataset_text == "" or selected_dataset_index == -1:
+        dataset = self._selected_dataset()
+        if not dataset:
             self.log_message.emit("INFO", "Please select a dataset first!")
-            return 
-
-        dataset = self.datasets[selected_dataset_index]
+            return
+        selected_dataset_text = dataset.get("id", "")
 
         """deleting the images and labels"""
         try:
@@ -1715,7 +1814,7 @@ class nnUNetDatasetManager(BaseObject):
             self.log_message.emit("INFO",f"delete_info={delete_info}")
        
             # update the list
-            self._on_dataset_selected(selected_dataset_index)  
+            self._on_dataset_selected()  
 
         except nnunet_service.ServerError as e:
             print(f"Server error: {e}")
@@ -1746,6 +1845,16 @@ class nnUNetDatasetManager(BaseObject):
             if not enabled:
                 dropdown.setToolTip("Connect to the server first.")
             self._update_dataset_selection_required_style()
+
+        filter_edit = getattr(self, "dataset_filter_edit", None)
+        if filter_edit is not None:
+            filter_edit.setEnabled(enabled)
+            filter_edit.setToolTip(
+                "Case-insensitive filter over dataset fields "
+                "(id, name, description, labels, channel names, etc.)."
+                if enabled
+                else "Connect to the server first."
+            )
 
     def _set_connection_ui_state(self, connected: bool):
         """Update Connect/Disconnect/server-selector enabled state."""
@@ -1874,6 +1983,10 @@ class nnUNetDatasetManager(BaseObject):
         self.dataset_dropdown.blockSignals(True)
         try:
             self.dataset_dropdown.clear()
+            if hasattr(self, "dataset_filter_edit"):
+                self.dataset_filter_edit.blockSignals(True)
+                self.dataset_filter_edit.clear()
+                self.dataset_filter_edit.blockSignals(False)
 
             with qt_tools.busy_progress(
                 self.main_widget,
@@ -1889,16 +2002,18 @@ class nnUNetDatasetManager(BaseObject):
                 self.dataset_dropdown.addItem("No datasets available")
                 self.details_label.setText("<b>Error:</b> No datasets could be loaded.")
                 self._current_datast = None
+                self._active_dataset_id = None
                 self._clear_dataset_views()
                 self._update_dataset_selection_required_style()
                 return
 
-            dataset_ids = [dataset["id"] for dataset in self.datasets]
-            self.dataset_dropdown.addItems(dataset_ids)
-
-            self.dataset_dropdown.setCurrentIndex(-1)
-            self._active_dataset_index = -1
+            self._active_dataset_id = None
             self._current_datast = None
+            self._populate_dataset_dropdown(preferred_dataset_id=None)
+            # Ensure nothing is pre-selected after connect.
+            self.dataset_dropdown.blockSignals(True)
+            self.dataset_dropdown.setCurrentIndex(-1)
+            self.dataset_dropdown.blockSignals(False)
             self.details_label.setText("<b>Select a dataset.</b>")
             self._clear_dataset_views()
             self._update_dataset_selection_required_style()
@@ -1918,12 +2033,17 @@ class nnUNetDatasetManager(BaseObject):
         self.disconnect_from_server(clear_viewer=True)
 
     def disconnect_from_server(self, clear_viewer=True):
-        """Sign out and remove all server-associated UI/data."""
+        """Sign out and clear server UI lists.
+
+        Viewer image/labels are kept by default (``on_server_disconnected`` only
+        detaches the open-case link) so content can be posted to another
+        server/dataset after reconnecting.
+        """
         nnunet_service.clear_auth_session()
 
         self.datasets = []
         self._current_datast = None
-        self._active_dataset_index = -1
+        self._active_dataset_id = None
         self.plan_preprocess_job_id = None
 
         dropdown = getattr(self, "dataset_dropdown", None)
@@ -1934,6 +2054,12 @@ class nnUNetDatasetManager(BaseObject):
                 dropdown.setCurrentIndex(-1)
             finally:
                 dropdown.blockSignals(False)
+
+        filter_edit = getattr(self, "dataset_filter_edit", None)
+        if filter_edit is not None:
+            filter_edit.blockSignals(True)
+            filter_edit.clear()
+            filter_edit.blockSignals(False)
 
         details = getattr(self, "details_label", None)
         if details is not None:
@@ -1973,8 +2099,7 @@ class nnUNetDatasetManager(BaseObject):
     
     def update_train_test_prediction_lists(self):
         print("updating train/test/prediction lists")
-        selected_index = self.dataset_dropdown.currentIndex()
-        self._on_dataset_selected(selected_index)
+        self._on_dataset_selected()
 
 
     def _clear_dataset_views(self):
@@ -2032,7 +2157,7 @@ class nnUNetDatasetManager(BaseObject):
             dropdown.isEnabled()
             and len(datasets) > 0
             and dropdown.count() > 0
-            and dropdown.currentIndex() < 0
+            and self._selected_dataset() is None
         )
         if needs_selection:
             dropdown.setStyleSheet(
@@ -2053,7 +2178,9 @@ class nnUNetDatasetManager(BaseObject):
 
     def _on_dataset_dropdown_changed(self, dataset_index):
         """User changed the dataset dropdown; confirm unsaved work first."""
-        if dataset_index == getattr(self, "_active_dataset_index", -1):
+        selected = self._selected_dataset()
+        selected_id = selected.get("id") if selected else None
+        if selected_id == getattr(self, "_active_dataset_id", None):
             return
 
         callback = getattr(self, "before_dataset_change", None)
@@ -2065,13 +2192,14 @@ class nnUNetDatasetManager(BaseObject):
                 allowed = False
             if not allowed:
                 self.dataset_dropdown.blockSignals(True)
-                self.dataset_dropdown.setCurrentIndex(self._active_dataset_index)
+                revert = self._combo_index_for_dataset_id(self._active_dataset_id)
+                self.dataset_dropdown.setCurrentIndex(revert)
                 self.dataset_dropdown.blockSignals(False)
                 self._update_dataset_selection_required_style()
                 return
 
-        self._active_dataset_index = dataset_index
-        self._on_dataset_selected(dataset_index)
+        self._active_dataset_id = selected_id
+        self._on_dataset_selected()
         self._update_dataset_selection_required_style()
 
     def _on_dataset_details_toggled(self, expanded):
@@ -2085,16 +2213,28 @@ class nnUNetDatasetManager(BaseObject):
             self.details_label.setMinimumHeight(0)
             self.details_label.setMaximumHeight(0)
 
-    def _on_dataset_selected(self, dataset_index):
-        """Triggered when the user selects a dataset."""
-        self._active_dataset_index = dataset_index
-        if not self.datasets or dataset_index < 0 or dataset_index >= len(self.datasets):
+    def _on_dataset_selected(self, dataset_index=None):
+        """Triggered when the user selects a dataset.
+
+        ``dataset_index`` is ignored (kept for call-site compatibility); the
+        current combo selection / active dataset id is used instead.
+        """
+        dataset = self._selected_dataset()
+        if dataset is None and self._active_dataset_id:
+            for candidate in self.datasets or []:
+                if candidate.get("id") == self._active_dataset_id:
+                    dataset = candidate
+                    break
+
+        if not dataset:
+            self._active_dataset_id = None
             self._current_datast = None
             self.details_label.setText("<b>Select a dataset.</b>")
             self._clear_dataset_views()
             return
 
-        dataset = self.datasets[dataset_index].copy()
+        self._active_dataset_id = dataset.get("id")
+        dataset = dataset.copy()
         self._current_datast = dataset
 
         details_json = json.dumps(dataset, indent=4)

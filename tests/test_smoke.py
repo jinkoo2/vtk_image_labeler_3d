@@ -37,7 +37,7 @@ def test_config_defaults(tmp_path, monkeypatch):
     config._config = None
     conf = config.get_config()
     assert conf["log_dir"]
-    assert conf["nnunet_server_url"]
+    assert conf["nnunet_server_url_list"]
     assert (tmp_path / "settings.json").exists()
 
     conf["keycloak_realm"] = "ci-realm"

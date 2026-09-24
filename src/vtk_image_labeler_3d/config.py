@@ -11,12 +11,16 @@ _DEFAULT_SERVER_URLS = [
     "https://nnunet-server-02.apps.myphysics.net/api/v3",
 ]
 
+# Canonical settings key for the server list (legacy key: nnunet_server_url).
+SERVER_URL_LIST_KEY = "nnunet_server_url_list"
+_LEGACY_SERVER_URL_KEY = "nnunet_server_url"
+
 DEFAULT_SETTINGS = {
     "log_dir": "_logs",
     "temp_dir": "_temp",
-    # List of nnU-Net API roots the user can choose from.
-    "nnunet_server_url": list(_DEFAULT_SERVER_URLS),
-    # Currently selected server (must be one of nnunet_server_url when possible).
+    # List of nnU-Net API roots used for Connect dropdown + prediction load balancing.
+    SERVER_URL_LIST_KEY: list(_DEFAULT_SERVER_URLS),
+    # Currently selected server (must be one of the list when possible).
     "nnunet_selected_server_url": _DEFAULT_SERVER_URLS[0],
     "keycloak_url": "https://login.apps.myphysics.net",
     "keycloak_realm": "myphysics",
@@ -67,10 +71,21 @@ def _normalize_server_urls(value) -> list:
     return cleaned or list(_DEFAULT_SERVER_URLS)
 
 
+def _server_url_list_from_raw(data: dict):
+    """Prefer nnunet_server_url_list; fall back to legacy nnunet_server_url."""
+    if not isinstance(data, dict):
+        return None
+    if SERVER_URL_LIST_KEY in data and data[SERVER_URL_LIST_KEY] is not None:
+        return data[SERVER_URL_LIST_KEY]
+    if _LEGACY_SERVER_URL_KEY in data and data[_LEGACY_SERVER_URL_KEY] is not None:
+        return data[_LEGACY_SERVER_URL_KEY]
+    return None
+
+
 def get_nnunet_server_urls(cfg: dict | None = None) -> list:
     """Return configured nnU-Net server URL list."""
     cfg = cfg if cfg is not None else get_config()
-    return list(cfg.get("nnunet_server_url") or _DEFAULT_SERVER_URLS)
+    return list(cfg.get(SERVER_URL_LIST_KEY) or _DEFAULT_SERVER_URLS)
 
 
 def get_nnunet_server_url(cfg: dict | None = None) -> str:
@@ -92,7 +107,7 @@ def set_nnunet_selected_server_url(url: str, persist: bool = True) -> str:
         # Allow connecting to a URL typed/selected even if not yet in list.
         if selected:
             urls = list(urls) + [selected]
-            cfg["nnunet_server_url"] = urls
+            cfg[SERVER_URL_LIST_KEY] = urls
         else:
             selected = urls[0] if urls else _DEFAULT_SERVER_URLS[0]
     cfg["nnunet_selected_server_url"] = selected
@@ -107,17 +122,17 @@ def _normalize(data: dict) -> dict:
         for key in DEFAULT_SETTINGS:
             if key in data and data[key] is not None:
                 cfg[key] = data[key]
-        # Backward compatibility: older files may only have a string URL.
-        if "nnunet_server_url" in data and data["nnunet_server_url"] is not None:
-            cfg["nnunet_server_url"] = data["nnunet_server_url"]
+        raw_urls = _server_url_list_from_raw(data)
+        if raw_urls is not None:
+            cfg[SERVER_URL_LIST_KEY] = raw_urls
         if "nnunet_selected_server_url" in data and data["nnunet_selected_server_url"]:
             cfg["nnunet_selected_server_url"] = data["nnunet_selected_server_url"]
 
     cfg["keycloak_registration_url"] = str(cfg.get("keycloak_registration_url") or "").strip()
-    cfg["nnunet_server_url"] = _normalize_server_urls(cfg.get("nnunet_server_url"))
+    cfg[SERVER_URL_LIST_KEY] = _normalize_server_urls(cfg.get(SERVER_URL_LIST_KEY))
     selected = str(cfg.get("nnunet_selected_server_url") or "").strip().rstrip("/")
-    if selected not in cfg["nnunet_server_url"]:
-        selected = cfg["nnunet_server_url"][0]
+    if selected not in cfg[SERVER_URL_LIST_KEY]:
+        selected = cfg[SERVER_URL_LIST_KEY][0]
     cfg["nnunet_selected_server_url"] = selected
     cfg["keycloak_url"] = str(cfg.get("keycloak_url") or "").strip()
     cfg["keycloak_realm"] = str(cfg.get("keycloak_realm") or "").strip()
@@ -125,6 +140,8 @@ def _normalize(data: dict) -> dict:
     cfg["temp_dir"] = str(cfg.get("temp_dir") or DEFAULT_SETTINGS["temp_dir"]).strip()
     cfg["feedback_api_url"] = str(cfg.get("feedback_api_url") or "").strip().rstrip("/")
     cfg["feedback_api_key"] = str(cfg.get("feedback_api_key") or "").strip()
+    # Drop legacy key from the in-memory/on-disk shape.
+    cfg.pop(_LEGACY_SERVER_URL_KEY, None)
     return cfg
 
 

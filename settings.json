@@ -1,7 +1,7 @@
 {
   "log_dir": "_logs",
   "temp_dir": "_temp",
-  "nnunet_server_url": [
+  "nnunet_server_url_list": [
     "https://nnunet-server-01.apps.myphysics.net/api/v3",
     "https://nnunet-server-02.apps.myphysics.net/api/v3"
   ],

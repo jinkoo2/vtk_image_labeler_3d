@@ -1430,13 +1430,12 @@ class MainWindow3D(QMainWindow):
         return True
 
     def before_nnunet_dataset_change(self):
-        """Called before switching datasets in the nnU-Net panel."""
-        if not self.ensure_changes_saved():
-            return False
-        # Drop the open case so the UI does not keep another dataset's image.
-        if self.vtk_image is not None:
-            self._clear_workspace_without_prompt()
-        return True
+        """Called before switching datasets in the nnU-Net panel.
+
+        Keeps the open image / segmentation layers so a case loaded from one
+        dataset can be posted/updated to another.
+        """
+        return self.ensure_changes_saved()
 
     def on_nnunet_case_deleted(self, dataset_id, images_for, num):
         """Close the viewer when the currently open nnU-Net case was deleted."""
@@ -1458,12 +1457,19 @@ class MainWindow3D(QMainWindow):
         self.print_status(f"Closed deleted case {num} ({images_for}) from viewer.")
 
     def on_nnunet_server_disconnected(self):
-        """Clear any open nnU-Net case when disconnecting / switching servers."""
-        if self._nnunet_image_ref is not None or self.vtk_image is not None:
-            # Avoid save-to-server prompt: session is already gone.
-            self.reset_modified()
-            self._clear_workspace_without_prompt()
-            self.print_status("Closed workspace after nnU-Net server disconnect.")
+        """Detach the open case from the server session, but keep viewer data.
+
+        Image, segmentation layers, and other annotations stay loaded so the
+        user can reconnect / switch servers and post them elsewhere.
+        """
+        if self._nnunet_image_ref is not None:
+            self._nnunet_image_ref = None
+            self.segmentation_list_manager.update_nnunet_prediction_tool_button_state()
+            self.print_status(
+                "Disconnected: kept open image and labels (case link cleared)."
+            )
+        elif self.vtk_image is not None:
+            self.print_status("Disconnected: kept open image and labels.")
 
     def _clear_workspace_without_prompt(self):
         if self.vtk_image is None and getattr(self, "image_path", None) is None:

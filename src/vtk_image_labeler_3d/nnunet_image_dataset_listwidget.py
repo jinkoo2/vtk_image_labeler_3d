@@ -54,6 +54,7 @@ LABEL_STATUS_OPTIONS = [
     "reviewed",
     "labeled",
     "empty",
+    "fixed",
 ]
 
 

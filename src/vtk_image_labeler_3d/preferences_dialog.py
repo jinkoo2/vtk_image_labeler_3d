@@ -117,7 +117,7 @@ class PreferencesDialog(QDialog):
         return {
             "log_dir": self.log_dir_edit.text().strip(),
             "temp_dir": self.temp_dir_edit.text().strip(),
-            "nnunet_server_url": urls,
+            "nnunet_server_url_list": urls,
             "nnunet_selected_server_url": selected,
             "keycloak_url": self.keycloak_url_edit.text().strip(),
             "keycloak_realm": self.keycloak_realm_edit.text().strip(),
@@ -128,7 +128,7 @@ class PreferencesDialog(QDialog):
 
     def accept(self):
         vals = self.values()
-        if not vals["nnunet_server_url"]:
+        if not vals["nnunet_server_url_list"]:
             QMessageBox.warning(
                 self,
                 "Preferences",

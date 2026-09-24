@@ -1114,6 +1114,77 @@ def get_prediction_job_status(BASE_URL, job_id, timeout_seconds=30):
         raise
 
 
+def get_prediction_queue_load(
+    BASE_URL,
+    dataset_id=None,
+    configuration=None,
+    timeout_seconds=15,
+):
+    """GET /predictions/load — queue depth for client-side load balancing."""
+    url = f"{BASE_URL}/predictions/load"
+    params = {}
+    if dataset_id:
+        params["dataset_id"] = dataset_id
+    if configuration:
+        params["configuration"] = configuration
+    print(f"Fetching prediction queue load: {url} params={params}")
+    try:
+        response = requests.get(
+            url, params=params or None, headers=_auth_headers(), timeout=timeout_seconds
+        )
+        _raise_for_status(response, "fetching prediction queue load")
+        data = response.json()
+        print(f"Prediction queue load: {data}")
+        return data if isinstance(data, dict) else {}
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while fetching prediction queue load: {e}")
+        raise
+
+
+def cancel_prediction_job(BASE_URL, job_id, timeout_seconds=30):
+    """POST /predictions/cancel/{job_id} — cancel a queued or running job."""
+    url = f"{BASE_URL}/predictions/cancel/{job_id}"
+    print(f"Canceling prediction job: {url}")
+    try:
+        response = requests.post(url, headers=_auth_headers(), timeout=timeout_seconds)
+        _raise_for_status(response, "canceling prediction job")
+        data = response.json()
+        print(f"Prediction cancel response: {data}")
+        return data if isinstance(data, dict) else {"job_id": job_id, "status": "canceled"}
+    except ServerError:
+        raise
+    except Exception as e:
+        print(f"An error occurred while canceling prediction job: {e}")
+        raise
+
+
+def server_has_approved_model(BASE_URL, model, timeout_seconds=30):
+    """True if ``model`` appears in this server's approved-models list."""
+    if not isinstance(model, dict):
+        return False
+    models = get_approved_models(BASE_URL, timeout_seconds=timeout_seconds) or []
+    want = (
+        model.get("dataset_id"),
+        model.get("trainer"),
+        model.get("plans"),
+        model.get("configuration"),
+    )
+    for entry in models:
+        if not isinstance(entry, dict):
+            continue
+        have = (
+            entry.get("dataset_id"),
+            entry.get("trainer"),
+            entry.get("plans"),
+            entry.get("configuration"),
+        )
+        if have == want:
+            return True
+    return False
+
+
 def delete_prediction(BASE_URL, dataset_id, req_id):
     url = f"{BASE_URL}/predictions/delete"
     params = {"dataset_id": dataset_id, "req_id": req_id}
