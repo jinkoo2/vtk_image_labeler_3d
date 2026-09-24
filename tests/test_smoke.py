@@ -40,11 +40,34 @@ def test_config_defaults(tmp_path, monkeypatch):
     assert conf["nnunet_server_url_list"]
     assert (tmp_path / "settings.json").exists()
 
+    assert conf["keycloak_registration_url"].endswith("/realms/myphysics/account/")
     conf["keycloak_realm"] = "ci-realm"
     config.save_settings(conf)
     config._config = None
     conf2 = config.get_config()
     assert conf2["keycloak_realm"] == "ci-realm"
+    assert conf2["keycloak_registration_url"].endswith("/realms/ci-realm/account/")
+
+
+def test_legacy_account_console_registration_url_is_rewritten(tmp_path, monkeypatch):
+    import config
+
+    monkeypatch.chdir(tmp_path)
+    config._config = None
+    broken = (
+        "https://login.apps.myphysics.net/realms/myphysics/protocol/openid-connect/registrations"
+        "?client_id=account-console&response_type=code&scope=openid"
+        "&redirect_uri=https%3A%2F%2Flogin.apps.myphysics.net%2Frealms%2Fmyphysics%2Faccount%2F"
+    )
+    (tmp_path / "settings.json").write_text(
+        '{"keycloak_registration_url": "%s"}\n' % broken,
+        encoding="utf-8",
+    )
+    conf = config.get_config()
+    assert conf["keycloak_registration_url"] == (
+        "https://login.apps.myphysics.net/realms/myphysics/account/"
+    )
+    assert "openid-connect/registrations" not in conf["keycloak_registration_url"]
 
 
 def test_nnunet_train_role_from_jwt():

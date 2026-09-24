@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from copy import deepcopy
+from urllib.parse import urlparse
 
 _DEFAULT_SERVER_URLS = [
     "https://nnunet-server-01.apps.myphysics.net/api/v3",
@@ -24,11 +26,9 @@ DEFAULT_SETTINGS = {
     "nnunet_selected_server_url": _DEFAULT_SERVER_URLS[0],
     "keycloak_url": "https://login.apps.myphysics.net",
     "keycloak_realm": "myphysics",
-    "keycloak_registration_url": (
-        "https://login.apps.myphysics.net/realms/myphysics/protocol/openid-connect/registrations"
-        "?client_id=account-console&response_type=code&scope=openid"
-        "&redirect_uri=https%3A%2F%2Flogin.apps.myphysics.net%2Frealms%2Fmyphysics%2Faccount%2F"
-    ),
+    # Account Console starts OIDC with PKCE. Do not use /openid-connect/registrations
+    # against account-console — that client requires code_challenge_method.
+    "keycloak_registration_url": "https://login.apps.myphysics.net/realms/myphysics/account/",
     # CapRover feedback API origin (no path). Empty = fall back to opening GitHub Issues.
     "feedback_api_url": "",
     # Optional shared secret; must match server FEEDBACK_API_KEY when set.
@@ -82,6 +82,41 @@ def _server_url_list_from_raw(data: dict):
     return None
 
 
+def default_registration_url(keycloak_url: str = "", realm: str = "") -> str:
+    """Keycloak Account Console. The SPA starts login with PKCE, then Register."""
+    base = (keycloak_url or "").rstrip("/") or DEFAULT_SETTINGS["keycloak_url"]
+    realm = (realm or "").strip() or DEFAULT_SETTINGS["keycloak_realm"]
+    return f"{base}/realms/{realm}/account/"
+
+
+def _is_pkce_less_account_console_registration(url: str) -> bool:
+    """True for the static registrations URL that Keycloak 26 rejects."""
+    lowered = (url or "").lower()
+    return (
+        "/protocol/openid-connect/registrations" in lowered
+        and "client_id=account-console" in lowered
+        and "code_challenge" not in lowered
+    )
+
+
+_ACCOUNT_CONSOLE_PATH = re.compile(r"^/realms/[^/]+/account/?$", re.I)
+
+
+def _is_account_console_url(url: str) -> bool:
+    return bool(_ACCOUNT_CONSOLE_PATH.match(urlparse(url).path or ""))
+
+
+def _coerce_registration_url(url: str, keycloak_url: str, realm: str) -> str:
+    raw = str(url or "").strip()
+    if (
+        not raw
+        or _is_pkce_less_account_console_registration(raw)
+        or _is_account_console_url(raw)
+    ):
+        return default_registration_url(keycloak_url, realm)
+    return raw
+
+
 def get_nnunet_server_urls(cfg: dict | None = None) -> list:
     """Return configured nnU-Net server URL list."""
     cfg = cfg if cfg is not None else get_config()
@@ -128,7 +163,6 @@ def _normalize(data: dict) -> dict:
         if "nnunet_selected_server_url" in data and data["nnunet_selected_server_url"]:
             cfg["nnunet_selected_server_url"] = data["nnunet_selected_server_url"]
 
-    cfg["keycloak_registration_url"] = str(cfg.get("keycloak_registration_url") or "").strip()
     cfg[SERVER_URL_LIST_KEY] = _normalize_server_urls(cfg.get(SERVER_URL_LIST_KEY))
     selected = str(cfg.get("nnunet_selected_server_url") or "").strip().rstrip("/")
     if selected not in cfg[SERVER_URL_LIST_KEY]:
@@ -136,6 +170,11 @@ def _normalize(data: dict) -> dict:
     cfg["nnunet_selected_server_url"] = selected
     cfg["keycloak_url"] = str(cfg.get("keycloak_url") or "").strip()
     cfg["keycloak_realm"] = str(cfg.get("keycloak_realm") or "").strip()
+    cfg["keycloak_registration_url"] = _coerce_registration_url(
+        cfg.get("keycloak_registration_url"),
+        cfg["keycloak_url"],
+        cfg["keycloak_realm"],
+    )
     cfg["log_dir"] = str(cfg.get("log_dir") or DEFAULT_SETTINGS["log_dir"]).strip()
     cfg["temp_dir"] = str(cfg.get("temp_dir") or DEFAULT_SETTINGS["temp_dir"]).strip()
     cfg["feedback_api_url"] = str(cfg.get("feedback_api_url") or "").strip().rstrip("/")

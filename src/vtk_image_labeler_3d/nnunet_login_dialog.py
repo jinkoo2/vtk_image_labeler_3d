@@ -18,24 +18,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 
-
-def default_registration_url(keycloak_url: str, realm: str) -> str:
-    """
-    Keycloak self-registration page (when realm registration is enabled).
-
-    Uses the built-in account-console client so the confidential nnunet-server
-    client secret is never needed in the desktop app.
-    """
-    base = (keycloak_url or "").rstrip("/")
-    realm = realm or "myphysics"
-    redirect = f"{base}/realms/{realm}/account/"
-    return (
-        f"{base}/realms/{realm}/protocol/openid-connect/registrations"
-        f"?client_id=account-console"
-        f"&response_type=code"
-        f"&scope=openid"
-        f"&redirect_uri={redirect}"
-    )
+from config import default_registration_url
 
 
 class NnUNetLoginDialog(QDialog):
@@ -100,7 +83,9 @@ class NnUNetLoginDialog(QDialog):
         self.register_button.setDefault(False)
         self.register_button.setCursor(Qt.PointingHandCursor)
         self.register_button.setStyleSheet("QPushButton { color: #1565c0; text-align: left; }")
-        self.register_button.setToolTip("Open account registration in your browser")
+        self.register_button.setToolTip(
+            "Open the myphysics sign-in page in your browser, then choose Register"
+        )
         self.register_button.clicked.connect(self._on_register_clicked)
         if not registration_url:
             self.register_button.setEnabled(False)
@@ -129,6 +114,13 @@ class NnUNetLoginDialog(QDialog):
                 "Ask an administrator to create your account.",
             )
             return
+        QMessageBox.information(
+            self,
+            "Register",
+            "Your browser will open the myphysics sign-in page.\n\n"
+            "Click Register on that page, verify your email, then return "
+            "here and log in with your new email and password.",
+        )
         ok = QDesktopServices.openUrl(QUrl(url))
         if not ok:
             webbrowser.open(url)
