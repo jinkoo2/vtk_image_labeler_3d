@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
 )
 
 from config import get_config, get_nnunet_server_url, get_nnunet_server_urls, save_settings, settings_path
+import qt_tools
 
 
 class PreferencesDialog(QDialog):
@@ -26,6 +27,7 @@ class PreferencesDialog(QDialog):
         self.setWindowTitle("Preferences")
         self.setMinimumWidth(620)
         self.setWindowModality(Qt.ApplicationModal)
+        qt_tools.persist_widget_geometry(self, "preferences")
 
         conf = get_config()
 

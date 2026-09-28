@@ -108,6 +108,8 @@ class FeedbackDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(460)
         self.resize(520, 460)
+        import qt_tools
+        qt_tools.persist_widget_geometry(self, f"feedback_{kind}")
 
         layout = QVBoxLayout(self)
 

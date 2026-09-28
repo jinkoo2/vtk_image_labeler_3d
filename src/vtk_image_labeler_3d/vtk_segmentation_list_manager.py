@@ -1243,6 +1243,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(360, 340)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_scribble")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -1590,6 +1592,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(400, 260)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_interpolation")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -1781,6 +1785,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(400, 220)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_extract_largest")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -2006,6 +2012,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(420, 280)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_binary_morphology")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -2274,6 +2282,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(420, 260)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_threshold")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -2434,6 +2444,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(320, 220)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_boolean")
 
         layout = QVBoxLayout(dialog)
         form_layout = QFormLayout()
@@ -2881,6 +2893,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(320, 180)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_paint")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -3100,6 +3114,8 @@ class SegmentationListManager(QObject):
         dialog.setWindowFlags(dialog.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         dialog.setAttribute(Qt.WA_ShowWithoutActivating, True)
         dialog.resize(320, 160)
+        import qt_tools
+        qt_tools.persist_widget_geometry(dialog, "tool_pencil")
 
         layout = QVBoxLayout(dialog)
         form = QFormLayout()

@@ -33,6 +33,7 @@ class NewDatasetDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("New Dataset")
         self.setGeometry(300, 200, 500, 400)  # Set window size
+        qt_tools.persist_widget_geometry(self, "new_dataset")
 
         # Layout
         layout = QVBoxLayout()
@@ -121,6 +122,7 @@ class FileContentDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"File Content: {file_name}")
         self.setGeometry(300, 200, 800, 600)  # Set window size
+        qt_tools.persist_widget_geometry(self, "file_content")
         
         # Layout
         layout = QVBoxLayout()

@@ -302,6 +302,8 @@ class CasePropertiesDialog(QDialog):
 
         self.setWindowTitle(f"Properties - case {num}")
         self.resize(640, 600)
+        import qt_tools
+        qt_tools.persist_widget_geometry(self, "case_properties")
 
         layout = QVBoxLayout(self)
 

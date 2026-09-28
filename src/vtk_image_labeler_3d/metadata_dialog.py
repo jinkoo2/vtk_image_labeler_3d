@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton
+import qt_tools
 
 class MetadataDialog(QDialog):
     def __init__(self, metadata, parent=None):
@@ -10,6 +11,7 @@ class MetadataDialog(QDialog):
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)  # Adds padding around all content
         self.resize(400, 250)
+        qt_tools.persist_widget_geometry(self, "metadata")
         
         form_layout = QFormLayout()
 

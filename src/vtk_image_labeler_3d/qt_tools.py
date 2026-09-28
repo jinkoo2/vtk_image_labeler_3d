@@ -1,9 +1,77 @@
 from contextlib import contextmanager
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent, QObject, QSettings
 from PyQt5.QtWidgets import QApplication, QMessageBox, QProgressDialog, QWidget
 
 _busy_state = {"depth": 0, "dialog": None}
+
+
+def app_qsettings() -> QSettings:
+    """Shared INI settings file used across the app (``_settings.conf``)."""
+    return QSettings("_settings.conf", QSettings.IniFormat)
+
+
+def restore_widget_geometry(widget: QWidget, key: str) -> bool:
+    """Restore size/position previously saved under ``window_geometry/<key>``."""
+    if widget is None or not key:
+        return False
+    try:
+        geom = app_qsettings().value(f"window_geometry/{key}")
+        if geom is None:
+            return False
+        return bool(widget.restoreGeometry(geom))
+    except Exception as e:
+        print(f"Failed to restore geometry for '{key}': {e}")
+        return False
+
+
+def save_widget_geometry(widget: QWidget, key: str) -> None:
+    """Persist size/position under ``window_geometry/<key>``."""
+    if widget is None or not key:
+        return
+    try:
+        settings = app_qsettings()
+        settings.setValue(f"window_geometry/{key}", widget.saveGeometry())
+        settings.sync()
+    except Exception as e:
+        print(f"Failed to save geometry for '{key}': {e}")
+
+
+class _GeometryPersistenceFilter(QObject):
+    """Save geometry on hide/close; restore once on first show if not restored yet."""
+
+    def __init__(self, key: str, parent=None):
+        super().__init__(parent)
+        self.key = key
+        self._restored = False
+
+    def eventFilter(self, obj, event):
+        etype = event.type()
+        if etype == QEvent.Show:
+            if not self._restored:
+                restore_widget_geometry(obj, self.key)
+                self._restored = True
+        elif etype in (QEvent.Hide, QEvent.Close):
+            # Prediction Tool uses Hide (closeEvent ignored); other dialogs Close.
+            save_widget_geometry(obj, self.key)
+        return False
+
+
+def persist_widget_geometry(widget: QWidget, key: str) -> None:
+    """Restore geometry now (if available) and auto-save on hide/close.
+
+    Call after the widget's default ``resize`` / ``setGeometry`` so a saved
+    layout overrides the defaults.
+    """
+    if widget is None or not key:
+        return
+    # Prefer immediate restore so size is correct before first paint.
+    restored = restore_widget_geometry(widget, key)
+    filt = _GeometryPersistenceFilter(key, parent=widget)
+    filt._restored = restored
+    widget.installEventFilter(filt)
+    # Keep a strong ref so the filter is not GC'd.
+    widget._geometry_persistence_filter = filt
 
 
 @contextmanager

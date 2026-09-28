@@ -39,6 +39,8 @@ class NnUNetLoginDialog(QDialog):
         self.setWindowTitle("nnU-Net Server Login")
         self.setModal(True)
         self.setMinimumWidth(380)
+        import qt_tools
+        qt_tools.persist_widget_geometry(self, "nnunet_login")
 
         layout = QVBoxLayout(self)
 

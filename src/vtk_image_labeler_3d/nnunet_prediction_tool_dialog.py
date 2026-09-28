@@ -170,6 +170,7 @@ class NnUNetPredictionToolDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
         self.resize(520, 620)
+        qt_tools.persist_widget_geometry(self, "nnunet_prediction_tool")
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
