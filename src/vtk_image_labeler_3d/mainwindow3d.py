@@ -74,6 +74,9 @@ class MainWindow3D(QMainWindow):
         self.image_type = None
         self._modified = False
         self._nnunet_image_ref = None
+        self._project_json_path = None
+        self._project_image_rel = None
+        self._project_seg_files = {}
 
         ### init ui ###    
         self.setWindowTitle("Image Labeler 3D")
@@ -1488,6 +1491,9 @@ class MainWindow3D(QMainWindow):
         self._nnunet_image_ref = None
         self.reset_modified()
         self.segmentation_list_manager.update_nnunet_prediction_tool_button_state()
+        self._project_json_path = None
+        self._project_image_rel = None
+        self._project_seg_files = {}
 
     def get_nnunet_prediction_context(self):
         """Context for the nnUNet Prediction Tool dialog."""
@@ -1522,6 +1528,10 @@ class MainWindow3D(QMainWindow):
         """Save the current workspace to a folder."""
         if self.vtk_image is None:
             self.print_status("No image loaded. Cannot save workspace.")
+            return
+
+        if self._project_json_path:
+            self._save_project_in_place()
             return
 
         # workspace json file
@@ -1576,66 +1586,138 @@ class MainWindow3D(QMainWindow):
             self.print_status("Failed to save workspace. Check logs for details.")
             self.show_popup("Save Workspace", f"Error saving workspace: {str(e)}", QMessageBox.Critical)      
 
+    def _save_project_in_place(self):
+        import json
+        import os
+
+        folder = os.path.dirname(self._project_json_path)
+        workspace_data = {
+            "kind": "vtk_image_labeler_3d_project",
+            "image": self._project_image_rel,
+            "window_settings": {
+                "level": self.range_slider.get_center(),
+                "width": self.range_slider.get_width(),
+                "range_min": self.range_slider.range_min,
+                "range_max": self.range_slider.range_max,
+            },
+        }
+        try:
+            segmentations = []
+            import itkvtk
+            for layer in self.segmentation_list_manager.segmentation_layers.get_layers():
+                name = layer.get_name()
+                rel = self._project_seg_files.get(name) or f"{name}.mha"
+                dest = os.path.join(folder, rel)
+                os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+                itkvtk.save_vtk_image_using_sitk(layer.get_image(), dest)
+                segmentations.append(
+                    {
+                        "name": name,
+                        "color": list(layer.get_color()),
+                        "alpha": layer.get_alpha(),
+                        "file": rel.replace("\\", "/"),
+                    }
+                )
+                self._project_seg_files[name] = rel.replace("\\", "/")
+            workspace_data["segmentations"] = segmentations
+            for manager in self.managers:
+                if manager is self.segmentation_list_manager:
+                    continue
+                manager.save_state(workspace_data, folder)
+            with open(self._project_json_path, "w") as f:
+                json.dump(workspace_data, f, indent=4)
+            self.reset_modified()
+            _info(f"Project saved to {self._project_json_path}.")
+            self.print_status(f"Project saved to {self._project_json_path}.")
+            self.show_popup("Save Workspace", "Project saved to original mask files.", QMessageBox.Information)
+        except Exception as e:
+            logger.error(f"Failed to save project: {e}", exc_info=True)
+            self.print_status("Failed to save project. Check logs for details.")
+            self.show_popup("Save Workspace", f"Error saving project: {str(e)}", QMessageBox.Critical)
+
     def open_workspace(self):
 
         if self.vtk_image is not None:
             if not self.close_workspace():
                 return
 
-        import json
-        import os
+        from PyQt5.QtWidgets import QFileDialog
 
-        """Load a workspace from a folder."""
         workspace_json_path, _ = QFileDialog.getOpenFileName(self, "Select Workspace File", self.get_last_dir(), "JSON Files (*.json)")
         if not workspace_json_path:
            _info("Load workspace operation canceled by user.")
            return
 
-        # save to last dir
-        settings.setValue('last_directory', os.path.dirname(workspace_json_path))
+        self.open_workspace_file(workspace_json_path)
 
-        data_path = workspace_json_path+".data"
-        if not os.path.exists(data_path):
-            msg = "Workspace data folder not found."
-            logger.error(msg)
-            self.print_status(msg)
+    def open_workspace_file(self, workspace_json_path):
+        import json
+        import os
+
+        if not workspace_json_path:
             return
+
+        settings.setValue('last_directory', os.path.dirname(workspace_json_path))
 
         try:
             with open(workspace_json_path, "r") as f:
                 workspace_data = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read workspace: {e}", exc_info=True)
+            self.print_status("Failed to load workspace. Check logs for details.")
+            return
 
-            _info(f"Loaded workspace metadata from {workspace_json_path}.")
+        _info(f"Loaded workspace metadata from {workspace_json_path}.")
+        folder = os.path.dirname(os.path.abspath(workspace_json_path))
+        is_project = (
+            workspace_data.get("kind") == "vtk_image_labeler_3d_project"
+            or bool(workspace_data.get("image"))
+        )
 
-            # Clear existing workspace
-            #self.vtk_image = None
-            #self.vtk_viewer.clear()
+        if is_project:
+            data_path = folder
+            image_rel = workspace_data.get("image") or ""
+            input_image_path = os.path.join(folder, image_rel)
+            self._project_json_path = os.path.abspath(workspace_json_path)
+            self._project_image_rel = image_rel.replace("\\", "/")
+            self._project_seg_files = {
+                str(item.get("name") or ""): str(item.get("file") or "").replace("\\", "/")
+                for item in (workspace_data.get("segmentations") or [])
+                if isinstance(item, dict)
+            }
+        else:
+            data_path = workspace_json_path + ".data"
+            input_image_path = os.path.join(data_path, "input_image.mhd")
+            self._project_json_path = None
+            self._project_image_rel = None
+            self._project_seg_files = {}
+            if not os.path.exists(data_path):
+                msg = "Workspace data folder not found."
+                logger.error(msg)
+                self.print_status(msg)
+                return
 
-            #self.point_list_manager.points.clear()
-
+        try:
             from itkvtk import load_vtk_image_using_sitk
 
-            # Load input image
-            input_image_path = os.path.join(data_path, "input_image.mhd")
-            if os.path.exists(input_image_path):
-                self.vtk_image = load_vtk_image_using_sitk(input_image_path)
-                _info(f"Loaded input image from {input_image_path}.")
-            else:
+            if not os.path.exists(input_image_path):
                 raise FileNotFoundError(f"Input image file not found at {input_image_path}")
 
-            # Restore window settings
+            self.vtk_image = load_vtk_image_using_sitk(input_image_path)
+            _info(f"Loaded input image from {input_image_path}.")
+            self.image_path = input_image_path
+
             window_settings = workspace_data.get("window_settings", {})
             window = window_settings.get("width", 1)
             level = window_settings.get("level", 0)
 
-            # Get the scalar range (pixel intensity range)
             scalar_range = self.vtk_image.GetScalarRange()
 
             self.range_slider.range_min = scalar_range[0]
             self.range_slider.range_max = scalar_range[1]
-            self.range_slider.low_value = level-window/2
-            self.range_slider.high_value = level+window/2
-            self.range_slider.update()  
+            self.range_slider.low_value = level - window / 2
+            self.range_slider.high_value = level + window / 2
+            self.range_slider.update()
 
             self.vtk_viewer.set_vtk_image(self.vtk_image, window, level)
 
@@ -1644,10 +1726,10 @@ class MainWindow3D(QMainWindow):
                 _info(f'{manager} - Loading state')
                 manager.load_state(workspace_data, data_path, {'base_image': self.vtk_image})
 
-            # clear the modifed flags of managers
             for manager in self.managers:
                 manager.reset_modified()
 
+            self.setWindowTitle(f"Image Labeler 3D - {os.path.basename(workspace_json_path)}")
             self.print_status(f"Workspace loaded from {data_path}.")
             _info("Loaded workspace successfully.")
 

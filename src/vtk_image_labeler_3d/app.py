@@ -74,6 +74,15 @@ def main():
         sys.argv = [a for a in sys.argv if a != SMOKE_FLAG]
         raise SystemExit(_run_smoke_test(pkg_dir))
 
+    open_json = None
+    kept = [sys.argv[0]]
+    for arg in sys.argv[1:]:
+        if arg.lower().endswith(".json") and Path(arg).expanduser().is_file():
+            open_json = str(Path(arg).expanduser().resolve())
+        else:
+            kept.append(arg)
+    sys.argv = kept
+
     from crash_reporting import capture_exception, init_crash_reporting
     from version_info import get_version
 
@@ -107,6 +116,9 @@ def main():
 
         show_message(splash, "Ready")
         main_window.showMaximized()
+        if open_json:
+            show_message(splash, "Opening project...")
+            main_window.open_workspace_file(open_json)
         splash.finish(main_window)
 
         sys.exit(app.exec_())
