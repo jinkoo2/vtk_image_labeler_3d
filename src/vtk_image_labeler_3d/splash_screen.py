@@ -69,3 +69,17 @@ def show_message(splash: QSplashScreen, message: str) -> None:
         QColor(210, 220, 230),
     )
     QApplication.processEvents()
+
+
+def close_splash(splash: QSplashScreen | None, main_window=None) -> None:
+    """Drop the splash even if finish() no-ops on an already-shown window."""
+    del main_window
+    if splash is None:
+        return
+    try:
+        splash.setWindowFlag(Qt.WindowStaysOnTopHint, False)
+    except Exception:
+        pass
+    splash.hide()
+    splash.close()
+    QApplication.processEvents()

@@ -92,7 +92,7 @@ def main():
     from PyQt5.QtWidgets import QApplication
     from app_icon import load_app_icon
     from logger import logger, _info, _err
-    from splash_screen import create_splash, show_message
+    from splash_screen import close_splash, create_splash, show_message
     from ui_theme import apply_material_theme
 
     _info("Application started")
@@ -116,10 +116,13 @@ def main():
 
         show_message(splash, "Ready")
         main_window.showMaximized()
-        if open_json:
-            show_message(splash, "Opening project...")
-            main_window.open_workspace_file(open_json)
-        splash.finish(main_window)
+        QApplication.processEvents()
+        try:
+            if open_json:
+                show_message(splash, "Opening project...")
+                main_window.open_workspace_file(open_json)
+        finally:
+            close_splash(splash, main_window)
 
         sys.exit(app.exec_())
     except BaseException as exc:
