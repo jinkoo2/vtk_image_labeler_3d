@@ -35,6 +35,12 @@ from config import get_nnunet_server_url, get_nnunet_server_urls
 _PREDICTION_TOOL_SETTINGS_GROUP = "nnunet_prediction_tool"
 _NEXT_AVAILABLE_SERVER = "Next Available Server"
 
+# fold form field values (API): "all" → fold_all; omit/"ensemble" → 5-fold CV
+FOLD_MODE_ALL = "all"
+FOLD_MODE_ENSEMBLE = "ensemble"
+FOLD_LABEL_FAST = "Fast – Single Model"
+FOLD_LABEL_ACCURATE = "Accurate – 5-Fold Ensemble"
+
 
 def _unique_layer_name(segmentation_layers, base_name: str) -> str:
     """Return base_name, or base_name_2 / _3 / ... if already taken."""
@@ -121,7 +127,7 @@ def _prediction_tool_qsettings() -> QSettings:
 
 
 def _load_persisted_prediction_prefs():
-    """Return ``(filter_text, preferred_model_dict_or_None)``."""
+    """Return ``(filter_text, preferred_model_dict_or_None, fold_mode)``."""
     settings = _prediction_tool_qsettings()
     settings.beginGroup(_PREDICTION_TOOL_SETTINGS_GROUP)
     filter_text = str(settings.value("filter", "") or "")
@@ -129,6 +135,7 @@ def _load_persisted_prediction_prefs():
     trainer = str(settings.value("model_trainer", "") or "").strip()
     plans = str(settings.value("model_plans", "") or "").strip()
     configuration = str(settings.value("model_configuration", "") or "").strip()
+    fold_mode = str(settings.value("fold_mode", "") or "").strip().lower()
     settings.endGroup()
     preferred = None
     if dataset_id:
@@ -138,7 +145,9 @@ def _load_persisted_prediction_prefs():
             "plans": plans or None,
             "configuration": configuration or None,
         }
-    return filter_text, preferred
+    if fold_mode not in (FOLD_MODE_ALL, FOLD_MODE_ENSEMBLE):
+        fold_mode = None
+    return filter_text, preferred, fold_mode
 
 
 class NnUNetPredictionToolDialog(QDialog):
@@ -163,7 +172,9 @@ class NnUNetPredictionToolDialog(QDialog):
         self._filter_debounce_timer.setInterval(300)
         self._filter_debounce_timer.timeout.connect(self._apply_model_filter)
 
-        persisted_filter, self._preferred_model = _load_persisted_prediction_prefs()
+        persisted_filter, self._preferred_model, self._preferred_fold_mode = (
+            _load_persisted_prediction_prefs()
+        )
 
         self.setWindowTitle("nnUNet Prediction Tool")
         self.setModal(False)
@@ -215,6 +226,15 @@ class NnUNetPredictionToolDialog(QDialog):
 
         self.channels_label = QLabel("-")
         form.addRow("Model Channels:", self.channels_label)
+
+        self.fold_mode_combo = QComboBox()
+        self.fold_mode_combo.setToolTip(
+            "Fast – Single Model: fold_all (one model trained on all cases; quicker).\n"
+            "Accurate – 5-Fold Ensemble: standard CV ensemble of folds 0–4 (slower)."
+        )
+        self.fold_mode_combo.currentIndexChanged.connect(self._on_fold_mode_changed)
+        form.addRow("Mode:", self.fold_mode_combo)
+        self._update_fold_mode_combo(fold_all_available=False, announce=False)
 
         labels_panel = QWidget()
         labels_layout = QVBoxLayout(labels_panel)
@@ -316,7 +336,7 @@ class NnUNetPredictionToolDialog(QDialog):
             self._apply_model_filter()
 
     def _persist_prediction_prefs(self):
-        """Save filter text and selected model identity to ``_settings.conf``."""
+        """Save filter text, selected model, and fold mode to ``_settings.conf``."""
         if self._restoring_prefs:
             return
         try:
@@ -335,6 +355,10 @@ class NnUNetPredictionToolDialog(QDialog):
                     "plans": model.get("plans"),
                     "configuration": model.get("configuration"),
                 }
+            fold_mode = self._selected_fold_mode()
+            if fold_mode:
+                settings.setValue("fold_mode", fold_mode)
+                self._preferred_fold_mode = fold_mode
             settings.endGroup()
             settings.sync()
         except Exception as e:
@@ -584,6 +608,69 @@ class NnUNetPredictionToolDialog(QDialog):
         data = self.model_combo.currentData()
         return data if isinstance(data, dict) else None
 
+    def _selected_fold_mode(self):
+        """Return ``all`` or ``ensemble`` from the Mode combo."""
+        combo = getattr(self, "fold_mode_combo", None)
+        if combo is None:
+            return FOLD_MODE_ENSEMBLE
+        data = combo.currentData()
+        if data in (FOLD_MODE_ALL, FOLD_MODE_ENSEMBLE):
+            return data
+        return FOLD_MODE_ENSEMBLE
+
+    def _fold_all_available_for_selection(self):
+        """True if current model/detail reports fold_all weights."""
+        if isinstance(self._model_detail, dict) and "fold_all_available" in self._model_detail:
+            return bool(self._model_detail.get("fold_all_available"))
+        model = self._selected_model()
+        if isinstance(model, dict) and "fold_all_available" in model:
+            return bool(model.get("fold_all_available"))
+        return False
+
+    def _update_fold_mode_combo(self, fold_all_available=None, announce=True):
+        """Rebuild Mode combo from availability; restore prefs or default to Fast."""
+        combo = getattr(self, "fold_mode_combo", None)
+        if combo is None:
+            return
+        if fold_all_available is None:
+            fold_all_available = self._fold_all_available_for_selection()
+
+        previous = self._selected_fold_mode()
+        preferred = self._preferred_fold_mode
+        self._restoring_prefs = True
+        combo.blockSignals(True)
+        try:
+            combo.clear()
+            if fold_all_available:
+                combo.addItem(FOLD_LABEL_FAST, FOLD_MODE_ALL)
+            combo.addItem(FOLD_LABEL_ACCURATE, FOLD_MODE_ENSEMBLE)
+
+            # Prefer persisted mode when still available; else Fast if both exist.
+            want = preferred if preferred in (FOLD_MODE_ALL, FOLD_MODE_ENSEMBLE) else None
+            if want is None and fold_all_available:
+                want = FOLD_MODE_ALL
+            if want is None:
+                want = FOLD_MODE_ENSEMBLE
+            idx = combo.findData(want)
+            if idx < 0:
+                idx = 0
+            combo.setCurrentIndex(idx)
+        finally:
+            combo.blockSignals(False)
+            self._restoring_prefs = False
+
+        selected = self._selected_fold_mode()
+        if announce and previous == FOLD_MODE_ALL and selected != FOLD_MODE_ALL:
+            self._append_general(
+                "fold_all is not available for this model; "
+                "switched Mode to Accurate – 5-Fold Ensemble."
+            )
+
+    def _on_fold_mode_changed(self, _index=0):
+        if self._restoring_prefs:
+            return
+        self._persist_prediction_prefs()
+
     def _open_model_docs(self):
         model = self._selected_model()
         if not model:
@@ -648,6 +735,7 @@ class NnUNetPredictionToolDialog(QDialog):
         if not model:
             self.channels_label.setText("-")
             self._clear_import_labels_list()
+            self._update_fold_mode_combo(fold_all_available=False, announce=False)
             self._refresh_context_labels()
             return
 
@@ -655,6 +743,12 @@ class NnUNetPredictionToolDialog(QDialog):
         base_url = ctx.get("server_url")
         if not base_url:
             return
+
+        # Seed Mode from list payload before detail returns.
+        self._update_fold_mode_combo(
+            fold_all_available=bool(model.get("fold_all_available")),
+            announce=True,
+        )
 
         try:
             with qt_tools.busy_progress(
@@ -677,13 +771,27 @@ class NnUNetPredictionToolDialog(QDialog):
             importable = _importable_label_items(labels)
             self.channels_label.setText(_format_channel_names(channel_names))
             self._populate_import_labels_list(labels, checked=True)
+            fold_all = bool(
+                (detail or {}).get("fold_all_available", model.get("fold_all_available"))
+            )
+            self._update_fold_mode_combo(fold_all_available=fold_all, announce=True)
+            mode_label = (
+                FOLD_LABEL_FAST
+                if self._selected_fold_mode() == FOLD_MODE_ALL
+                else FOLD_LABEL_ACCURATE
+            )
             self._append_general(
                 f"Selected model channels: {_format_channel_names(channel_names)} "
-                f"({n_ch}). Labels to import: {len(importable)}"
+                f"({n_ch}). Labels to import: {len(importable)}. "
+                f"fold_all_available={fold_all}. Mode: {mode_label}."
             )
         except Exception as e:
             self.channels_label.setText("?")
             self._clear_import_labels_list()
+            self._update_fold_mode_combo(
+                fold_all_available=bool(model.get("fold_all_available")),
+                announce=True,
+            )
             self._append_general(f"Failed to fetch model detail: {e}")
         self._refresh_context_labels()
         self._persist_prediction_prefs()
@@ -756,9 +864,12 @@ class NnUNetPredictionToolDialog(QDialog):
 
     def _pick_prediction_server(self, model, log_fn):
         """Choose a prediction server: explicit pick, or least-loaded available."""
+        require_fold_all = self._selected_fold_mode() == FOLD_MODE_ALL
         forced_url = self._selected_prediction_server_url()
         if forced_url:
-            return self._validate_prediction_server(forced_url, model, log_fn)
+            return self._validate_prediction_server(
+                forced_url, model, log_fn, require_fold_all=require_fold_all
+            )
 
         urls = get_nnunet_server_urls()
         preferred = get_nnunet_server_url()
@@ -769,7 +880,9 @@ class NnUNetPredictionToolDialog(QDialog):
         for url in urls:
             host = _short_host(url)
             try:
-                load = self._probe_prediction_server(url, model, log_fn)
+                load = self._probe_prediction_server(
+                    url, model, log_fn, require_fold_all=require_fold_all
+                )
             except Exception as e:
                 log_fn(f"Skip {host}: {e}")
                 continue
@@ -788,6 +901,12 @@ class NnUNetPredictionToolDialog(QDialog):
             candidates.append((wait_n, jobs_ahead_n, url, load))
 
         if not candidates:
+            if require_fold_all:
+                raise RuntimeError(
+                    "No configured server has this model with fold_all available "
+                    "and reported queue load. Try Accurate – 5-Fold Ensemble, "
+                    "or pick a server that has fold_all weights."
+                )
             raise RuntimeError(
                 "No configured server both has the selected model and reported queue load."
             )
@@ -797,27 +916,49 @@ class NnUNetPredictionToolDialog(QDialog):
         log_fn(f"Selected prediction server (next available): {_short_host(chosen)}")
         return chosen
 
-    def _validate_prediction_server(self, url, model, log_fn):
+    def _validate_prediction_server(self, url, model, log_fn, require_fold_all=False):
         """Ensure a user-picked server can run the selected model."""
         host = _short_host(url)
         log_fn(f"Using selected prediction server: {host}")
-        load = self._probe_prediction_server(url, model, log_fn, require_inferencing=True)
+        load = self._probe_prediction_server(
+            url,
+            model,
+            log_fn,
+            require_inferencing=True,
+            require_fold_all=require_fold_all,
+        )
         if load is None:
+            extra = (
+                ", or fold_all weights missing"
+                if require_fold_all
+                else ""
+            )
             raise RuntimeError(
                 f"Selected server {_short_host(url)} cannot run this model "
-                "(missing model, inferencing disabled, or queue load unavailable)."
+                f"(missing model, inferencing disabled{extra}, "
+                "or queue load unavailable)."
             )
         return url
 
-    def _probe_prediction_server(self, url, model, log_fn, require_inferencing=True):
+    def _probe_prediction_server(
+        self, url, model, log_fn, require_inferencing=True, require_fold_all=False
+    ):
         """
         Return queue-load dict if the server has the model and can accept jobs.
         Returns None when the server should be skipped (and logs the reason).
         """
         host = _short_host(url)
         try:
-            if not nnunet_service.server_has_approved_model(url, model):
-                log_fn(f"Skip {host}: selected model not available.")
+            if not nnunet_service.server_has_approved_model(
+                url, model, require_fold_all=require_fold_all
+            ):
+                if require_fold_all:
+                    log_fn(
+                        f"Skip {host}: selected model not available "
+                        "or fold_all weights missing."
+                    )
+                else:
+                    log_fn(f"Skip {host}: selected model not available.")
                 return None
         except Exception as e:
             log_fn(f"Skip {host}: could not list approved models ({e}).")
@@ -839,6 +980,7 @@ class NnUNetPredictionToolDialog(QDialog):
         log_fn(
             f"{host}: model OK, jobs_ahead={jobs_ahead}, "
             f"estimated_wait_s={wait}, inferencing_enabled={inferencing}"
+            + (", fold_all required" if require_fold_all else "")
         )
         if require_inferencing and inferencing is False:
             log_fn(f"Skip {host}: inferencing disabled.")
@@ -942,6 +1084,10 @@ class NnUNetPredictionToolDialog(QDialog):
             use_downloaded_case = True
 
         labels = selected_labels if selected_labels else all_labels
+        fold_mode = self._selected_fold_mode()
+        fold_label = (
+            FOLD_LABEL_FAST if fold_mode == FOLD_MODE_ALL else FOLD_LABEL_ACCURATE
+        )
 
         self._job_seq += 1
         job_uid = uuid.uuid4().hex
@@ -966,6 +1112,7 @@ class NnUNetPredictionToolDialog(QDialog):
             "case_base_url": case_base_url,
             "model_dataset_id": model.get("dataset_id"),
             "labels": labels,
+            "fold": fold_mode,
             "out_dir": None,
             "submitted_at": time.monotonic(),
             "model": dict(model),
@@ -975,6 +1122,7 @@ class NnUNetPredictionToolDialog(QDialog):
         def log(msg):
             self._append_job(job, msg)
 
+        log(f"Mode: {fold_label} (fold={fold_mode}).")
         log(
             f"Will import "
             f"{len(selected_labels) if selected_labels else len(_importable_label_items(labels))} "
@@ -1021,6 +1169,7 @@ class NnUNetPredictionToolDialog(QDialog):
                 trainer=model.get("trainer", "nnUNetTrainer"),
                 plans=model.get("plans", "nnUNetPlans"),
                 configuration=model.get("configuration", "3d_lowres"),
+                fold=fold_mode if fold_mode == FOLD_MODE_ALL else None,
             )
         except Exception as e:
             job["state"] = "failed"

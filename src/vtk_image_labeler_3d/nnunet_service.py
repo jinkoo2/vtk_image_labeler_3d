@@ -1040,6 +1040,7 @@ def post_prediction(
     trainer="nnUNetTrainer",
     plans="nnUNetPlans",
     configuration="3d_lowres",
+    fold=None,
     timeout_seconds=120,
 ):
     """
@@ -1048,9 +1049,27 @@ def post_prediction(
     channel_image_paths: ordered list of local file paths (channel 0, 1, ...).
     Channel 0 is sent as form field `image` (current API). Additional channels are
     also attached as `channel_{i}` for forward compatibility with multi-channel servers.
+
+    fold: optional inference mode.
+      - None / omitted / ``"ensemble"`` → server default (5-fold CV ensemble 0–4).
+        Field is omitted from the request for older-server compatibility.
+      - ``"all"`` → use ``fold_all`` (single model trained on every case).
+      - any other value → ``ValueError`` before the request is sent.
     """
     if not channel_image_paths:
         raise ValueError("At least one channel image path is required.")
+
+    fold_value = None
+    if fold is not None and str(fold).strip() != "":
+        fold_norm = str(fold).strip().lower()
+        if fold_norm in ("ensemble",):
+            fold_value = None
+        elif fold_norm in ("all", "fold_all"):
+            fold_value = "all"
+        else:
+            raise ValueError(
+                f'Invalid fold={fold!r}; expected None/"ensemble" or "all".'
+            )
 
     url = f"{BASE_URL}/predictions/predict"
     form_data = {
@@ -1061,6 +1080,8 @@ def post_prediction(
         "configuration": configuration,
         "num_channels": str(len(channel_image_paths)),
     }
+    if fold_value is not None:
+        form_data["fold"] = fold_value
 
     opened = []
     try:
@@ -1075,7 +1096,10 @@ def post_prediction(
             opened.append(fh)
             files.append((f"channel_{i}", (basename, fh, "application/octet-stream")))
 
-        print(f"Posting prediction to {url} dataset_id={model_dataset_id} channels={len(channel_image_paths)}")
+        print(
+            f"Posting prediction to {url} dataset_id={model_dataset_id} "
+            f"channels={len(channel_image_paths)} fold={fold_value or 'ensemble(default)'}"
+        )
         response = requests.post(
             url,
             data=form_data,
@@ -1160,10 +1184,10 @@ def cancel_prediction_job(BASE_URL, job_id, timeout_seconds=30):
         raise
 
 
-def server_has_approved_model(BASE_URL, model, timeout_seconds=30):
-    """True if ``model`` appears in this server's approved-models list."""
+def find_approved_model_entry(BASE_URL, model, timeout_seconds=30):
+    """Return the matching approved-model dict from this server, or None."""
     if not isinstance(model, dict):
-        return False
+        return None
     models = get_approved_models(BASE_URL, timeout_seconds=timeout_seconds) or []
     want = (
         model.get("dataset_id"),
@@ -1181,8 +1205,26 @@ def server_has_approved_model(BASE_URL, model, timeout_seconds=30):
             entry.get("configuration"),
         )
         if have == want:
-            return True
-    return False
+            return entry
+    return None
+
+
+def server_has_approved_model(
+    BASE_URL, model, timeout_seconds=30, require_fold_all=False
+):
+    """True if ``model`` appears in this server's approved-models list.
+
+    When ``require_fold_all`` is True, the matching entry must also report
+    ``fold_all_available`` (needed for Fast / single-model inference).
+    """
+    entry = find_approved_model_entry(
+        BASE_URL, model, timeout_seconds=timeout_seconds
+    )
+    if entry is None:
+        return False
+    if require_fold_all and not bool(entry.get("fold_all_available")):
+        return False
+    return True
 
 
 def delete_prediction(BASE_URL, dataset_id, req_id):
