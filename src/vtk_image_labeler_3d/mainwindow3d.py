@@ -1712,6 +1712,7 @@ class MainWindow3D(QMainWindow):
         except Exception as e:
             logger.error(f"Failed to read workspace: {e}", exc_info=True)
             self.print_status("Failed to load workspace. Check logs for details.")
+            self.show_popup("Open Workspace", f"Could not read project file:\n{workspace_json_path}\n\n{e}", QMessageBox.Critical)
             return
 
         _info(f"Loaded workspace metadata from {workspace_json_path}.")
@@ -1793,6 +1794,7 @@ class MainWindow3D(QMainWindow):
         except Exception as e:
             logger.error(f"Failed to load workspace: {e}", exc_info=True)
             self.print_status("Failed to load workspace. Check logs for details.")
+            self.show_popup("Open Workspace", f"Could not open image/labels:\n{e}", QMessageBox.Critical)
   
     def toggle_dock_widget(self, dock_widget, checked):
         # Toggle the visibility of the dock widget based on the checked state

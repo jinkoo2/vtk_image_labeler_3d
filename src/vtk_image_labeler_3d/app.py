@@ -74,13 +74,18 @@ def main():
         sys.argv = [a for a in sys.argv if a != SMOKE_FLAG]
         raise SystemExit(_run_smoke_test(pkg_dir))
 
-    open_json = None
+    from cli_args import resolve_cli_project_path
+
+    open_json = resolve_cli_project_path(sys.argv)
     kept = [sys.argv[0]]
     for arg in sys.argv[1:]:
-        if arg.lower().endswith(".json") and Path(arg).expanduser().is_file():
-            open_json = str(Path(arg).expanduser().resolve())
-        else:
-            kept.append(arg)
+        if arg in ("--project", "--open", "-p"):
+            continue
+        if arg.startswith("--project=") or arg.startswith("--open="):
+            continue
+        if arg.lower().endswith(".json") and not arg.startswith("-"):
+            continue
+        kept.append(arg)
     sys.argv = kept
 
     from crash_reporting import capture_exception, init_crash_reporting
@@ -100,6 +105,8 @@ def main():
 
     try:
         app = QApplication(sys.argv)
+        if not open_json:
+            open_json = resolve_cli_project_path(list(app.arguments()))
         apply_material_theme(app)
         app_icon = load_app_icon(pkg_dir)
         app.setWindowIcon(app_icon)
@@ -125,7 +132,25 @@ def main():
         main_window.activateWindow()
         if open_json:
             path = open_json
-            QTimer.singleShot(0, lambda: main_window.open_workspace_file(path))
+            _info(f"CLI project: {path}")
+
+            def _open_cli_project(target=path):
+                try:
+                    main_window.open_workspace_file(target)
+                except Exception as exc:
+                    _err(f"Failed to open CLI project {target}: {exc}")
+                    capture_exception(exc)
+
+            # After splash + first paint. Frozen Windows apps often miss
+            # singleShot(0) while the splash is still processing events.
+            QTimer.singleShot(250, _open_cli_project)
+        else:
+            from cli_args import windows_command_line_argv
+
+            _info(
+                "No CLI project JSON on the command line "
+                f"argv={list(sys.argv)!r} win={windows_command_line_argv()!r}"
+            )
 
         sys.exit(app.exec_())
     except BaseException as exc:

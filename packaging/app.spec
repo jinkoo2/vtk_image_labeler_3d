@@ -85,6 +85,8 @@ hiddenimports += [
     "ui_theme",
     "ui_icons",
     "update_check",
+    "packed_labels",
+    "cli_args",
     "vtk_segmentation_list_manager",
     "vtk_point_list_manager",
     "vtk_line_list_manager",
