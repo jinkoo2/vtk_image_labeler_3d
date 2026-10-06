@@ -564,7 +564,6 @@ class RectListManager(QObject):
         self.clear()  # Clear existing rectangles before loading new ones
 
         if "rects" not in data_dict:
-            self.log_message.emit("WARNING", "No rectangles found in workspace to load.")
             return
 
         for rect_data in data_dict["rects"]:

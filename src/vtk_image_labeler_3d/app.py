@@ -89,6 +89,7 @@ def main():
     # Initialize BugSink as early as possible (before heavy imports).
     init_crash_reporting(release=get_version())
 
+    from PyQt5.QtCore import QTimer
     from PyQt5.QtWidgets import QApplication
     from app_icon import load_app_icon
     from logger import logger, _info, _err
@@ -117,12 +118,14 @@ def main():
         show_message(splash, "Ready")
         main_window.showMaximized()
         QApplication.processEvents()
-        try:
-            if open_json:
-                show_message(splash, "Opening project...")
-                main_window.open_workspace_file(open_json)
-        finally:
-            close_splash(splash, main_window)
+        # Dismiss before loading a project. Opening many masks can take a while
+        # and may never return until the event loop runs (3D surface timers).
+        close_splash(splash)
+        main_window.raise_()
+        main_window.activateWindow()
+        if open_json:
+            path = open_json
+            QTimer.singleShot(0, lambda: main_window.open_workspace_file(path))
 
         sys.exit(app.exec_())
     except BaseException as exc:

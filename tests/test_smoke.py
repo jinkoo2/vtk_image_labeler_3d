@@ -24,10 +24,12 @@ def test_package_imports():
     import config
     import itk_tools
     import nnunet_service
+    import packed_labels
 
     assert callable(config.get_config)
     assert callable(itk_tools.combine_sitk_labels)
     assert callable(nnunet_service.has_nnunet_train_role)
+    assert callable(packed_labels.expand_packed_segmentations)
 
 
 def test_config_defaults(tmp_path, monkeypatch):

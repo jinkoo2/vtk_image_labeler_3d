@@ -409,7 +409,6 @@ class LineListManager(QObject):
         self.clear()  # Clear existing lines before loading new ones
 
         if "lines" not in data_dict:
-            self.log_message.emit("WARNING", "No lines found in workspace to load.")
             return
 
         for line_data in data_dict["lines"]:

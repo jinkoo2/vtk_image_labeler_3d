@@ -2597,29 +2597,46 @@ class SegmentationListManager(QObject):
 
         self.vtk_image = aux_data['base_image']
 
-        # Load segmentation layers
-        from itkvtk import load_vtk_image_using_sitk
+        from itkvtk import extract_binary_label_image_from_composit_labels_image, load_vtk_image_using_sitk
+        from packed_labels import expand_packed_segmentations, label_value_of
+        import vtk_tools
 
-        for segmentation in data_dict.get("segmentations", {}):
-            seg_path = os.path.join(data_dir, segmentation["file"])
-            layer_name = segmentation["name"]
-            if os.path.exists(seg_path):
-                try:
+        packed_cache = {}
+        for segmentation in expand_packed_segmentations(data_dict):
+            seg_path = os.path.join(data_dir, segmentation.get("file") or "")
+            layer_name = segmentation.get("name") or ""
+            if not os.path.exists(seg_path):
+                self.print_status(f"Segmentation file for layer {layer_name} not found.")
+                continue
+            try:
+                label_value = label_value_of(segmentation)
+                if label_value is not None:
+                    composit = packed_cache.get(seg_path)
+                    if composit is None:
+                        composit = load_vtk_image_using_sitk(seg_path)
+                        vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, composit)
+                        packed_cache[seg_path] = composit
+                    vtk_seg = extract_binary_label_image_from_composit_labels_image(
+                        composit, label_value
+                    )
+                else:
                     vtk_seg = load_vtk_image_using_sitk(seg_path)
-
-                    import vtk_tools
                     vtk_tools.copy_image_origin_spacing_direction_matrix(self.vtk_image, vtk_seg)
 
-                    self.add_layer(
-                        segmentation=vtk_seg,
-                        layer_name=segmentation["name"],
-                        color_vtk=to_vtk_color(segmentation["color"]),
-                        alpha=segmentation["alpha"]
-                    )
-                except Exception as e:
-                    self.print_status(f"Failed to load segmentation layer {layer_name}: {e}")
-            else:
-                self.print_status(f"Segmentation file for layer {layer_name} not found.")
+                color = segmentation.get("color")
+                if not isinstance(color, (list, tuple)) or len(color) < 3:
+                    color = color_rotator1.next()
+                alpha = segmentation.get("alpha")
+                if alpha is None:
+                    alpha = 0.5
+                self.add_layer(
+                    segmentation=vtk_seg,
+                    layer_name=layer_name,
+                    color_vtk=to_vtk_color(color),
+                    alpha=alpha,
+                )
+            except Exception as e:
+                self.print_status(f"Failed to load segmentation layer {layer_name}: {e}")
 
     def render(self):
         self.vtk_viewer.render()

@@ -77,6 +77,7 @@ class MainWindow3D(QMainWindow):
         self._project_json_path = None
         self._project_image_rel = None
         self._project_seg_files = {}
+        self._project_seg_labels = {}
 
         ### init ui ###    
         self.setWindowTitle("Image Labeler 3D")
@@ -1494,6 +1495,7 @@ class MainWindow3D(QMainWindow):
         self._project_json_path = None
         self._project_image_rel = None
         self._project_seg_files = {}
+        self._project_seg_labels = {}
 
     def get_nnunet_prediction_context(self):
         """Context for the nnUNet Prediction Tool dialog."""
@@ -1603,23 +1605,68 @@ class MainWindow3D(QMainWindow):
         }
         try:
             segmentations = []
+            from collections import defaultdict
+
             import itkvtk
+            from itk_tools import combine_sitk_labels, save_sitk_image
+            from packed_labels import packed_labels_payload
+
+            groups = defaultdict(list)
             for layer in self.segmentation_list_manager.segmentation_layers.get_layers():
                 name = layer.get_name()
                 rel = self._project_seg_files.get(name) or f"{name}.mha"
+                label = self._project_seg_labels.get(name)
+                groups[rel.replace("\\", "/")].append((layer, label, name))
+
+            written_packed = {}
+            for rel, items in groups.items():
                 dest = os.path.join(folder, rel)
                 os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
-                itkvtk.save_vtk_image_using_sitk(layer.get_image(), dest)
-                segmentations.append(
-                    {
-                        "name": name,
-                        "color": list(layer.get_color()),
-                        "alpha": layer.get_alpha(),
-                        "file": rel.replace("\\", "/"),
-                    }
-                )
-                self._project_seg_files[name] = rel.replace("\\", "/")
+                labeled = [(layer, lab, name) for layer, lab, name in items if lab is not None]
+                unlabeled = [(layer, lab, name) for layer, lab, name in items if lab is None]
+                if labeled and not unlabeled:
+                    sitk_list = [itkvtk.vtk_to_sitk(layer.get_image()) for layer, _lab, _name in labeled]
+                    values = [int(lab) for _layer, lab, _name in labeled]
+                    combined = combine_sitk_labels(sitk_list, values)
+                    save_sitk_image(combined, dest, save_as_2d_if_single_slice_3d_image=False)
+                    name_to_value = {name: int(lab) for _layer, lab, name in labeled}
+                    written_packed[rel] = name_to_value
+                    json_sidecar = os.path.splitext(dest)[0] + ".json"
+                    with open(json_sidecar, "w", encoding="utf-8") as fh:
+                        json.dump({"labels": {str(v): n for n, v in name_to_value.items()}}, fh, indent=2)
+                        fh.write("\n")
+                    for layer, lab, name in labeled:
+                        segmentations.append(
+                            {
+                                "name": name,
+                                "color": list(layer.get_color()),
+                                "alpha": layer.get_alpha(),
+                                "file": rel,
+                                "label": int(lab),
+                            }
+                        )
+                        self._project_seg_files[name] = rel
+                        self._project_seg_labels[name] = int(lab)
+                else:
+                    for layer, _lab, name in items:
+                        layer_rel = f"{name}.mha"
+                        layer_dest = os.path.join(folder, layer_rel)
+                        os.makedirs(os.path.dirname(layer_dest) or ".", exist_ok=True)
+                        itkvtk.save_vtk_image_using_sitk(layer.get_image(), layer_dest)
+                        segmentations.append(
+                            {
+                                "name": name,
+                                "color": list(layer.get_color()),
+                                "alpha": layer.get_alpha(),
+                                "file": layer_rel.replace("\\", "/"),
+                            }
+                        )
+                        self._project_seg_files[name] = layer_rel.replace("\\", "/")
+                        self._project_seg_labels.pop(name, None)
             workspace_data["segmentations"] = segmentations
+            if len(written_packed) == 1:
+                rel, name_to_value = next(iter(written_packed.items()))
+                workspace_data["packed_labels"] = packed_labels_payload(rel, name_to_value)
             for manager in self.managers:
                 if manager is self.segmentation_list_manager:
                     continue
@@ -1680,10 +1727,19 @@ class MainWindow3D(QMainWindow):
             input_image_path = os.path.join(folder, image_rel)
             self._project_json_path = os.path.abspath(workspace_json_path)
             self._project_image_rel = image_rel.replace("\\", "/")
+            from packed_labels import expand_packed_segmentations, label_value_of
+
+            segs = expand_packed_segmentations(workspace_data)
+            workspace_data["segmentations"] = segs
             self._project_seg_files = {
                 str(item.get("name") or ""): str(item.get("file") or "").replace("\\", "/")
-                for item in (workspace_data.get("segmentations") or [])
-                if isinstance(item, dict)
+                for item in segs
+                if str(item.get("name") or "")
+            }
+            self._project_seg_labels = {
+                str(item.get("name") or ""): label_value_of(item)
+                for item in segs
+                if str(item.get("name") or "") and label_value_of(item) is not None
             }
         else:
             data_path = workspace_json_path + ".data"
@@ -1691,6 +1747,7 @@ class MainWindow3D(QMainWindow):
             self._project_json_path = None
             self._project_image_rel = None
             self._project_seg_files = {}
+            self._project_seg_labels = {}
             if not os.path.exists(data_path):
                 msg = "Workspace data folder not found."
                 logger.error(msg)
